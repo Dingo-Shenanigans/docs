@@ -1,6 +1,6 @@
 ---
 title: "Overlay"
-description: "Draw text, shapes and pictures over the game, on screen or at places in the world, and show toasts."
+description: "Draw text, shapes, gradients and pictures over the game, on screen or at places in the world, the game's own pictures and the skater's x-ray, and show toasts."
 ---
 
 Your plugin draws over the game from a `draw` handler, and shows short notices with `reskate.ui.toast`. Both need the `overlay` [permission](/plugins/permissions).
@@ -48,13 +48,14 @@ Most functions take a last, optional style table. Every field is optional.
 | `rounding` | number | `0` | Corner radius of rectangles and screen pictures, 0 to 200, in pixels at 1080 lines. |
 | `align` | string | `"left"` | Text: `"left"`, `"centre"` (or `"center"`) or `"right"` of its point. |
 | `shadow` | boolean | `true` | Text: a dark shadow under it. |
+| `font` | string | `"bold"` | Text: one of the ReSkate menus' fonts, `"bold"`, `"body"`, `"heading"` or `"title"`. |
 | `uv` | table | `{0, 0, 1, 1}` | Pictures: the part of the picture drawn, `{u0, v0, u1, v1}`, each 0 to 1. |
 
-A `size`, `thickness` or `rounding` out of its range is brought into it. A colour in another form, an `align` that is not one of the three, a `uv` corner outside 0 to 1, or a number that is not finite raises an error.
+A `size`, `thickness` or `rounding` out of its range is brought into it. A colour in another form, an `align` or `font` that is not one of its names, a `uv` corner outside 0 to 1, or a number that is not finite raises an error.
 
 ```lua
 local panel = {colour = "#000000a0", fill = true, rounding = 6}
-local title = {colour = 0x5ECDFAFF, size = 26, shadow = false}
+local title = {colour = 0x5ECDFAFF, size = 26, shadow = false, font = "heading"}
 ```
 
 ## Screen shapes
@@ -65,7 +66,7 @@ Text at a point. The point is its top left, top centre or top right, as `align` 
 
 <ParamField path="position" type="vector" required>Pixels from the window's top left.</ParamField>
 <ParamField path="text" type="string" required>At most 500 characters.</ParamField>
-<ParamField path="style" type="table">`colour`, `size`, `align`, `shadow`.</ParamField>
+<ParamField path="style" type="table">`colour`, `size`, `align`, `shadow`, `font`.</ParamField>
 
 ```lua
 d:text(vector.create(56, 130, 0), "my-plugin", {colour = "#5ecdfa", size = 26})
@@ -119,6 +120,23 @@ A closed polygon through 3 to 64 points. A filled polygon must be convex to fill
 d:poly({vector.create(100, 100, 0), vector.create(140, 160, 0), vector.create(60, 160, 0)}, {colour = "#ff4040", fill = true})
 ```
 
+### `d:gradient(top_left, bottom_right, colours)`
+
+A filled rectangle that shades between the colours of its four corners.
+
+<ParamField path="top_left" type="vector" required>One corner, in pixels.</ParamField>
+<ParamField path="bottom_right" type="vector" required>The opposite corner, in pixels.</ParamField>
+<ParamField path="colours" type="table" required>A list of four colours, each in a form the style's `colour` takes: the top left's, the top right's, the bottom right's and the bottom left's.</ParamField>
+
+```lua
+-- A red glow along the top of the screen, fading down to nothing.
+local screen = d:size()
+local red, clear = "#ff000099", "#ff000000"
+d:gradient(vector.create(0, 0, 0), vector.create(screen.x, 120, 0), {red, red, clear, clear})
+```
+
+A list of fewer than four colours raises an error. A gradient takes no style: it has no rounding or outline.
+
 ### `d:image(path, top_left, bottom_right, style)`
 
 A picture from your package, stretched to the rectangle.
@@ -137,6 +155,52 @@ d:image("icons/sheet.png", vector.create(20, 20, 0), vector.create(52, 52, 0), {
 
 A picture is loaded the first time you draw it, and shows a few frames later. A picture file is at most 2 MB and 512 x 512 pixels; one larger, or one that is not a PNG or JPG inside, is not drawn, and a warning is logged. The overlay holds at most 32 pictures at once for all plugins together: a picture not drawn for 2 seconds makes room for a new one, and a new one finds no room while 32 others are being drawn.
 
+### `d:game_image(name, top_left, bottom_right, style)`
+
+One of skate.'s own pictures, by name: its scoring icons, the THRASHER wordmark, and the brush strokes and tiles its menus are built from. ReSkate reads them from the installed game, so your package ships none of them.
+
+<ParamField path="name" type="string" required>One of the 13 names below. Any other name raises an error that lists them.</ParamField>
+<ParamField path="top_left" type="vector" required>Pixels.</ParamField>
+<ParamField path="bottom_right" type="vector" required>Pixels.</ParamField>
+<ParamField path="style" type="table">`colour` tints it: the pictures are white or grey, so the colour you give is the colour they show. `fit` and `edge` (below) say how it goes onto the box. `rounding` and `uv` do nothing here.</ParamField>
+
+| `fit` | How the picture goes onto the box |
+| --- | --- |
+| `"contain"` (the default) | Fitted inside the box with its shape kept, and centred. For icons and the wordmark. |
+| `"shape"` | Its body stretched onto the box, the rest of it around: `brush_bar`'s and `streak`'s splatter goes beyond the box. Other pictures are stretched whole onto it. |
+| `"panel"` | Nine-sliced: its corners kept square, `edge` pixels on a side, its edges stretched along the box and its middle across the rest. For `rough_tile`. A box smaller than two edges shrinks them to half of it. |
+
+`edge` is 0 to 400, in pixels at 1080 lines (default 0). A `fit` that is not one of the three raises an error.
+
+| Name | The picture |
+| --- | --- |
+| `stopwatch` | The stopwatch of the game's timers. |
+| `wipeout` | The wipeout scoring icon. |
+| `wipeout_broken` | The wipeout icon, broken. |
+| `spread_eagle` | The spread eagle scoring icon. |
+| `airtime` | The airtime scoring icon. |
+| `gap_height` | The gap height scoring icon. |
+| `roll` | The roll scoring icon. |
+| `flaming_wheel` | The speed line challenge's flaming wheel, white and black. |
+| `thrasher` | The THRASHER wordmark, grey. Its letters arch: between a fifth in from each side they end above 70% of its height, leaving room beneath. |
+| `brush_bar` | A short brush stroke with splatter. With `fit = "shape"` its bar fills the box. |
+| `rough_tile` | A tile with rough, hand-cut edges, for `fit = "panel"`. |
+| `scratches` | A film's scratches and dust, light marks drawn by their brightness: lay it over a panel. |
+| `streak` | A long brush streak, thick on the left and tapering to the right. |
+
+The scoring icons and the stopwatch are about 64 pixels in the game, so they look best drawn small; the others are larger.
+
+```lua
+local card = {vector.create(40, 700, 0), vector.create(420, 1000, 0)}
+d:game_image("rough_tile", card[1], card[2], {colour = "#1d1d1fe0", fit = "panel", edge = 16})
+d:game_image("scratches", card[1], card[2], {colour = "#ffffff60", fit = "shape"})
+d:game_image("thrasher", vector.create(60, 710, 0), vector.create(400, 790, 0), {colour = "#5ecdfa"})
+d:game_image("brush_bar", vector.create(60, 820, 0), vector.create(400, 860, 0), {colour = "#e8e2d0", fit = "shape"})
+d:game_image("wipeout", vector.create(70, 824, 0), vector.create(102, 856, 0), {colour = "#1d1d1f"})
+```
+
+The pictures are read once, a moment after the game starts; until then, or when the game's files cannot be read, nothing is drawn. They do not count towards the 32 pictures a plugin may draw from its package.
+
 ## World shapes
 
 ### `d:world_text(position, text, style)`
@@ -145,7 +209,7 @@ Text at a place in the world.
 
 <ParamField path="position" type="vector" required>World metres.</ParamField>
 <ParamField path="text" type="string" required>At most 500 characters.</ParamField>
-<ParamField path="style" type="table">`colour`, `size`, `align`, `shadow`.</ParamField>
+<ParamField path="style" type="table">`colour`, `size`, `align`, `shadow`, `font`.</ParamField>
 
 ```lua
 local s = reskate.skater.get()
@@ -195,6 +259,33 @@ local s = reskate.skater.get()
 d:world_image("icons/badge.png", s.position + vector.create(0, 2.6, 0), 0.8)
 ```
 
+## The skater's x-ray
+
+### `d:skeleton(paint, alpha)`
+
+The local skater's skeleton, seen through the skater: skate.'s own skeleton, posed as the game last drew the skater, from the camera of that picture. Each body part you paint shows in its colour, shaded by the way it faces the camera; the parts you leave out are not drawn. Call [`reskate.skater.xray(true)`](/plugins/api/skater) first: without it, before its skeleton is read, or without a skater, nothing is drawn.
+
+<ParamField path="paint" type="table" required>Colours by body part, such as `{Head = "#ff4040"}`. The names are those of the [`body_hit`](/plugins/events) event, plus `Left toes`, `Left foot`, `Right toes` and `Right foot`. An empty table draws nothing.</ParamField>
+<ParamField path="alpha" type="number" default="1">0 to 1: fades the whole skeleton.</ParamField>
+
+```lua
+reskate.on("load", function() reskate.skater.xray(true) end)
+
+-- Bones that were hit flash red, then fade (body_hit needs events.skater).
+local hit = {}
+reskate.on("body_hit", function(e) hit[e.bone] = reskate.time.now() end)
+
+reskate.on("draw", function(d)
+    local now, paint = reskate.time.now(), {}
+    for bone, at in hit do
+        if now - at < 2000 then paint[bone] = "#ff3030" end
+    end
+    if next(paint) then d:skeleton(paint, 0.85) end
+end)
+```
+
+A key that is not a body part's name, a colour in another form, or an `alpha` out of range raises an error. The skeleton counts as one shape.
+
 ## Measuring
 
 ### `d:size()`
@@ -226,7 +317,7 @@ end
 ## Limits
 
 <Note>
-Needs `overlay`, for the `draw` event and every `d` function. In one tick a plugin draws at most 4000 shapes and 64 KB of text; the rest are left out, and a warning is logged at most once every 10 s, saying which of the two limits was hit. A plugin draws at most 32 different pictures in all its life (each path counts once); the next raises an error. A wrong argument raises an error: a position that is not a vector, text over 500 characters, a negative radius, a polygon of fewer than 3 or more than 64 points, a picture that is not a `.png` or `.jpg` file in the package.
+Needs `overlay`, for the `draw` event and every `d` function. In one tick a plugin draws at most 4000 shapes and 64 KB of text; the rest are left out, and a warning is logged at most once every 10 s, saying which of the two limits was hit. A plugin draws at most 32 different pictures from its package in all its life (each path counts once; the game's own pictures do not count); the next raises an error. A wrong argument raises an error: a position that is not a vector, text over 500 characters, a negative radius, a polygon of fewer than 3 or more than 64 points, a picture that is not a `.png` or `.jpg` file in the package, a game picture's name that is not one of the 13, a gradient without four colours.
 </Note>
 
 ## Toasts

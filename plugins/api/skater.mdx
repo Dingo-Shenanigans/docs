@@ -1,6 +1,6 @@
 ---
 title: "Skater"
-description: "reskate.skater, reskate.score, reskate.trainer and reskate.hud: read and move the local skater, read the score, keep a save point and hide the HUD."
+description: "reskate.skater, reskate.score, reskate.trainer and reskate.hud: read and move the local skater, pick its grind exits, show its x-ray, read the score, keep a save point and hide the HUD."
 ---
 
 These tables work on the local skater: the player's own, on their own game. Each function needs a permission, named in its section:
@@ -8,10 +8,11 @@ These tables work on the local skater: the player's own, on their own game. Each
 - `skater.read`: `reskate.skater.get`, `position`, `heading`, `speed` and `on_ground`.
 - `skater.teleport`: `reskate.skater.teleport`.
 - `events.skater`: `reskate.skater.state`.
-- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze` and `wipeout`.
+- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze`, `wipeout` and `grind_exit`.
+- `overlay`: `reskate.skater.xray`.
 - `events.tricks`: `reskate.score.current`.
 - `trainer`: `reskate.trainer.set_point` and `back`.
-- `hud`: `reskate.hud.hide`.
+- `hud`: `reskate.hud.hide` and `reskate.hud.corner`.
 
 Calling a function without its permission raises an error. See [permissions](/plugins/permissions). For the world around the skater (`reskate.world.raycast` and the rest) see [world](/plugins/api/world); for its board, see [board](/plugins/api/board).
 
@@ -205,6 +206,80 @@ end)
 Needs the `skater.control` permission. One wipeout every 2 seconds; a refused call counts too. While No Bail protects the skater, the wipeout is asked for but dropped, as any other wipeout is: `ok` is still true, and the skater rides on.
 </Note>
 
+## Grind exits
+
+### `reskate.skater.grind_exit(wish)`
+
+Picks the side the skater pops out of a grind to, whatever the trick and the body's rotation. The wish stands for every pop out of a grind until you change it. Each pop is told to your plugin as the [`grind_exit` event](/plugins/events).
+
+At the pop only the launch's sideways part, across the rail, is changed: the game's own sideways speed when it had one (1 metre per second or more), turned to the chosen side, else 1.8 metres per second (the game's usual), times `strength`. The speed along the rail, the pop's height, the trick, the flip and the rotation stay the game's. A pop slower than 0.5 metres per second along the rail is left alone.
+
+<ParamField path="wish" type="table or nil" required>
+What the pops do. `nil` gives the exits back to the game, while your plugin keeps holding them.
+<Expandable title="fields">
+<ParamField path="side" type="string" required>`"toe"` or `"heel"` (the skater's toe or heel side), or `"left"` or `"right"` of the direction of travel.</ParamField>
+<ParamField path="stance" type="string">The player's stance, `"regular"` or `"goofy"`. Toe and heel need it: with it and the way the skater faces they follow the foot that leads, riding normal, fakie or switch. Without it, and on slides (where the toes point along the rail), toe is the left of travel and heel the right.</ParamField>
+<ParamField path="strength" type="number" default="1">0.1 to 1: how much of the full sideways speed the pop gets. At 1, a pop the game already sends to that side is kept as it is.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when your plugin holds the grind exits with this wish.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"<plugin> picks the grind exits"` (another plugin holds them) or `"grind exits are unavailable for this game build"`.</ResponseField>
+
+```lua
+-- LT pops out to the toe side, RT to the heel side.
+local held = false
+reskate.on("load", function()
+    local ok, why = reskate.skater.grind_exit(nil) -- hold the exits, the game's own for now
+    held = ok
+    if not ok then reskate.log("no grind exits: " .. why, "warn") end
+end)
+
+reskate.on("tick", function()
+    if not held then return end
+    local pad = reskate.input.gamepad() -- needs input
+    local wish = nil
+    if pad and pad.left_trigger > 0.5 then
+        wish = {side = "toe", stance = "goofy", strength = 0.8}
+    elseif pad and pad.right_trigger > 0.5 then
+        wish = {side = "heel", stance = "goofy", strength = 0.8}
+    end
+    reskate.skater.grind_exit(wish)
+end)
+```
+
+A wish that is not a table, a `side` missing or not one of the four, another `stance`, or a `strength` out of range raises an error.
+
+<Note>
+Needs the `skater.control` permission (and `events.skater` to hear the `grind_exit` event). One plugin holds the grind exits at a time: the first to call this, until it stops. Calling with `nil` does not let go of them. It works in any session; other players see the pop as your skater makes it. [`reskate.input.hide`](/plugins/api/input) keeps the triggers you pick with from the game.
+</Note>
+
+## X-ray
+
+### `reskate.skater.xray(on)`
+
+Keeps the local skater's x-ray ready for [`d:skeleton`](/plugins/api/overlay), which draws the game's own skeleton through the skater. The x-ray is ready while any plugin asks for it. The first time, the skeleton is read in the background, so `d:skeleton` draws nothing for a moment.
+
+<ParamField path="on" type="boolean" required>True to keep it ready, false (or nothing) to stop asking.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the ask was taken.</ResponseField>
+<ResponseField name="why" type="string">`"the x-ray is unavailable for this game build"` when `ok` is false.</ResponseField>
+
+```lua
+reskate.on("load", function()
+    local ok, why = reskate.skater.xray(true)
+    if not ok then reskate.log(why, "warn") end
+end)
+
+reskate.on("draw", function(d)
+    d:skeleton({Head = "#ff4040", Chest = "#ffc400"}, 0.8)
+end)
+```
+
+<Note>
+Needs the `overlay` permission. While the x-ray is ready ReSkate follows the skater's rendering every frame, so ask only while you may draw it. When the plugin stops, its ask is dropped.
+</Note>
+
 ## Score
 
 ### `reskate.score.current()`
@@ -283,3 +358,23 @@ reskate.on("unload", function() reskate.hud.hide(false) end)
 ```
 
 <Note>Needs the `hud` permission. When the plugin stops, its ask is dropped.</Note>
+
+### `reskate.hud.corner(hidden)`
+
+Hides skate.'s HUD in the bottom left corner, for a plugin that shows something of its own there: the d-pad menu, and the score HUD while a line goes on. The rest of the HUD stays. The corner stays hidden while any plugin asks, and comes back when the last one stops asking.
+
+<ParamField path="hidden" type="boolean" required>True to hide the corner. False (or nothing) shows it again, and keeps your plugin ready to hide it: a later `true` hides it at once.</ParamField>
+
+<ResponseField name="ok" type="boolean">True.</ResponseField>
+
+```lua
+reskate.on("load", function() reskate.hud.corner(false) end) -- ready to hide it
+
+-- Your own card in the corner for 5 s after each bail (bail_end needs events.skater).
+reskate.on("bail_end", function()
+    reskate.hud.corner(true)
+    reskate.time.after(5000, function() reskate.hud.corner(false) end)
+end)
+```
+
+<Note>Needs the `hud` permission. When the plugin stops, its ask is dropped and the corner is the game's again.</Note>

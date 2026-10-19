@@ -11,7 +11,7 @@ This guide builds a plugin with two sounds: a motor that circles the skater and 
 
 ## How plugin sounds play
 
-A plugin's sounds play through the game's positioned voice sound, as Board Break's and the drones' do, so the level's mix, echo and walls apply to them. Each sound is at a place in the world, or at the local skater, and is heard from the camera: it gets quieter with distance and is silent at its `range`.
+A plugin's sounds play through the game's positioned voice sound, as other players' voices do, so the level's mix, echo and walls apply to them. Each sound is at a place in the world, or at the local skater, and is heard from the camera: it gets quieter with distance and is silent at its `range`.
 
 Sounds play in a level only. Out of one, `play` returns `false` and `"it plays 8 sounds already, or there is no level"`, and leaving a level ends every sound playing. They play on this player's game only: nothing is sent to other players.
 
@@ -86,7 +86,7 @@ end)
 
 ## 4. The motor synth
 
-Pass `"motor"` in place of a path and the sound is a synthesised motor: four rotors and a rush of wind, as the drone's. `throttle` sets how fast it spins (its pitch rises with it, spinning up and down over about 80 ms), `speed` adds the wind (full at 60 m/s), and `pitch` scales its note. The motor plays until it is stopped: `loop` makes no difference to it.
+Pass `"motor"` in place of a path and the sound is a synthesised motor: four rotors and a rush of wind, as the fpv-drone plugin's. `throttle` sets how fast it spins (its pitch rises with it, spinning up and down over about 80 ms), `speed` adds the wind (full at 60 m/s), and `pitch` scales its note. The motor plays until it is stopped: `loop` makes no difference to it.
 
 ```lua
 local id, why = reskate.audio.play("motor", {volume = 0.9, throttle = 0.2, range = 60, position = where})

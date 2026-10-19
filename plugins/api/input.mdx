@@ -1,6 +1,6 @@
 ---
 title: "Input"
-description: "reskate.input: named actions on keys and pad combos, flight keys and mouse look, gamepads, joysticks, and keeping the controller from the game."
+description: "reskate.input: named actions on keys and pad combos, flight keys and mouse look, gamepads, joysticks, and keeping the controller, or parts of it, from the game."
 ---
 
 `reskate.input` gives your plugin actions the player can press, and reads the keyboard, mouse, gamepad and joystick for a plugin that flies something. Every function, and the `action` event, needs the `input` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
@@ -182,6 +182,37 @@ end)
 
 <Note>
 Needs the `input` permission. It works only while the plugin's own camera view is shown: when Spectate takes the camera, or the plugin releases it, the game has the controller again at once. One plugin captures at a time: the latest call wins.
+</Note>
+
+### `reskate.input.hide(controls)`
+
+Keeps some of the pad's controls from the game, for a plugin that gives them a job of its own, such as picking a grind's exit with the triggers. A hidden trigger reads to the game as let go. The left stick's left and right, hidden while grinding, read as centred only while the skater grinds, so a push held through the pop reaches the game at the pop. Your plugin still reads them all with `gamepad()`.
+
+<ParamField path="controls" type="table or nil" required>
+What to keep from the game. Each call replaces your plugin's last one; `nil` or `{}` gives everything back.
+<Expandable title="fields">
+<ParamField path="left_trigger" type="boolean">True to hide the left trigger.</ParamField>
+<ParamField path="right_trigger" type="boolean">True to hide the right trigger.</ParamField>
+<ParamField path="left_x" type="string">`"grinding"` to hide the left stick's left and right while the skater grinds. Any other value raises an error.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the controls are hidden (or given back).</ResponseField>
+<ResponseField name="why" type="string">`"hiding pad controls is unavailable for this game build"` when `ok` is false.</ResponseField>
+
+```lua
+-- While the skater grinds, the triggers are the plugin's (skater_state needs events.skater).
+reskate.on("skater_state", function(state)
+    if state == "grinding" then
+        reskate.input.hide({left_trigger = true, right_trigger = true, left_x = "grinding"})
+    else
+        reskate.input.hide(nil)
+    end
+end)
+```
+
+<Note>
+Needs the `input` permission. Unlike `capture`, it needs no camera of your own and lasts until you change it. A control stays hidden while any plugin hides it. Your plugin reads the pad once a tick, so the game may see a trigger for a frame before you hide it. When the plugin stops, everything it hid is given back.
 </Note>
 
 <Tip>

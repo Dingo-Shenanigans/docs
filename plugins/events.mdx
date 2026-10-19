@@ -1,6 +1,6 @@
 ---
 title: "Events"
-description: "All 22 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
+description: "All 24 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
 ---
 
 This page lists every event `reskate.on` accepts. Five need no permission; each of the others needs the permission named in its section.
@@ -11,7 +11,7 @@ This page lists every event `reskate.on` accepts. Five need no permission; each 
 
 Registers a function to run each time the event fires. Register handlers when the entry file runs, usually at its top level.
 
-<ParamField path="event" type="string" required>The event's name, one of the 22 on this page.</ParamField>
+<ParamField path="event" type="string" required>The event's name, one of the 24 on this page.</ParamField>
 <ParamField path="handler" type="function" required>Called with the event's arguments, described in each section below.</ParamField>
 
 It returns nothing. These raise a Lua error:
@@ -32,11 +32,11 @@ A handler stays registered until the plugin unloads; there is no way to remove o
 
 ### Order in a tick
 
-On a player's game, each tick hands out the trick events first, then the session's players, messages, events from other plugins, web answers, and the game's events (skater, bails, chat, music, throwdowns, binds). After them come each plugin's timers and `tick` handlers, then its `draw` handlers, then its screen and menu panels. Level events come as the game notices a level change.
+On a player's game, each tick hands out the trick events first, then the session's players, messages, events from other plugins, web answers, and the game's events (skater, bails, physics steps, grind exits, chat, music, throwdowns, binds). After them come each plugin's timers and `tick` handlers, then its `draw` handlers, then its screen and menu panels. Level events come as the game notices a level change.
 
 ### Client and server copies
 
-The trick events and the level events reach only a plugin's client copy. A server copy on a dedicated server has no skater, so it hears no skater, chat or music events either. See [client and server copies](/plugins/overview#client-and-server-copies).
+The trick events and the level events reach only a plugin's client copy. A server copy on a dedicated server has no skater, so it hears no skater, physics, chat or music events either. See [client and server copies](/plugins/overview#client-and-server-copies).
 
 ## Events with no permission
 
@@ -266,6 +266,68 @@ reskate.on("bail_end", function(fall)
 end)
 ```
 
+### `grind_exit`
+
+**Permission:** `events.skater`, and `skater.control` to call `reskate.skater.grind_exit`.
+
+Fires for each pop out of a grind while your plugin holds the grind exits: once it has called [`reskate.skater.grind_exit`](/plugins/api/skater#grind-exits), with a wish or `nil`. It tells you what the pop did with the side you asked for. Other plugins hear nothing of it. At most 32 pops wait between two ticks.
+
+<ResponseField name="e.applied" type="boolean">Whether the pop's side was set as you asked.</ResponseField>
+<ResponseField name="e.reason" type="string">`"applied"` (set), `"kept"` (at full strength, the game's own exit already went that way, so it was left as it was), `"none"` (your wish was `nil`: the game's own exit), `"slow"` (under 0.5 metres per second along the rail, too slow to tell the rail's direction) or `"not_ours"` (the launch did not match the skater's grind).</ResponseField>
+<ResponseField name="e.basis" type="string">How the side was worked out. Only present with `"applied"` and `"kept"`: `"toe_heel"` (from your stance and the way the skater faces), `"slide"` (the toes pointed along the rail, so toe is the left of travel and heel the right), `"no_stance"` (toe or heel asked without a stance: the same), `"no_facing"` (the way the skater faces was not known: the same) or `"travel"` (you asked for left or right).</ResponseField>
+<ResponseField name="e.side" type="string">The side the pop went to, `"left"` or `"right"` of the direction of travel. Empty when the game's own exit was left alone (`"none"`, `"slow"`, `"not_ours"`).</ResponseField>
+<ResponseField name="e.before" type="number">The launch's sideways speed across the rail before, in metres per second. Positive is the left of travel.</ResponseField>
+<ResponseField name="e.after" type="number">The sideways speed after. The same as `before` unless `applied`.</ResponseField>
+
+```lua
+reskate.on("grind_exit", function(pop)
+    if pop.applied then
+        reskate.log(string.format("out to the %s (%s), %+.2f -> %+.2f m/s", pop.side, pop.basis, pop.before, pop.after))
+    else
+        reskate.log("the game's own exit: " .. pop.reason)
+    end
+end)
+```
+
+## Physics
+
+### `physics_step`
+
+**Permission:** `events.physics`.
+
+Fires for every physics step of the local skater, in order: several times a tick. The steps are kept from the first tick a plugin with `events.physics` runs, and at most the last 512 wait between two ticks. During slow motion ([`reskate.time.slow`](/plugins/api/time#slow-motion)) more steps come each second, each of them shorter.
+
+<ResponseField name="e.at" type="number">When the step was read, in milliseconds on the clock of `reskate.time.now`.</ResponseField>
+<ResponseField name="e.seconds" type="number">How long the step simulated, in seconds of game time.</ResponseField>
+<ResponseField name="e.wipeout" type="boolean">Whether the step asks for a wipeout.</ResponseField>
+<ResponseField name="e.airborne" type="boolean">Whether the skater is in the air, on the board or off it.</ResponseField>
+<ResponseField name="e.ragdoll" type="boolean">Whether the body is a ragdoll. Absent when the skater's state could not be read.</ResponseField>
+<ResponseField name="e.velocity" type="table">How the skater moves, in metres per second: with the board while on it, else as its pelvis. A list of three numbers, `{x, y, z}`, not a vector. Absent when unknown.</ResponseField>
+<ResponseField name="e.spin" type="number">How fast the pelvis turns, any way round, in radians per second. Absent when unknown.</ResponseField>
+<ResponseField name="e.bodies" type="table">The body parts touching something in this step, by name. Each is a table with `impact` (its hardest contact's speed along the contact, metres per second), `slide` (that contact's speed along the surface, metres per second), and the booleans `board`, `vehicle` and `world` (anything but the board and vehicles: the ground, walls, rails). Bodies only touch things while the ragdoll moves them, in a bail; riding or walking, the table is empty. Names are those of `body_hit`, plus `Left toes`, `Left foot`, `Right toes` and `Right foot`.</ResponseField>
+
+```lua
+-- The hardest hit and the top speed of each bail (bail_end needs events.skater).
+local hardest, top_speed = 0, 0
+reskate.on("physics_step", function(step)
+    for _, body in step.bodies do
+        hardest = math.max(hardest, body.impact)
+    end
+    if step.ragdoll and step.velocity then
+        top_speed = math.max(top_speed, vector.magnitude(vector.create(table.unpack(step.velocity))))
+    end
+end)
+
+reskate.on("bail_end", function()
+    reskate.log(string.format("hardest hit %.1f m/s, top speed %.1f m/s", hardest, top_speed))
+    hardest, top_speed = 0, 0
+end)
+```
+
+<Warning>
+A handler runs for every step, many times a second, so keep it short: count and keep what you need, and draw or log from a `tick` or `draw` handler. Each call has the usual 50 ms, and they add up towards the plugin's [time limits](/plugins/limits).
+</Warning>
+
 ## Drawing
 
 ### `draw`
@@ -274,7 +336,7 @@ end)
 
 Fires every tick, after the `tick` handlers, to draw this frame's shapes. The handler gets the drawing object, and drawing works only inside it. What it draws replaces what it drew the frame before. A server copy's drawing is never shown.
 
-<ResponseField name="d" type="table">The drawing object: `d:text`, `d:rect`, `d:line`, `d:circle`, `d:poly`, `d:world_text`, `d:world_line`, `d:world_circle`, `d:image`, `d:world_image`, `d:size` and `d:world_to_screen`. See [overlay](/plugins/api/overlay).</ResponseField>
+<ResponseField name="d" type="table">The drawing object: `d:text`, `d:rect`, `d:line`, `d:circle`, `d:poly`, `d:gradient`, `d:world_text`, `d:world_line`, `d:world_circle`, `d:image`, `d:world_image`, `d:game_image`, `d:skeleton`, `d:size` and `d:world_to_screen`. See [overlay](/plugins/api/overlay).</ResponseField>
 
 ```lua
 reskate.on("draw", function(d)

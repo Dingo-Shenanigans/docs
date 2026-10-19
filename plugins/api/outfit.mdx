@@ -18,7 +18,6 @@ Other players see what the skater wears. The player's own outfit is never change
 - **Paid items.** An item sold in the game's store is refused, whoever owns it.
 - **Menus.** While one of the game's menus is up, the skater is given back its own outfit, because the menus change it. Your items go back on about a second after the menu closes.
 - **Skaters.** After a respawn or a level change the new skater comes from the player's profile; your items are put on it again.
-- While ReSkate's own Road Rash is on, it wears the skater's marks, and every `set` is refused.
 
 ### `reskate.outfit.set(slot, item, options)`
 
@@ -34,7 +33,7 @@ Puts `item` in `slot`, over the skater's outfit. The item is put on within a sec
 </ParamField>
 
 <ResponseField name="ok" type="boolean">True when the slot is taken for the item.</ResponseField>
-<ResponseField name="why" type="string">Why not: `"only tattoo, moles and eyewear slots"`, `"Road Rash is on: it wears the skater's marks"`, `"<plugin> has that slot"`, `"the paid items are not known yet; try again in a moment"`, `"that is a paid store item"`, `"a placement is at most 8 finite numbers"` or `"asked more than 4 times in a second"`.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"only tattoo, moles and eyewear slots"`, `"<plugin> has that slot"`, `"the paid items are not known yet; try again in a moment"`, `"that is a paid store item"`, `"a placement is at most 8 finite numbers"` or `"asked more than 4 times in a second"`.</ResponseField>
 
 ```lua
 -- "my_design" stands for the end of an installed item's name.

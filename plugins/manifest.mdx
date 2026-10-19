@@ -62,7 +62,7 @@ A plugin is listed as not loaded where it does not run. On a player's game a ser
   The permissions the plugin uses, by name, such as `["console", "overlay"]`.
 </ParamField>
 
-Every name must be one of the 40 on [permissions](/plugins/permissions). A name listed twice counts once. With no permissions, a plugin has the base set: logging, events such as `tick`, timers, its own files, JSON, and the functions and events plugins share.
+Every name must be one of the 42 on [permissions](/plugins/permissions). A name listed twice counts once. With no permissions, a plugin has the base set: logging, events such as `tick`, timers, its own files, JSON, and the functions and events plugins share.
 
 The log names the permissions a plugin loaded with:
 
@@ -109,7 +109,7 @@ Plugin speedo was not loaded: "side" must be "client", "server" or "both"
 | `"entry" must be a .lua or .luau file` | `entry` ends in something else. |
 | `"side" must be "client", "server" or "both"` | `side` is another value, or not a string. |
 | `"permissions" must be a list of names` | `permissions` is not a list, or holds something other than strings. |
-| `unknown permission "<name>": check the spelling, or update ReSkate` | A name is not one of the 40. |
+| `unknown permission "<name>": check the spelling, or update ReSkate` | A name is not one of the 42. |
 | `"domains" must be a list of at most 16 host names` | `domains` is not a list, or has more than 16 entries. |
 | `"domains" must be a list of host names` | An entry is not a string. |
 | `"<entry>" is not a host name for "domains" (such as api.example.com: no scheme, port, path or *)` | An entry breaks a host name rule. |

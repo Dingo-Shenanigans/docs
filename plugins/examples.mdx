@@ -1,6 +1,6 @@
 ---
 title: "Example plugins"
-description: "The plugins in the ReSkate repository: reskate-test, which calls every API, and reskate-hostile, which attacks the sandbox."
+description: "The plugins in the ReSkate repository: reskate-test, which calls every API, reskate-hostile, which attacks the sandbox, and the features ported from ReSkate to plugins."
 ---
 
 The ReSkate repository keeps its example plugins in `contrib/plugins`. Two of them check ReSkate's plugin host: **reskate-test** calls every plugin API and says what worked, and **reskate-hostile** attacks the sandbox on purpose. Between them they ask for almost every [permission](/plugins/permissions), so read them for how each API is used, not for which permissions a plugin of your own needs.
@@ -184,9 +184,17 @@ Each of these keeps running and must be refused.
 
 ## Ports
 
-The repository's README lists one more plugin, a port of a ReSkate feature to a plugin:
+Five features that were built into ReSkate are mods now, plugins in `contrib/plugins` that use only the API on these pages. ReSkate keeps no copy of them: their console commands, settings and menu panels are the plugins' own. Each has its own checks (`<command> test`), which the plugin tests run too, and its switches on its panel in the PLUGINS tab. They are larger than reskate-test's checks, and show how the APIs go together in a whole feature.
 
-- **road-rash** is Road Rash as a mod: bails leave marks that build up, worn over the outfit with [`reskate.outfit`](/plugins/api/outfit). It needs the Road Rash items mod, and the built-in Road Rash switched off (`roadrash 0`), since ReSkate refuses outfit changes while that one is on. While the built-in one exists it owns the `roadrash` command, so this one answers to `road rash` (`road rash heal`, `road rash bails 20`, `road rash blood 0`, `road rash tattoos 1`, and `road rash test` for its own checks). Its switches are on its panel in the PLUGINS tab too.
+| Plugin | What it does | What to read it for |
+| --- | --- | --- |
+| **road-rash** | Bails leave marks on the skater that build up: dust, scrapes, bruises, wounds. Needs the Road Rash items mod. `roadrash`, `roadrash heal`, `roadrash bails 20`. | [`reskate.outfit`](/plugins/api/outfit) and the `bail_end` event. |
+| **board-break** | A hard slam, or a hard slide onto a rail, can snap the board at the nose, the middle or the tail. Ships inside the Board Break deck pack. `boardbreak`, `boardbreak snap mid`. Which deck every board has stays in ReSkate, as the `boarddeck` command. | [`reskate.board`](/plugins/api/board), [sounds](/plugins/api/audio) and raycasts. |
+| **fpv-drone** | The FPV drone, flown from the free camera with the keyboard, a pad or an RC radio, or following the skater and filming. `fpv fly`, `fpv follow`, `fpv stop`. | [`reskate.camera`](/plugins/api/camera), [`reskate.input`](/plugins/api/input), the motor sound and a goggles HUD drawn with a font atlas. |
+| **hall-of-meat** | skate. 3's Hall of Meat: a bail shows the bones it hurt on an x-ray of the skater, and scores a Meat card drawn with skate.'s own pictures in the bottom left corner. A broken bone slows the game for a moment, in single player only. `hallofmeat 0` or `1`. | The `physics_step` event, [`reskate.skater.xray`](/plugins/api/skater) with `d:skeleton`, `d:game_image`, `d:gradient` and fonts ([overlay](/plugins/api/overlay)), [`reskate.hud.corner`](/plugins/api/skater) and [`reskate.time.slow`](/plugins/api/time). |
+| **grind-exits** | LT or RT in a grind picks the side the skater pops out to, whatever the trick and the rotation. `grindexit status`. | [`reskate.skater.grind_exit`](/plugins/api/skater), the `grind_exit` event and [`reskate.input.hide`](/plugins/api/input). |
+
+Copy a plugin's folder into the game's `Mods` folder to try it, as with reskate-test. board-break goes inside the deck pack's folder, beside its `sounds/`.
 
 ## Where to go next
 

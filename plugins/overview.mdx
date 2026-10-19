@@ -25,13 +25,13 @@ end)
 
 What a plugin may touch depends on the permissions its manifest lists. With none, it gets the base set: logging, events such as `tick` and `level_loaded`, timers, its own files, JSON, and functions and events shared with other plugins. Each permission then unlocks one area, for example:
 
-- reading the skater, its tricks and its bails (`skater.read`, `events.tricks`, `events.skater`),
+- reading the skater, its tricks, its bails and its physics steps (`skater.read`, `events.tricks`, `events.skater`, `events.physics`),
 - drawing on the screen and in the world, menu panels and full-screen screens (`overlay`, `menu`, `ui.screen`),
 - moving the skater, the camera and the board, and playing animation clips (`skater.teleport`, `skater.control`, `camera`, `board`, `skater.animation`),
 - talking to the same plugin on other players' games, and web requests to hosts it names (`net.session`, `net.http`),
 - running a session as its authority: kicking, announcing and moving players (`server`).
 
-[Permissions](/plugins/permissions) lists all 40 and what each one unlocks.
+[Permissions](/plugins/permissions) lists all 42 and what each one unlocks.
 
 ## What a plugin can never do
 
@@ -150,13 +150,13 @@ Only the server copy can use the `server` functions (kick, announce, tell, move 
     Every field of `reskate-plugin.json`, and the rules it is checked against.
   </Card>
   <Card title="Permissions" icon="key" href="/plugins/permissions">
-    All 40 permissions: what each unlocks and what other players see.
+    All 42 permissions: what each unlocks and what other players see.
   </Card>
   <Card title="Limits" icon="gauge" href="/plugins/limits">
     The sandbox, every limit, and what happens when a plugin goes over one.
   </Card>
   <Card title="Events" icon="bolt" href="/plugins/events">
-    The 22 events, when they fire and what they hand your handler.
+    The 24 events, when they fire and what they hand your handler.
   </Card>
   <Card title="Base API" icon="code" href="/plugins/api/base">
     `reskate.id`, `reskate.side`, `reskate.log`, `reskate.on` and `require`.

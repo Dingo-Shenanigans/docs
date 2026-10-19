@@ -1,6 +1,6 @@
 ---
 title: "Permissions"
-description: "All 40 permissions a plugin can ask for: the functions and events each unlocks, and what other players see of it."
+description: "All 42 permissions a plugin can ask for: the functions and events each unlocks, and what other players see of it."
 ---
 
 This page lists every permission a plugin can name in its [manifest](/plugins/manifest)'s `permissions`, what each one unlocks, and what other players can see when a plugin uses it.
@@ -36,7 +36,7 @@ Every plugin has these without asking:
 
 - `reskate.id`, `reskate.api_version`, `reskate.side`, `reskate.log`, `print` and `require` ([base](/plugins/api/base))
 - `reskate.on` with the events `load`, `unload`, `tick`, `level_loaded` and `level_unloading` ([events](/plugins/events))
-- `reskate.time.now`, `after`, `every` and `cancel` ([time](/plugins/api/time))
+- `reskate.time.now`, `after`, `every` and `cancel` ([time](/plugins/api/time)); `slow` and `speed` need `game.speed`
 - `reskate.level.current` ([base](/plugins/api/base))
 - `reskate.package.read`, `read_json` and `list`: the plugin's own files ([package](/plugins/api/package))
 - `reskate.json.encode` and `decode` ([JSON](/plugins/api/json))
@@ -47,11 +47,11 @@ Every plugin has these without asking:
 | Permission | Unlocks | What other players see |
 | --- | --- | --- |
 | `console` | [`reskate.console.command`, `reskate.console.print`](/plugins/api/console) | Nothing. |
-| `overlay` | The `draw` event and its drawing object (`d:text`, `d:rect`, `d:line`, `d:circle`, `d:poly`, `d:world_text`, `d:world_line`, `d:world_circle`, `d:image`, `d:world_image`, `d:size`, `d:world_to_screen`) ([overlay](/plugins/api/overlay)); [`reskate.ui.toast`](/plugins/api/menu) | Nothing: it draws on your screen only. |
+| `overlay` | The `draw` event and its drawing object (`d:text`, `d:rect`, `d:line`, `d:circle`, `d:poly`, `d:gradient`, `d:world_text`, `d:world_line`, `d:world_circle`, `d:image`, `d:world_image`, `d:game_image`, `d:skeleton`, `d:size`, `d:world_to_screen`) ([overlay](/plugins/api/overlay)); [`reskate.ui.toast`](/plugins/api/menu); [`reskate.skater.xray`](/plugins/api/skater) | Nothing: it draws on your screen only. |
 | `menu` | [`reskate.menu.panel`](/plugins/api/menu) and its widgets (`ui:heading`, `ui:label`, `ui:separator`, `ui:bar`, `ui:button`, `ui:toggle`, `ui:slider`, `ui:dropdown`), on the **ADDONS** page's **PLUGINS** tab | Nothing. |
 | `ui.screen` | [`reskate.ui.screen`, `reskate.ui.open`, `reskate.ui.close`](/plugins/api/menu); the `screen_closed` event | Nothing. |
-| `input` | [`reskate.input.bind`, `flight`, `gamepad`, `joystick`, `capture`](/plugins/api/input); the `action` event | Nothing. Your binds show on your **Binds** page. |
-| `hud` | [`reskate.hud.hide`](/plugins/api/skater) | Nothing: it hides your HUD only. |
+| `input` | [`reskate.input.bind`, `flight`, `gamepad`, `joystick`, `capture`, `hide`](/plugins/api/input); the `action` event | Nothing. Your binds show on your **Binds** page. |
+| `hud` | [`reskate.hud.hide`, `reskate.hud.corner`](/plugins/api/skater) | Nothing: it hides your HUD only. |
 | `audio.ui` | [`reskate.audio.play_ui`](/plugins/api/audio) | Nothing. |
 | `audio` | [`reskate.audio.play`, `set`, `stop`, `playing`](/plugins/api/audio) | Nothing: your game plays the sounds. |
 
@@ -60,10 +60,11 @@ Every plugin has these without asking:
 | Permission | Unlocks | What other players see |
 | --- | --- | --- |
 | `events.tricks` | The `trick_started`, `trick_landed` and `line_broken` events; [`reskate.score.current`](/plugins/api/skater) | Nothing. |
-| `events.skater` | The `skater_state`, `bail`, `board_landed`, `body_hit` and `bail_end` events; [`reskate.skater.state`](/plugins/api/skater) | Nothing. |
+| `events.skater` | The `skater_state`, `bail`, `board_landed`, `body_hit`, `bail_end` and `grind_exit` events; [`reskate.skater.state`](/plugins/api/skater) | Nothing. |
+| `events.physics` | The `physics_step` event ([events](/plugins/events)) | Nothing. |
 | `skater.read` | [`reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`](/plugins/api/skater); [`reskate.board.motion`](/plugins/api/board) | Nothing. |
 | `skater.teleport` | [`reskate.skater.teleport`](/plugins/api/skater) | Your skater where it lands, as with the console's teleport. Refused in a session whose host turned teleporting off. |
-| `skater.control` | [`reskate.skater.noclip`, `boost`, `freeze`, `wipeout`](/plugins/api/skater) | Your skater as it moves and bails. Noclip and boosts follow the host's rules. |
+| `skater.control` | [`reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `grind_exit`](/plugins/api/skater) | Your skater as it moves and bails, and the side it pops out of a grind to. Noclip and boosts follow the host's rules. |
 | `trainer` | [`reskate.trainer.set_point`, `reskate.trainer.back`](/plugins/api/skater) | Your skater going back to the point, as a teleport. Refused when the host turned teleporting off. |
 | `skater.animation` | [`reskate.animation.play`, `stop`, `playing`, `replace`, `record`, `recorded`, `forget`, `trick`](/plugins/api/animation) | The clips your skater plays: other players see your body as your game draws it. |
 | `outfit` | [`reskate.outfit.set`, `clear`, `find`, `slots`, `status`](/plugins/api/outfit) | What your skater wears over the outfit (tattoos, moles, eyewear; never a paid store item). |
@@ -105,6 +106,7 @@ Every plugin has these without asking:
 | `progression.read` | [`reskate.progression.get`](/plugins/api/progression) | Nothing. It only reads. |
 | `settings.read` | [`reskate.settings.game`, `reskate.settings.names`](/plugins/api/progression) | Nothing. It only reads. |
 | `mods.read` | [`reskate.mods.installed`, `reskate.mods.list`](/plugins/api/mods) | Nothing. |
+| `game.speed` | [`reskate.time.slow`, `reskate.time.speed`](/plugins/api/time) | Nothing: slow motion is refused in a multiplayer session. |
 | `replay` | No function or event yet. | Nothing. The manifest accepts it, so a plugin written for a later ReSkate loads. |
 
 <Warning>

@@ -1,9 +1,9 @@
 ---
 title: "Time"
-description: "reskate.time: the clock, and timers that run a function once or again and again."
+description: "reskate.time: the clock, timers that run a function once or again and again, and slow motion."
 ---
 
-`reskate.time` reads a steady clock and runs functions later. It needs no permission.
+`reskate.time` reads a steady clock, runs functions later, and slows the game down. The clock and the timers need no permission; [slow motion](#slow-motion) needs `game.speed`.
 
 Timers run in the game tick in which they fall due, just before the `tick` handlers. A timer is only as precise as the tick: a timer of 1 ms runs once a tick.
 
@@ -67,3 +67,51 @@ reskate.on("trick_landed", function() reskate.time.cancel(warning) end)
 <Note>
 A wrong argument raises an error: a negative or non-finite `ms` for `after`, less than 1 for `every`, or a `fn` that is not a function. A plugin has at most 1024 timers waiting; the next one raises an error. Each timer call has 50 ms, like any handler. See [limits](/plugins/limits).
 </Note>
+
+## Slow motion
+
+The game runs slower while any plugin asks for it: the slowest ask runs. It stays smooth: the game takes as many physics steps each real second as before, each the shorter. The clock and the timers above keep real time throughout, so `reskate.time.after(1000, fn)` still runs a second later.
+
+Slow motion never runs in a multiplayer session, where your game must keep the other players' pace: asking in one is refused, and a session that starts while it runs ends it.
+
+### `reskate.time.slow(speed)`
+
+Asks for the game to run at `speed`.
+
+<ParamField path="speed" type="number" default="1">0.05 to 1, of the game's own speed. 1 (or nothing) drops your ask.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the ask was taken.</ResponseField>
+<ResponseField name="why" type="string">`"never in a multiplayer session"` when `ok` is false.</ResponseField>
+
+```lua
+-- Half speed for 2 s after a hard landing (board_landed needs events.skater).
+reskate.on("board_landed", function(e)
+    if e.down_speed < 8 then return end
+    if reskate.time.slow(0.5) then
+        reskate.time.after(2000, function() reskate.time.slow(1) end)
+    end
+end)
+```
+
+A `speed` outside 0.05 to 1 raises an error.
+
+<Note>
+Needs the `game.speed` permission. A taken ask does not always slow the game: not when it already runs as slowly (the trainer's practice speed, for one), without a local skater, or once the game's speed is changed from elsewhere (the trainer, the console) during this slow motion. `reskate.time.speed()` says what runs. When the plugin stops, its ask is dropped.
+</Note>
+
+### `reskate.time.speed()`
+
+The speed the game runs at for plugins now.
+
+<ResponseField name="speed" type="number">The slowest plugin's ask while slow motion runs, else 1.</ResponseField>
+
+```lua
+reskate.on("draw", function(d) -- needs overlay
+    local speed = reskate.time.speed()
+    if speed < 1 then
+        d:text(vector.create(40, 40, 0), string.format("SLOW x%.2f", speed), {size = 24})
+    end
+end)
+```
+
+<Note>Needs the `game.speed` permission.</Note>
