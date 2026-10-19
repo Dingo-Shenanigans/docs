@@ -1,0 +1,43 @@
+---
+title: "Mods"
+description: "reskate.mods: which mods the player has in their Mods folder, and whether each is on."
+---
+
+`reskate.mods` tells your plugin which mods are installed, so it can work with another mod or warn about one. It needs the `mods.read` [permission](/plugins/permissions).
+
+The list is the game's `Mods` folder, read again every 2 seconds. A mod is "on" unless the player switched it off. On a dedicated server, the list is empty.
+
+### `reskate.mods.installed(name)`
+
+Whether a mod is installed, and whether it is on.
+
+<ParamField path="name" type="string" required>The mod's folder name, or the name it gives itself (its title), without regard to case.</ParamField>
+
+<ResponseField name="state" type="string or nil">`"on"`, `"off"`, or `nil` when no mod has that folder name or title.</ResponseField>
+
+```lua
+local board_break = reskate.mods.installed("BoardBreak")
+if board_break == "off" then
+    reskate.ui.toast("Turn Board Break on for the full course")
+end
+```
+
+### `reskate.mods.list()`
+
+Every mod in the `Mods` folder.
+
+<ResponseField name="mods" type="table">
+A list of tables, one for each mod, in the order the mod list has them:
+
+- `folder` (string): its folder name in `Mods`.
+- `title` (string): the name it gives itself in its `manifest.json` (or `reskate-mod.json`), or its folder name when it gives none.
+- `on` (boolean): whether it is on.
+</ResponseField>
+
+```lua
+for _, mod in reskate.mods.list() do
+    reskate.log(string.format("%s (%s): %s", mod.title, mod.folder, mod.on and "on" or "off"))
+end
+```
+
+<Note>Needs `mods.read`.</Note>

@@ -1,0 +1,84 @@
+---
+title: "Progression and settings"
+description: "reskate.progression and reskate.settings: read the player's progress and the game's settings."
+---
+
+These tables read the player's progress in the game and the game's own settings. Both are read only: nothing here changes the profile or a setting.
+
+- `reskate.progression.get` needs the `progression.read` permission.
+- `reskate.settings.game` and `reskate.settings.names` need the `settings.read` permission.
+
+Calling a function without its permission raises an error. See [permissions](/plugins/permissions).
+
+## Progression
+
+### `reskate.progression.get()`
+
+The local player's progress, as their profile has it.
+
+<ResponseField name="progress" type="table or nil">
+`nil` when the profile's progress cannot be read now.
+<Expandable title="fields">
+<ResponseField name="districts" type="table">A list of districts. Each has `id` (string), `name` (string) and `rank` (integer): the player's rank there.</ResponseField>
+<ResponseField name="challenges" type="table">
+A list of challenges. Each has:
+<Expandable title="fields">
+<ResponseField name="id" type="string">The challenge's id.</ResponseField>
+<ResponseField name="type" type="string">Its type.</ResponseField>
+<ResponseField name="neighborhood" type="string">The id of the district it is in; may be empty.</ResponseField>
+<ResponseField name="attempts" type="integer">How many times the player tried it.</ResponseField>
+<ResponseField name="completed_goals" type="integer">How many of its goals the player completed.</ResponseField>
+<ResponseField name="goal_count" type="integer">How many goals it has.</ResponseField>
+</Expandable>
+</ResponseField>
+<ResponseField name="score" type="number">The player's score.</ResponseField>
+<ResponseField name="score_cap" type="number">The score's cap.</ResponseField>
+<ResponseField name="score_level" type="integer">The player's score level.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local progress = reskate.progression.get()
+if progress then
+    local done = 0
+    for _, c in progress.challenges do
+        if c.goal_count > 0 and c.completed_goals == c.goal_count then done += 1 end
+    end
+    reskate.log(string.format("%d of %d challenges complete", done, #progress.challenges))
+    for _, d in progress.districts do
+        reskate.log(d.name .. ": rank " .. d.rank)
+    end
+end
+```
+
+<Note>Needs the `progression.read` permission.</Note>
+
+## Settings
+
+The game's engine settings, by name, as the console shows them.
+
+### `reskate.settings.game(name)`
+
+A setting's value now.
+
+<ParamField path="name" type="string" required>The setting's name, as `names()` lists it. At most 120 characters; longer raises an error.</ParamField>
+
+<ResponseField name="value" type="string or nil">The value as the console shows it, or `nil` for a name there is none of, or a value that cannot be read now. Numbers come back as text: use `tonumber`.</ResponseField>
+
+```lua
+for _, name in reskate.settings.names() do
+    if string.find(name, "Fov", 1, true) then
+        reskate.log(name .. " = " .. tostring(reskate.settings.game(name)))
+    end
+end
+```
+
+<Note>Needs the `settings.read` permission.</Note>
+
+### `reskate.settings.names()`
+
+Every setting name known so far: those listed from the engine's settings this session, and those remembered from earlier ones.
+
+<ResponseField name="names" type="table">A list of strings.</ResponseField>
+
+<Note>Needs the `settings.read` permission.</Note>

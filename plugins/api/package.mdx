@@ -1,0 +1,75 @@
+---
+title: "Package"
+description: "reskate.package: read the files your plugin ships, and list its folders."
+---
+
+`reskate.package` reads files from your plugin's own package: its mod folder, the folder that holds `reskate-plugin.json`. It cannot reach anything outside it, and it cannot write. It needs no permission.
+
+## Paths
+
+A path is relative to the package's root (not to the entry's folder): `"data/spots.json"`, `"sounds/beep.wav"`. A path is refused, with an error, when it:
+
+- is empty, longer than 260 characters, or starts with `/`;
+- has a `\`, a `:` (a drive, or a stream), or a character outside printable ASCII;
+- has an empty, `.` or `..` folder (`a//b`, `./a`, `a/../b`);
+- has a folder or file name that ends in `.` or a space.
+
+After those checks, the path is resolved once more with links and junctions followed, and a path that leads outside the package is refused too.
+
+```lua
+pcall(reskate.package.read, "../other-mod/secret.txt") -- false: not a path inside the package
+```
+
+### `reskate.package.read(path)`
+
+A file's contents.
+
+<ParamField path="path" type="string" required>The file's path in the package.</ParamField>
+
+<ResponseField name="text" type="string or nil">The whole file, byte for byte, or `nil` when there is no such file (or the path is a folder).</ResponseField>
+
+```lua
+local intro = reskate.package.read("data/intro.txt")
+if intro then reskate.console.print(intro) end
+```
+
+### `reskate.package.read_json(path)`
+
+A JSON file's contents as Lua values: objects become tables with string keys, arrays become lists, `null` becomes `nil`.
+
+<ParamField path="path" type="string" required>The file's path in the package.</ParamField>
+
+<ResponseField name="value" type="any">The file's value, or `nil` when there is no such file.</ResponseField>
+
+```lua
+local spots = reskate.package.read_json("data/spots.json") or {}
+for _, spot in spots do
+    reskate.log(spot.name)
+end
+```
+
+<Note>Raises an error for JSON that is not valid, has a key twice, or is nested deeper than 64.</Note>
+
+### `reskate.package.list(folder)`
+
+The names in one of the package's folders.
+
+<ParamField path="folder" type="string" default="the package's root">The folder's path in the package. Leave it out, or pass `""`, for the root.</ParamField>
+
+<ResponseField name="names" type="table">A sorted list of names. A folder's name ends in `/`. Names with characters outside printable ASCII are left out. A folder that is not there gives an empty list.</ResponseField>
+
+```lua
+for _, name in reskate.package.list("levels") do
+    if name:sub(-5) == ".json" then
+        local level = reskate.package.read_json("levels/" .. name)
+    end
+end
+```
+
+<Note>
+`read` and `read_json` raise an error for a file larger than 16 MB, or one that cannot be read. `list` raises an error for a folder with more than 1000 entries. All three raise an error for a path that breaks the rules above.
+</Note>
+
+<Tip>
+Pictures ([`d:image`](/plugins/api/overlay)), sounds ([`reskate.audio.play`](/plugins/api/audio)) and modules ([`require`](/plugins/api/base)) also come from the package. `require` looks beside the entry; the others take a path from the package's root.
+</Tip>

@@ -1,0 +1,66 @@
+---
+title: "JSON"
+description: "reskate.json: turn Lua values into JSON text and back."
+---
+
+`reskate.json` turns Lua values into JSON text and JSON text into Lua values. It needs no permission. [Storage](/plugins/api/storage) and the calls and events between plugins ([libraries](/plugins/api/libraries)) copy values by the same rules.
+
+## How values map
+
+| Lua | JSON |
+| --- | --- |
+| `nil` | `null` |
+| `true`, `false` | `true`, `false` |
+| a whole number up to 2^53 | an integer (`3`, not `3.0`) |
+| any other finite number | a number |
+| a string | a string (it must be valid UTF-8) |
+| a list: keys 1 to n, nothing else | an array |
+| a table with string keys | an object, its keys sorted |
+| an empty table | `{}` |
+
+A table that mixes the two (string keys and list keys, or list keys with gaps) cannot be turned into JSON. Functions, vectors, buffers, threads and userdata cannot either, nor NaN or infinity.
+
+### `reskate.json.encode(value, pretty)`
+
+JSON text for a value.
+
+<ParamField path="value" type="any" required>A value as the table above allows. Tables nest at most 32 deep.</ParamField>
+<ParamField path="pretty" type="boolean" default="false">`true` for text indented by two spaces; otherwise it is on one line.</ParamField>
+
+<ResponseField name="text" type="string">The JSON text.</ResponseField>
+
+```lua
+local text = reskate.json.encode({name = "ledge", points = {1, 2, 3}})
+-- {"name":"ledge","points":[1,2,3]}
+
+local position = reskate.skater.position()
+if position then
+    -- a vector is not JSON: send its numbers
+    text = reskate.json.encode({x = position.x, y = position.y, z = position.z})
+end
+```
+
+<Note>
+Raises an error for a value that cannot be turned into JSON, tables nested deeper than 32, or a value larger than 1,048,576 values or 16 MB of text.
+</Note>
+
+### `reskate.json.decode(text)`
+
+The Lua value JSON text holds. Objects become tables with string keys, arrays become lists, numbers become numbers, and `null` becomes `nil` (so an object's `null` member is simply missing).
+
+<ParamField path="text" type="string" required>JSON text, at most 16 MB. A leading UTF-8 byte order mark is skipped.</ParamField>
+
+<ResponseField name="value" type="any">The value.</ResponseField>
+
+```lua
+local ok, data = pcall(reskate.json.decode, body)
+if not ok then
+    reskate.log("the answer was not JSON: " .. tostring(data), "warn")
+    return
+end
+reskate.log(data.name)
+```
+
+<Note>
+Raises an error for text that is not valid JSON (the message gives the byte where it went wrong), text after the value, a key used twice in one object, nesting deeper than 64, more than 16 MB or 1,048,576 values, or invalid UTF-8. Wrap it in `pcall` when the text comes from outside your plugin.
+</Note>

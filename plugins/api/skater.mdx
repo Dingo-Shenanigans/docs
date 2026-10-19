@@ -1,0 +1,285 @@
+---
+title: "Skater"
+description: "reskate.skater, reskate.score, reskate.trainer and reskate.hud: read and move the local skater, read the score, keep a save point and hide the HUD."
+---
+
+These tables work on the local skater: the player's own, on their own game. Each function needs a permission, named in its section:
+
+- `skater.read`: `reskate.skater.get`, `position`, `heading`, `speed` and `on_ground`.
+- `skater.teleport`: `reskate.skater.teleport`.
+- `events.skater`: `reskate.skater.state`.
+- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze` and `wipeout`.
+- `events.tricks`: `reskate.score.current`.
+- `trainer`: `reskate.trainer.set_point` and `back`.
+- `hud`: `reskate.hud.hide`.
+
+Calling a function without its permission raises an error. See [permissions](/plugins/permissions). For the world around the skater (`reskate.world.raycast` and the rest) see [world](/plugins/api/world); for its board, see [board](/plugins/api/board).
+
+## Positions and headings
+
+A position is a Luau `vector` in metres, in the world's frame: `y` is up. Make one with `vector.create(x, y, z)`. A position you pass must be finite and within 100 km of the map's centre, or the call raises an error.
+
+A heading is in radians about world up, from -pi to pi. A heading of 0 faces +Z, pi/2 faces +X, and a higher heading is turned to the skater's left. Teleports take a heading the same way.
+
+```lua
+-- The point 5 m in front of the skater.
+local s = reskate.skater.get()
+if s then
+    local ahead = s.position + vector.create(math.sin(s.heading), 0, math.cos(s.heading)) * 5
+end
+```
+
+## Reading the skater
+
+### `reskate.skater.get()`
+
+The local skater as the game has it this tick. Use it when you need more than one value: it reads them all at once.
+
+<ResponseField name="skater" type="table or nil">
+`nil` when there is no skater (in a menu, during a load).
+<Expandable title="fields">
+<ResponseField name="position" type="vector">Where the skater is.</ResponseField>
+<ResponseField name="heading" type="number">Where it faces, -pi to pi.</ResponseField>
+<ResponseField name="speed" type="number">Metres per second over the ground.</ResponseField>
+<ResponseField name="vertical_speed" type="number">Metres per second, up.</ResponseField>
+<ResponseField name="airborne" type="boolean">True while it is in the air.</ResponseField>
+<ResponseField name="air_time" type="number">Seconds into the jump going on.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+reskate.on("tick", function()
+    local s = reskate.skater.get()
+    if s and s.airborne and s.air_time > 2 then
+        reskate.log("big air")
+    end
+end)
+```
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.skater.position()`
+
+The skater's position, or `nil` without a skater.
+
+<ResponseField name="position" type="vector or nil">Where the skater is.</ResponseField>
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.skater.heading()`
+
+The way the skater faces, or `nil` without a skater.
+
+<ResponseField name="heading" type="number or nil">Radians, -pi to pi.</ResponseField>
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.skater.speed()`
+
+The skater's speed over the ground, or `nil` without a skater.
+
+<ResponseField name="speed" type="number or nil">Metres per second.</ResponseField>
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.skater.on_ground()`
+
+Whether the skater is on the ground, or `nil` without a skater.
+
+<ResponseField name="on_ground" type="boolean or nil">False while it is in the air.</ResponseField>
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.skater.state()`
+
+The skater's physics state, as a name. The `skater_state` event tells you when it changes (see [events](/plugins/events)).
+
+<ResponseField name="state" type="string or nil">One of `"riding"`, `"air"`, `"wipeout"`, `"grinding"`, `"off_board"`, `"planted"`, `"other"` or `"none"`. `nil` when there is no skater.</ResponseField>
+
+```lua
+if reskate.skater.state() == "grinding" then
+    reskate.log("on a rail")
+end
+```
+
+<Note>Needs the `events.skater` permission.</Note>
+
+## Moving the skater
+
+### `reskate.skater.teleport(position, heading)`
+
+Moves the skater to `position`, facing `heading`. The teleport is sent at once and happens within a few seconds.
+
+<ParamField path="position" type="vector" required>Where the skater goes. Finite, within 100 km.</ParamField>
+<ParamField path="heading" type="number" default="the skater's heading now">Radians. Any finite number; it is wrapped into -pi to pi.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the teleport was sent.</ResponseField>
+<ResponseField name="why" type="string">Why not, when `ok` is false: `"asked more than twice in a second"`, `"the host has turned teleporting off"` or `"teleporting is unavailable now (no skater, or a load)"`.</ResponseField>
+
+```lua
+local spawn = vector.create(120, 4, -36)
+local ok, why = reskate.skater.teleport(spawn, 0)
+if not ok then reskate.log("no teleport: " .. why, "warn") end
+```
+
+A position or heading that is not finite raises an error. The game's refusals return `false` and why.
+
+<Note>
+Needs the `skater.teleport` permission. At most 2 teleports a second, counted together with `reskate.trainer.back`. In a session whose host has turned teleporting (and noclip) off, every teleport is refused.
+</Note>
+
+### `reskate.skater.noclip(on)`
+
+Turns noclip on or off, as the console's own noclip does: the skater flies through the world.
+
+<ParamField path="on" type="boolean" required>True for on, false (or nothing) for off.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the change was queued. It takes effect at the game's next tick.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"the host has turned noclip off"`, `"asked more than 4 times in a second"`, or the game's own reason (`"the game is busy; try again"`).</ResponseField>
+
+```lua
+reskate.input.bind("noclip", "F6")
+local flying = false
+reskate.on("action", function(name)
+    if name == "noclip" then
+        flying = not flying
+        reskate.skater.noclip(flying)
+    end
+end)
+```
+
+<Note>
+Needs the `skater.control` permission. At most 4 calls a second, a budget shared with the plugin's other control calls (`noclip`, `boost`, `freeze`, `camera.follow`, `ai.spawn`, `animation.play`, `board.toss`, `outfit.set`).
+</Note>
+
+### `reskate.skater.boost(kind)`
+
+Gives the skater a push, as the console's boosts do.
+
+<ParamField path="kind" type="string" required>`"forward"`, `"up"` or `"offboard"` (up, off the board). Anything else raises an error.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the boost was queued.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"the host has turned boosts off"`, `"asked more than 4 times in a second"`, or the game's own reason.</ResponseField>
+
+```lua
+local ok, why = reskate.skater.boost("up")
+```
+
+<Note>Needs the `skater.control` permission. Shares the budget of 4 control calls a second (see `noclip`).</Note>
+
+### `reskate.skater.freeze(on)`
+
+Holds the skater where it is: noclip with no input, so it hovers in place. The skater stays held while any plugin asks for it, and is let go when the last one stops asking.
+
+<ParamField path="on" type="boolean" required>True to hold the skater, false (or nothing) to let it go.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when this plugin's ask was taken.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"the host has turned noclip off"`, `"asked more than 4 times in a second"`, or the game's own reason.</ResponseField>
+
+```lua
+-- Hold the skater for a countdown, then let go.
+reskate.skater.freeze(true)
+reskate.time.after(3000, function() reskate.skater.freeze(false) end)
+```
+
+<Note>
+Needs the `skater.control` permission. Shares the budget of 4 control calls a second. When the plugin stops, its hold is let go.
+</Note>
+
+### `reskate.skater.wipeout(force)`
+
+Makes the skater bail, as a slam of that force would.
+
+<ParamField path="force" type="number" default="2.5">0.5 to 3. Out of range raises an error.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the wipeout was asked for.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"one wipeout every 2 s"` or `"not while a throwdown runs"`.</ResponseField>
+
+```lua
+reskate.on("trick_landed", function(trick)
+    if trick.points < 100 then reskate.skater.wipeout(1) end
+end)
+```
+
+<Note>
+Needs the `skater.control` permission. One wipeout every 2 seconds; a refused call counts too. While No Bail protects the skater, the wipeout is asked for but dropped, as any other wipeout is: `ok` is still true, and the skater rides on.
+</Note>
+
+## Score
+
+### `reskate.score.current()`
+
+The score HUD as it is now: the line's score, its multiplier and the trick going on. The `trick_started`, `trick_landed` and `line_broken` events tell you when these change (see [events](/plugins/events)).
+
+<ResponseField name="score" type="table or nil">
+`nil` while the game shows no score HUD.
+<Expandable title="fields">
+<ResponseField name="line" type="number">The line's score.</ResponseField>
+<ResponseField name="multiplier" type="number">The line's multiplier.</ResponseField>
+<ResponseField name="in_trick" type="boolean">True while a trick is going on.</ResponseField>
+<ResponseField name="trick" type="string">The HUD's sequence header: the trick it names. Empty when it shows none.</ResponseField>
+<ResponseField name="detail" type="string">The HUD's descriptor line, such as `"Manual"` or `"Kickflip"`. Empty when it shows none.</ResponseField>
+<ResponseField name="manual" type="boolean">True while a manual is going on, as the HUD names it.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+reskate.on("tick", function()
+    local score = reskate.score.current()
+    if score and score.line * score.multiplier > 50000 then
+        reskate.log("a huge line is going")
+    end
+end)
+```
+
+<Note>Needs the `events.tricks` permission.</Note>
+
+## Trainer
+
+A plugin has one save point of its own, kept in memory: it is gone when the plugin reloads. It is separate from the player's own trainer save points.
+
+### `reskate.trainer.set_point()`
+
+Saves where the skater is and the way it faces.
+
+<ResponseField name="ok" type="boolean">True when the point was saved.</ResponseField>
+<ResponseField name="why" type="string">`"there is no skater"` when `ok` is false.</ResponseField>
+
+<Note>Needs the `trainer` permission.</Note>
+
+### `reskate.trainer.back()`
+
+Teleports the skater to the plugin's save point, facing the way it faced there.
+
+<ResponseField name="ok" type="boolean">True when the teleport was sent.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"no save point is set"`, `"asked more than twice in a second"`, `"the host has turned teleporting off"` or `"teleporting is unavailable now"`.</ResponseField>
+
+```lua
+reskate.input.bind("save", "F5")
+reskate.input.bind("load", "F8")
+reskate.on("action", function(name)
+    if name == "save" then reskate.trainer.set_point()
+    elseif name == "load" then reskate.trainer.back() end
+end)
+```
+
+<Note>
+Needs the `trainer` permission (not `skater.teleport`). At most 2 teleports a second, counted together with `reskate.skater.teleport`.
+</Note>
+
+## HUD
+
+### `reskate.hud.hide(hidden)`
+
+Hides the game's whole HUD, as the `hideui` console command does. The HUD stays hidden while any plugin asks, and comes back when the last one stops asking. If the player had hidden the HUD already, it stays as the player left it.
+
+<ParamField path="hidden" type="boolean" required>True to hide the HUD, false (or nothing) to stop asking.</ParamField>
+
+Returns nothing.
+
+```lua
+reskate.on("load", function() reskate.hud.hide(true) end)
+reskate.on("unload", function() reskate.hud.hide(false) end)
+```
+
+<Note>Needs the `hud` permission. When the plugin stops, its ask is dropped.</Note>

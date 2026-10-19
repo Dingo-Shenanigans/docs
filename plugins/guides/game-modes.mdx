@@ -1,0 +1,455 @@
+---
+title: "A game mode with a server copy"
+description: "Build a small trick race whose rules run on the session's authority, not on the players' games."
+---
+
+This guide builds a trick race: every player's landed tricks add to their score, and the first to 20 000 points wins. The players' games report their tricks, and one copy of the plugin, the server copy, keeps the scores and decides who wins. It needs the `events.tricks`, `overlay`, `session.read`, `net.session`, `server` and `console` [permissions](/plugins/permissions).
+
+## How a game mode is split
+
+A plugin whose manifest says `"side": "both"` runs twice in a session:
+
+- **The player's copy** runs on every player's game. `reskate.side` is `"client"`. It sees the local skater, draws, and sends what happened to the server copy.
+- **The server copy** runs on the session's authority. `reskate.side` is `"server"`. It hears the players' copies, keeps the state, and answers everyone. Only it may call [`reskate.server`](/plugins/api/server).
+
+Where the server copy runs depends on the session:
+
+- **A lobby:** on the lobby's host, beside the host's own player copy. The server copies start when the game starts hosting a lobby and stop when it stops. They draw nothing and show no panels. Each has its own id, `<folder>@server` (`reskate.id` says so), for its log lines, its storage, its console commands and anything it holds in the game, so it never shares state with the player copy: a server copy stopping leaves the player copy as it was.
+- **A dedicated server:** on `ReSkateServer.exe`, from a `Plugins` folder beside it (see [On a dedicated server](#on-a-dedicated-server)). The server has no world: there is no skater, camera or HUD there, so game functions say they are unavailable. What a server copy does there is messages, the session's players, `reskate.server` and its storage.
+
+A manifest with `"side": "client"` (the default) runs only as the player's copy, and `"side": "server"` only as the server copy.
+
+<Note>
+Nothing a player's copy says is trusted by the server copy just because it came from the same plugin. Players can change their copy. Check every message in the server copy before you act on it.
+</Note>
+
+## 1. The package
+
+Make a mod folder in the game's `Mods` folder:
+
+```text
+Trick_Race/
+  manifest.json
+  reskate-plugin.json
+  plugin/
+    main.lua
+    player.lua
+    server.lua
+```
+
+`reskate-plugin.json` asks for both sides and every permission either copy uses:
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "side": "both",
+    "permissions": ["events.tricks", "overlay", "session.read", "net.session", "server", "console"]
+}
+```
+
+`manifest.json` gives the mod its name. Messages between copies go under this `name`, so every game and the server must have the same one. Without a `manifest.json` (or without a `name` in it), the folder's name is used instead.
+
+```json
+{
+    "name": "Trick_Race",
+    "version_number": "1.0.0",
+    "website_url": "",
+    "description": "A trick race: the first to 20 000 points wins.",
+    "dependencies": []
+}
+```
+
+See [the manifest](/plugins/manifest) for every field.
+
+## 2. Pick the copy
+
+Both copies run the same entry file. Read `reskate.side` and load the code for this copy:
+
+```lua
+-- plugin/main.lua
+if reskate.side == "server" then
+    require("server")
+else
+    require("player")
+end
+```
+
+`require("server")` loads `plugin/server.luau` or `plugin/server.lua`: modules are looked up beside the entry. See [`require`](/plugins/api/base).
+
+## 3. The player's copy
+
+The player's copy does three things: it says hello when it joins, reports each landed trick, and shows the scores the server copy sends back.
+
+### Talk to the server copy
+
+`reskate.net.send("server", message)` sends a message to the server copy only. Other players' copies never see it. A message is a string (here JSON from [`reskate.json`](/plugins/api/json)) of at most 4082 bytes, and a plugin sends at most 16 KB a second. `send` returns `false` when there is no session.
+
+```lua
+local function send(message)
+    return reskate.net.send("server", reskate.json.encode(message))
+end
+```
+
+The `player_joined` event names every player that joins, the local player too (`player.me`). When the local player joins a session, send a hello so the server copy answers with the scores so far. A plugin loaded while the session is already on says hello from its `load` handler instead.
+
+```lua
+local function hello()
+    if reskate.session.active() then send({kind = "hello"}) end
+end
+reskate.on("load", hello)
+reskate.on("player_joined", function(player)
+    if player.me then hello() end
+end)
+```
+
+### Report tricks
+
+The `trick_landed` event (`events.tricks`) gives the trick's points. See [events](/plugins/events) for its other fields.
+
+```lua
+reskate.on("trick_landed", function(trick)
+    if trick.points > 0 then send({kind = "landed", points = trick.points}) end
+end)
+```
+
+### Hear the server copy
+
+The `message` handler gets who sent the message and its text. `from.server` is `true` only for what the server copy said: a player's copy cannot send a message that arrives with it set. Ignore score messages from anyone else.
+
+```lua
+local race = {target = 0, list = {}}
+local winner, winner_until = nil, 0
+
+reskate.on("message", function(from, text)
+    if not from.server then return end
+    local ok, message = pcall(reskate.json.decode, text)
+    if not ok or type(message) ~= "table" then return end
+    if message.kind == "scores" then
+        race.target, race.list = message.target, message.list
+    elseif message.kind == "winner" then
+        winner, winner_until = message.name, reskate.time.now() + 6000
+        reskate.ui.toast(message.name .. " won the trick race")
+    end
+end)
+```
+
+<Tip>
+`reskate.json.decode` raises an error on text that is not JSON. Wrap it in `pcall` whenever the text came from another game.
+</Tip>
+
+### Show the scores
+
+The draw handler (`overlay`) draws the table in the top left each tick. The [drawing guide](/plugins/guides/drawing) covers it in depth.
+
+```lua
+reskate.on("draw", function(d)
+    if #race.list == 0 then return end
+    local top = 200
+    local bottom = top + 40 + #race.list * 26
+    d:rect(vector.create(30, top - 10, 0), vector.create(330, bottom, 0), {colour = "#000000a0", fill = true, rounding = 6})
+    d:text(vector.create(44, top, 0), "TRICK RACE TO " .. race.target, {size = 20, colour = "#ffc400"})
+    for i, entry in race.list do
+        d:text(vector.create(44, top + 6 + i * 26, 0), string.format("%d. %s  %d", i, entry.name, entry.points), {size = 18})
+    end
+    if winner and reskate.time.now() < winner_until then
+        local size = d:size()
+        d:text(vector.create(size.x / 2, size.y * 0.3, 0), winner .. " WINS", {size = 48, align = "centre", colour = "#ffc400"})
+    end
+end)
+```
+
+## 4. The server copy
+
+The server copy keeps one score for each player and sends the standings to everyone whenever they change.
+
+### Keep the state
+
+```lua
+local TARGET = 20000
+local BIGGEST = 50000 -- no single trick here scores more than this
+
+local scores = {} -- by player id: {name = ..., points = ...}
+
+local function standings()
+    local list = {}
+    for _, entry in scores do
+        table.insert(list, {name = entry.name, points = entry.points})
+    end
+    table.sort(list, function(a, b) return a.points > b.points end)
+    return list
+end
+
+local function entry_for(player)
+    local entry = scores[player.id]
+    if not entry then
+        entry = {name = player.name, points = 0}
+        scores[player.id] = entry
+    end
+    return entry
+end
+```
+
+A player is a table with `id` (the SteamID64 as a string), `name`, `me`, `host` and `server`. See [session](/plugins/api/session).
+
+### Answer everyone, or one player
+
+`reskate.net.send("all", message)` from the server copy reaches every player's copy, and each of them sees `from.server` set. To answer one player, pass the player (or their id) instead of `"all"`. The server copy cannot send to `"server"`: it raises an error, since it is the server.
+
+```lua
+local function scores_message()
+    return reskate.json.encode({kind = "scores", target = TARGET, list = standings()})
+end
+
+local function broadcast()
+    reskate.net.send("all", scores_message())
+end
+```
+
+### Check what the players say
+
+The server copy hears messages sent to `"server"` and those sent to `"all"`. Check the kind and the values before using them. A score no trick can make is a player who changed their copy: `reskate.server.kick` drops them from the session.
+
+```lua
+reskate.on("message", function(from, text)
+    local ok, message = pcall(reskate.json.decode, text)
+    if not ok or type(message) ~= "table" then return end
+    if message.kind == "hello" then
+        entry_for(from)
+        reskate.net.send(from, scores_message())
+    elseif message.kind == "landed" then
+        local points = message.points
+        if type(points) ~= "number" or points < 0 then return end
+        if points > BIGGEST then
+            reskate.server.kick(from, "sent an impossible score")
+            return
+        end
+        local entry = entry_for(from)
+        entry.points += math.floor(points)
+        if entry.points >= TARGET then
+            reskate.server.say(entry.name .. " wins the trick race with " .. entry.points .. " points")
+            reskate.net.send("all", reskate.json.encode({kind = "winner", name = entry.name}))
+            scores = {}
+        end
+        broadcast()
+    end
+end)
+```
+
+`reskate.server.say` writes a line in everyone's chat under the plugin's name, at most one a second. `reskate.server.kick`, `say`, `tell` and `move` all return `ok, why`. They need the `server` permission and raise an error in a player's copy, and a plugin makes at most 20 server calls a second. See [server](/plugins/api/server).
+
+<Warning>
+`reskate.server.kick` removes a real player from the session. Kick only for something no honest copy can send.
+</Warning>
+
+### Follow who leaves
+
+The server copy hears `player_joined` and `player_left` too (`session.read`). Drop a player's score when they leave:
+
+```lua
+reskate.on("player_left", function(player)
+    if scores[player.id] then
+        scores[player.id] = nil
+        broadcast()
+    end
+end)
+```
+
+### A command for whoever runs the server
+
+A server copy can add console commands like any plugin (`console`). On a dedicated server they are typed in the server's console, and on a lobby's host in the game's console.
+
+```lua
+reskate.console.command("trickrace reset", "Starts the trick race over", function()
+    scores = {}
+    broadcast()
+    reskate.console.print("trickrace: the scores are reset")
+end)
+```
+
+## The whole plugin
+
+```lua
+-- plugin/main.lua
+if reskate.side == "server" then
+    require("server")
+else
+    require("player")
+end
+```
+
+```lua
+-- plugin/player.lua: every player's copy
+local race = {target = 0, list = {}}
+local winner, winner_until = nil, 0
+
+local function send(message)
+    return reskate.net.send("server", reskate.json.encode(message))
+end
+
+local function hello()
+    if reskate.session.active() then send({kind = "hello"}) end
+end
+reskate.on("load", hello)
+reskate.on("player_joined", function(player)
+    if player.me then hello() end
+end)
+
+reskate.on("trick_landed", function(trick)
+    if trick.points > 0 then send({kind = "landed", points = trick.points}) end
+end)
+
+reskate.on("message", function(from, text)
+    if not from.server then return end
+    local ok, message = pcall(reskate.json.decode, text)
+    if not ok or type(message) ~= "table" then return end
+    if message.kind == "scores" then
+        race.target, race.list = message.target, message.list
+    elseif message.kind == "winner" then
+        winner, winner_until = message.name, reskate.time.now() + 6000
+        reskate.ui.toast(message.name .. " won the trick race")
+    end
+end)
+
+reskate.on("draw", function(d)
+    if #race.list == 0 then return end
+    local top = 200
+    local bottom = top + 40 + #race.list * 26
+    d:rect(vector.create(30, top - 10, 0), vector.create(330, bottom, 0), {colour = "#000000a0", fill = true, rounding = 6})
+    d:text(vector.create(44, top, 0), "TRICK RACE TO " .. race.target, {size = 20, colour = "#ffc400"})
+    for i, entry in race.list do
+        d:text(vector.create(44, top + 6 + i * 26, 0), string.format("%d. %s  %d", i, entry.name, entry.points), {size = 18})
+    end
+    if winner and reskate.time.now() < winner_until then
+        local size = d:size()
+        d:text(vector.create(size.x / 2, size.y * 0.3, 0), winner .. " WINS", {size = 48, align = "centre", colour = "#ffc400"})
+    end
+end)
+```
+
+```lua
+-- plugin/server.lua: the server copy, on the session's authority
+local TARGET = 20000
+local BIGGEST = 50000
+
+local scores = {}
+
+local function standings()
+    local list = {}
+    for _, entry in scores do
+        table.insert(list, {name = entry.name, points = entry.points})
+    end
+    table.sort(list, function(a, b) return a.points > b.points end)
+    return list
+end
+
+local function entry_for(player)
+    local entry = scores[player.id]
+    if not entry then
+        entry = {name = player.name, points = 0}
+        scores[player.id] = entry
+    end
+    return entry
+end
+
+local function scores_message()
+    return reskate.json.encode({kind = "scores", target = TARGET, list = standings()})
+end
+
+local function broadcast()
+    reskate.net.send("all", scores_message())
+end
+
+reskate.on("message", function(from, text)
+    local ok, message = pcall(reskate.json.decode, text)
+    if not ok or type(message) ~= "table" then return end
+    if message.kind == "hello" then
+        entry_for(from)
+        reskate.net.send(from, scores_message())
+    elseif message.kind == "landed" then
+        local points = message.points
+        if type(points) ~= "number" or points < 0 then return end
+        if points > BIGGEST then
+            reskate.server.kick(from, "sent an impossible score")
+            return
+        end
+        local entry = entry_for(from)
+        entry.points += math.floor(points)
+        if entry.points >= TARGET then
+            reskate.server.say(entry.name .. " wins the trick race with " .. entry.points .. " points")
+            reskate.net.send("all", reskate.json.encode({kind = "winner", name = entry.name}))
+            scores = {}
+        end
+        broadcast()
+    end
+end)
+
+reskate.on("player_left", function(player)
+    if scores[player.id] then
+        scores[player.id] = nil
+        broadcast()
+    end
+end)
+
+reskate.console.command("trickrace reset", "Starts the trick race over", function()
+    scores = {}
+    broadcast()
+    reskate.console.print("trickrace: the scores are reset")
+end)
+
+reskate.log("trick race server copy loaded")
+```
+
+## Try it in a lobby
+
+Host a lobby with the mod in your `Mods` folder: your game runs both copies. The game's log says `Plugins: hosting a lobby, so server copies run here.` when the server copies start. Each player who joins needs the mod too.
+
+On the lobby's host, your own player copy's messages to `"server"` stay on your game and reach the server copy there, and what the server copy sends to `"all"` reaches your player copy as well as everyone else's.
+
+The server copy's log lines read `[Trick_Race@server] ...`, and the player copy's `[Trick_Race] ...`.
+
+<Note>
+The game's `plugin` console commands reach the server copies too while your game hosts. `plugin list` shows them as `<folder>@server`, and `plugin reload Trick_Race@server`, `plugin off Trick_Race@server` and `plugin on Trick_Race@server` act on the server copy; the plain folder name acts on your player copy. The server copies also reload with their files on their own. A server copy's console command runs only when no player copy has a command of that name.
+</Note>
+
+## On a dedicated server
+
+A dedicated server runs the server copies of the plugins in a `Plugins` folder beside `ReSkateServer.exe` (beside its `Mods` folder). Each plugin is a folder there with its `reskate-plugin.json`, and its `"side"` must be `"server"` or `"both"`:
+
+```text
+ReSkateServer.exe
+Mods/
+Plugins/
+  Trick_Race/
+    manifest.json
+    reskate-plugin.json
+    plugin/
+      main.lua
+      player.lua
+      server.lua
+```
+
+Copy the whole mod folder, `manifest.json` included, so the server's messages go under the same name as the players' copies. The server checks the folder every 2 s: a new plugin loads, a changed one reloads, and a removed one unloads. Like the game, it refuses a package that holds a program or a script Windows runs. Server copies keep their storage in `data/plugins` beside the server's config file.
+
+On a dedicated server, `reskate.session.active()` and `reskate.session.is_dedicated()` are `true`, and `reskate.session.players()` lists the players on the server. None of them is `me`: the server is not a player. Lines the plugins log and print go to the server's log.
+
+### Console commands on the server
+
+Type these in the server's console:
+
+| Command | What it does |
+| --- | --- |
+| `plugin` or `plugin list` | Lists the server plugins: running (with memory and time a tick), or stopped and why. |
+| `plugin commands` | Lists the console commands the server plugins added. |
+| `plugin reload <id>` | Unloads a plugin and loads it again from its files. `<id>` is its folder's name. |
+| `plugin off <id>` | Switches a plugin off until `plugin on`, or the server restarts. |
+| `plugin on <id>` | Starts a plugin that was switched off or stopped. |
+
+A plugin's own command, such as `trickrace reset`, runs from the server's console only for a line the server does not know, so a plugin can never hide one of the server's commands. The server answers `Ran by a plugin.` when one ran.
+
+## Where to go next
+
+- [Session and messages](/plugins/api/session): `reskate.session` and `reskate.net.send` in full.
+- [Server](/plugins/api/server): `kick`, `say`, `tell` and `move`.
+- [Limits](/plugins/limits): message sizes and rates.
+- [Examples](/plugins/examples): reskate-test's server copy answers `ptest server`.

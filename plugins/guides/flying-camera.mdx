@@ -1,0 +1,222 @@
+---
+title: "A free-flying camera"
+description: "Take the game's camera, fly it with the keyboard, mouse and a gamepad, roll it into turns, and give it back."
+---
+
+This guide builds a free camera: press F6 and the view leaves the skater and flies where you steer it, banking into its turns, until you press F6 again. It needs the `camera`, `input`, `skater.read` and `console` [permissions](/plugins/permissions). The functions are on the [camera](/plugins/api/camera) and [input](/plugins/api/input) pages.
+
+## 1. The package
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "permissions": ["camera", "input", "skater.read", "console"]
+}
+```
+
+## 2. Start and finish
+
+The flight is a table: where the camera is, and which way it faces. It starts 2 m above the skater, facing the way the skater faces.
+
+```lua
+local fly = nil -- {at, yaw, pitch, roll} while flying
+
+local function start()
+    local s = reskate.skater.get()
+    if not s then return reskate.console.print("fly: there is no skater") end
+    fly = {at = s.position + vector.create(0, 2, 0), yaw = s.heading, pitch = 0, roll = 0}
+end
+
+local function finish()
+    fly = nil
+    reskate.input.capture(false)
+    reskate.camera.release()
+end
+```
+
+`reskate.camera.release()` gives the view back to the game's own camera, and `reskate.input.capture(false)` gives the controller back to the game. Always do both when the flight ends.
+
+A key starts and stops it. `reskate.input.bind(action, key)` names an action on a key or a pad combo, and the `action` event says its name each time it is pressed, while the game has the input (no menu, console or text box open). The player can change the key on the Binds page.
+
+```lua
+reskate.input.bind("fly", "F6")
+reskate.on("action", function(name)
+    if name ~= "fly" then return end
+    if fly then finish() else start() end
+end)
+reskate.console.command("fly", "Starts or stops the free camera", function()
+    if fly then finish() else start() end
+end)
+```
+
+Stop flying when the level goes, so the camera is not held over a load:
+
+```lua
+reskate.on("level_unloading", function()
+    if fly then finish() end
+end)
+```
+
+## 3. Which way is which
+
+A heading is in radians about world up: 0 faces +Z, pi/2 faces +X, and a higher heading is turned to the left. The skater's `heading` and the camera's `yaw` here work the same way. From the yaw and the pitch (up and down):
+
+```lua
+local function directions(yaw, pitch)
+    local forward = vector.create(math.sin(yaw) * math.cos(pitch), math.sin(pitch), math.cos(yaw) * math.cos(pitch))
+    local right = vector.create(-math.cos(yaw), 0, math.sin(yaw))
+    return forward, right
+end
+```
+
+Turning right lowers the yaw, so the mouse's movement to the right is taken off it.
+
+## 4. The keyboard and mouse
+
+`reskate.input.flight()` returns the flight keys and the mouse, the way the game's free camera reads them:
+
+| Field | From | Values |
+| --- | --- | --- |
+| `forward` | W and S | -1, 0 or 1 |
+| `right` | D and A | -1, 0 or 1 |
+| `up` | E and Q | -1, 0 or 1 |
+| `boost` | Shift | `true` or `false` |
+| `look_x`, `look_y` | The mouse, while its right button is held | Pixels moved since the last read |
+
+It returns `nil` unless the plugin's camera is the one shown, and while a menu, the console or a text box is open or the game's window is not in front. Read it once a tick: the mouse's movement is used up as it is read.
+
+## 5. A gamepad
+
+`reskate.input.gamepad()` returns the controller, or `nil` without one or while the game's window is not in front. Its sticks (`left_x`, `left_y`, `right_x`, `right_y`) run from -1 to 1, with up as positive `y`. Its triggers (`left_trigger`, `right_trigger`) run from 0 to 1. `buttons` holds `true` or `false` for `a`, `b`, `x`, `y`, `lb`, `rb`, `up`, `down`, `left`, `right`, `start`, `back`, `left_stick` and `right_stick`, and `playstation` says whether it is a PlayStation controller.
+
+The values come as the pad reads them: give the sticks a dead zone of your own.
+
+```lua
+local DEAD = 0.15
+local function stick(value)
+    return math.abs(value) < DEAD and 0 or value
+end
+```
+
+## 6. Keep the controller from the game
+
+While you fly with a gamepad, the game would read it too and skate. `reskate.input.capture(true)` keeps the controller from the game for 250 ms, so call it every tick the flight goes on. It works only while the plugin's camera is the one shown, and returns `false` and why otherwise (as it does on the first tick, before the view has switched). The plugin still reads the pad with `gamepad()` while it is captured.
+
+<Tip>
+Capture keeps the controller from the game, not the keyboard. To hold the skater still while you fly, `reskate.skater.freeze(true)` (the `skater.control` permission) does it, and `reskate.skater.freeze(false)` lets it go. The game refuses it when the session's host has turned noclip off. See [skater](/plugins/api/skater).
+</Tip>
+
+## 7. Set the camera each tick
+
+`reskate.camera.set(position, forward, up, fov)` shows the view from `position` along `forward`. `up` gives its roll: the camera's top leans towards it. It need not be exactly at right angles to `forward`, but it cannot point along it. `fov` is the vertical field of view, 10 to 150 degrees; `nil` or 0 keeps the camera's own. It returns `ok, why`: one plugin holds the camera at a time, and another plugin holding it, or following a player with it, refuses yours.
+
+The view stays where you last set it, so set it every tick the camera moves. To roll the camera, lean `up` towards the camera's right by the roll angle:
+
+```lua
+local up = vector.create(0, 1, 0) * math.cos(fly.roll) + right * math.sin(fly.roll)
+local ok, why = reskate.camera.set(fly.at, forward, up, 75)
+```
+
+Here the roll follows how fast you strafe, so the camera banks into its turns and levels out again.
+
+`reskate.camera.held()` returns `true` while the plugin's view is the one shown, or `false` and why not: waiting for the game's camera, or Spectate has it. Spectate takes the camera back while it runs.
+
+## The whole plugin
+
+```lua
+-- plugin/main.lua: a free-flying camera on F6
+local SPEED, BOOST = 6, 20  -- metres a second
+local MOUSE_TURN = 0.003    -- radians a pixel
+local PAD_TURN = 2.5        -- radians a second at full stick
+local BANK = 0.35           -- radians of roll at full strafe
+local DEAD = 0.15
+
+local fly = nil
+
+local function stick(value)
+    return math.abs(value) < DEAD and 0 or value
+end
+
+local function directions(yaw, pitch)
+    local forward = vector.create(math.sin(yaw) * math.cos(pitch), math.sin(pitch), math.cos(yaw) * math.cos(pitch))
+    local right = vector.create(-math.cos(yaw), 0, math.sin(yaw))
+    return forward, right
+end
+
+local function start()
+    local s = reskate.skater.get()
+    if not s then return reskate.console.print("fly: there is no skater") end
+    fly = {at = s.position + vector.create(0, 2, 0), yaw = s.heading, pitch = 0, roll = 0}
+end
+
+local function finish()
+    fly = nil
+    reskate.input.capture(false)
+    reskate.camera.release()
+end
+
+local function toggle()
+    if fly then finish() else start() end
+end
+
+reskate.input.bind("fly", "F6")
+reskate.on("action", function(name)
+    if name == "fly" then toggle() end
+end)
+reskate.console.command("fly", "Starts or stops the free camera", toggle)
+reskate.on("level_unloading", function()
+    if fly then finish() end
+end)
+
+reskate.on("tick", function(dt)
+    if not fly then return end
+    local seconds = math.min(dt, 100) / 1000
+
+    -- What the player asks for: from the keys and mouse, and from a pad.
+    local forward_in, right_in, up_in, boost = 0, 0, 0, false
+    local keys = reskate.input.flight()
+    if keys then
+        forward_in, right_in, up_in, boost = keys.forward, keys.right, keys.up, keys.boost
+        fly.yaw -= keys.look_x * MOUSE_TURN
+        fly.pitch -= keys.look_y * MOUSE_TURN
+    end
+    local pad = reskate.input.gamepad()
+    if pad then
+        forward_in += stick(pad.left_y)
+        right_in += stick(pad.left_x)
+        up_in += pad.right_trigger - pad.left_trigger
+        boost = boost or pad.buttons.a
+        fly.yaw -= stick(pad.right_x) * PAD_TURN * seconds
+        fly.pitch += stick(pad.right_y) * PAD_TURN * seconds
+    end
+    fly.pitch = math.clamp(fly.pitch, -1.4, 1.4)
+    forward_in = math.clamp(forward_in, -1, 1)
+    right_in = math.clamp(right_in, -1, 1)
+    up_in = math.clamp(up_in, -1, 1)
+
+    -- Move, and bank into the strafe.
+    local forward, right = directions(fly.yaw, fly.pitch)
+    local speed = boost and BOOST or SPEED
+    fly.at += (forward * forward_in + right * right_in + vector.create(0, up_in, 0)) * speed * seconds
+    fly.roll += (right_in * BANK - fly.roll) * math.min(1, seconds * 4)
+
+    local up = vector.create(0, 1, 0) * math.cos(fly.roll) + right * math.sin(fly.roll)
+    local ok, why = reskate.camera.set(fly.at, forward, up, 75)
+    if not ok then
+        reskate.console.print("fly: " .. tostring(why))
+        return finish()
+    end
+    reskate.input.capture(true) -- renewed every tick: it lasts 250 ms
+end)
+```
+
+<Note>
+When the plugin stops or unloads, the game takes back everything it held: the camera, the captured controller, its binds and a freeze. Still release them yourself as soon as the flight ends, so the player gets their camera back at once.
+</Note>
+
+## Where to go next
+
+- [Camera](/plugins/api/camera): `look`, `set`, `follow`, `get`, `held` and `release`.
+- [Input](/plugins/api/input): `bind`, `flight`, `gamepad`, `joystick` (a joystick or radio) and `capture`.
+- [Examples](/plugins/examples): `ptest fly` and `ptest pad` in reskate-test.

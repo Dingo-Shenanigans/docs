@@ -1,0 +1,223 @@
+---
+title: "Recording and playing clips"
+description: "Record your skater, play the clip back on its body, and make the game's kickflip play it."
+---
+
+This guide builds a small clip kit: `clip record` records a few seconds of your skater, `clip play` plays it back on the skater's body, and `clip kickflip` makes the game's own kickflip play it. It needs the `skater.animation` and `console` [permissions](/plugins/permissions). Every function is on the [animation](/plugins/api/animation) page.
+
+## How clips work
+
+A clip is a run of poses for the skater's body: the hips and every joint below them, frame by frame. A clip comes from one of two places:
+
+- **A recording** the plugin made with `reskate.animation.record`, named `"rec:1"`, `"rec:2"` and so on.
+- **A clip file** in the plugin's package: an Animation Studio clip file (FAS1 to FAS3), named by its path, such as `"clips/wave.fas"`.
+
+A clip plays on the body only. The joints the game places the skater with are never written, so the skater goes where the game takes it while the clip moves its body. A clip that has the board in it moves the board too; one without leaves the board to the game.
+
+<Warning>
+Other players see the clip on your skater, as you do: the pose the game sends for you is the one drawn. They do not need the plugin to see it.
+</Warning>
+
+## 1. The package
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "permissions": ["skater.animation", "console"]
+}
+```
+
+## 2. Record
+
+`reskate.animation.record(seconds)` starts recording the skater for 0.2 to 10 seconds. It returns `true`, or `false` and why: another plugin or a recording already going on, or no room left for the plugin's clips. A length outside 0.2 to 10 raises an error.
+
+The recording is not ready at once. `reskate.animation.recorded()` returns `nil` until it is done, then hands it over once as a clip's name (`"rec:1"`). Ask for it on a timer:
+
+```lua
+local recording = nil -- the clip's name, such as "rec:1"
+
+local function said(what, ok, why)
+    reskate.console.print("clip " .. what .. ": " .. (ok and "done" or ("refused: " .. tostring(why))))
+end
+
+reskate.console.command("clip record", "Records your skater: clip record [seconds]", function(args)
+    local seconds = math.clamp(tonumber(args[1]) or 3, 0.2, 10)
+    local ok, why = reskate.animation.record(seconds)
+    said("record", ok, why)
+    if not ok then return end
+    local give_up = reskate.time.now() + seconds * 1000 + 3000
+    local timer
+    timer = reskate.time.every(250, function()
+        local name = reskate.animation.recorded()
+        if name then
+            reskate.time.cancel(timer)
+            if recording then reskate.animation.forget(recording) end
+            recording = name
+            reskate.console.print("clip record: recorded " .. name)
+        elseif reskate.time.now() > give_up then
+            reskate.time.cancel(timer)
+            reskate.console.print("clip record: nothing came back")
+        end
+    end)
+end)
+```
+
+`reskate.animation.forget(name)` lets a clip go, and the memory it held with it. A clip still playing plays on.
+
+<Note>
+A plugin's clips hold at most 48 MB of poses (40 bytes a joint a frame). A recording needs room for 10 s of poses when it starts, so forget the clips you are done with. Recordings live in the plugin's memory only: they are gone when it reloads or stops.
+</Note>
+
+## 3. Play it back
+
+`reskate.animation.play(clip, options)` plays a clip on the skater's body from now, in place. It returns `ok, why`.
+
+| Option | Range | Default | What it does |
+| --- | --- | --- | --- |
+| `speed` | 0.1 to 4 | 1 | How fast it plays. |
+| `blend` | 0 to 2 | 0.15 | Seconds to blend in and out of the game's own animation. |
+| `loop` | `true` or `false` | `false` | Plays it over and over until stopped. |
+
+```lua
+reskate.console.command("clip play", "Plays the recording: clip play, clip play loop, clip play stop", function(args)
+    if args[1] == "stop" then
+        reskate.animation.stop()
+        return reskate.console.print("clip play: stopped")
+    end
+    if not recording then return reskate.console.print("clip play: run clip record first") end
+    said("play", reskate.animation.play(recording, {blend = 0.2, loop = args[1] == "loop"}))
+end)
+```
+
+`reskate.animation.stop()` stops the plugin's clip, and `reskate.animation.playing()` says whether one of its clips is playing now.
+
+A clip file plays the same way, by its path:
+
+```lua
+local ok, why = reskate.animation.play("clips/wave.fas", {speed = 1.5})
+```
+
+A clip file that is not there, is not an Animation Studio clip, has no frames, has more joints than the skater, or is larger than 8 MB raises an error, as does a path outside the package. Use `pcall` when the file might be wrong.
+
+`play` is refused while a throwdown runs, and while another plugin's clip plays: one plugin plays at a time. A plugin asks at most 4 times a second, a budget `play` shares with the plugin's other skater controls.
+
+## 4. Replace a trick
+
+`reskate.animation.replace(trick, clip, options)` makes one of the game's tricks play as a clip. The trick is the game's own name for it, such as `"kickflip"` or `"ollie"`. When the skater does that trick, the clip plays from its takeoff, its air (from its takeoff to its landing) stretched to the trick's. It returns `ok, why`.
+
+| Option | Values | What it does |
+| --- | --- | --- |
+| `pop` | `"low"`, `"mid"` or `"high"` | Only the trick done with that pop. Left out, any pop. |
+| `speed` | 0.1 to 4 (default 1) | How fast the clip plays. |
+
+Pass `nil` as the clip to give the trick back to the game.
+
+```lua
+local replaced = false
+reskate.console.command("clip kickflip", "Your kickflips play the recording, or the game's own again", function()
+    if not recording and not replaced then return reskate.console.print("clip kickflip: run clip record first") end
+    replaced = not replaced
+    said("kickflip " .. (replaced and "on" or "off"), reskate.animation.replace("kickflip", replaced and recording or nil))
+end)
+```
+
+Record a kickflip of your own first (`clip record`, then do one), so the clip has a takeoff and a landing to line up with.
+
+<Note>
+A plugin replaces at most 32 tricks. A trick (with its pop) another plugin replaces already is refused. A trick's name is at most 48 characters of letters, digits, `_`, `-` and spaces, and any case.
+</Note>
+
+To learn the game's name for a trick, `reskate.animation.trick()` returns the trick the skater is doing now, or `nil`:
+
+```lua
+reskate.console.command("clip names", "Says the game's name for your tricks for 10 s", function()
+    local last, until_ms = nil, reskate.time.now() + 10000
+    local timer
+    timer = reskate.time.every(50, function()
+        local name = reskate.animation.trick()
+        if name and name ~= last then
+            last = name
+            reskate.console.print("clip names: " .. name)
+        end
+        if reskate.time.now() > until_ms then reskate.time.cancel(timer) end
+    end)
+end)
+```
+
+## The limits
+
+- Clips are not written while a throwdown or a game of S.K.A.T.E. runs. `play` says so; a replacement just does not play.
+- One plugin records at a time, and one plays at a time.
+- When the plugin stops or unloads, its clip stops, its replacements are taken away, and its recordings are gone.
+
+## The whole plugin
+
+```lua
+-- plugin/main.lua: record a clip, play it, and make the kickflip play it
+local recording = nil
+local replaced = false
+
+local function said(what, ok, why)
+    reskate.console.print("clip " .. what .. ": " .. (ok and "done" or ("refused: " .. tostring(why))))
+end
+
+reskate.console.command("clip record", "Records your skater: clip record [seconds]", function(args)
+    local seconds = math.clamp(tonumber(args[1]) or 3, 0.2, 10)
+    local ok, why = reskate.animation.record(seconds)
+    said("record", ok, why)
+    if not ok then return end
+    local give_up = reskate.time.now() + seconds * 1000 + 3000
+    local timer
+    timer = reskate.time.every(250, function()
+        local name = reskate.animation.recorded()
+        if name then
+            reskate.time.cancel(timer)
+            if recording then reskate.animation.forget(recording) end
+            recording = name
+            reskate.console.print("clip record: recorded " .. name)
+        elseif reskate.time.now() > give_up then
+            reskate.time.cancel(timer)
+            reskate.console.print("clip record: nothing came back")
+        end
+    end)
+end)
+
+reskate.console.command("clip play", "Plays the recording: clip play, clip play loop, clip play stop", function(args)
+    if args[1] == "stop" then
+        reskate.animation.stop()
+        return reskate.console.print("clip play: stopped")
+    end
+    if not recording then return reskate.console.print("clip play: run clip record first") end
+    said("play", reskate.animation.play(recording, {blend = 0.2, loop = args[1] == "loop"}))
+end)
+
+reskate.console.command("clip kickflip", "Your kickflips play the recording, or the game's own again", function()
+    if not recording and not replaced then return reskate.console.print("clip kickflip: run clip record first") end
+    replaced = not replaced
+    said("kickflip " .. (replaced and "on" or "off"), reskate.animation.replace("kickflip", replaced and recording or nil))
+end)
+
+reskate.console.command("clip names", "Says the game's name for your tricks for 10 s", function()
+    local last, until_ms = nil, reskate.time.now() + 10000
+    local timer
+    timer = reskate.time.every(50, function()
+        local name = reskate.animation.trick()
+        if name and name ~= last then
+            last = name
+            reskate.console.print("clip names: " .. name)
+        end
+        if reskate.time.now() > until_ms then reskate.time.cancel(timer) end
+    end)
+end)
+```
+
+<Tip>
+After a new `clip record`, run `clip kickflip` twice (off, then on) so the kickflip plays the new recording: a replacement keeps the clip it was given.
+</Tip>
+
+## Where to go next
+
+- [Animation](/plugins/api/animation): every function, its arguments and refusals.
+- [Board](/plugins/api/board): moving, hiding and tossing the board's parts.
+- [Examples](/plugins/examples): `ptest record`, `ptest anim`, `ptest replace` and `ptest trickname` in reskate-test.

@@ -1,0 +1,424 @@
+---
+title: "Events"
+description: "All 22 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
+---
+
+This page lists every event `reskate.on` accepts. Five need no permission; each of the others needs the permission named in its section.
+
+## Handling an event
+
+### `reskate.on(event, handler)`
+
+Registers a function to run each time the event fires. Register handlers when the entry file runs, usually at its top level.
+
+<ParamField path="event" type="string" required>The event's name, one of the 22 on this page.</ParamField>
+<ParamField path="handler" type="function" required>Called with the event's arguments, described in each section below.</ParamField>
+
+It returns nothing. These raise a Lua error:
+
+- an unknown name: `there is no event "<name>" in this ReSkate`;
+- an event the plugin lacks the permission for: `the <name> event needs the "<permission>" permission in reskate-plugin.json`;
+- more than 256 handlers for one event: `more than 256 handlers for one event`.
+
+```lua
+reskate.on("tick", function(dt)
+    -- runs every tick
+end)
+```
+
+<Note>
+A handler stays registered until the plugin unloads; there is no way to remove one. Keep a flag and return early instead. Each handler call has 50 ms, and an error in a handler is logged and counts towards the plugin's [error limit](/plugins/limits#errors).
+</Note>
+
+### Order in a tick
+
+On a player's game, each tick hands out the trick events first, then the session's players, messages, events from other plugins, web answers, and the game's events (skater, bails, chat, music, throwdowns, binds). After them come each plugin's timers and `tick` handlers, then its `draw` handlers, then its screen and menu panels. Level events come as the game notices a level change.
+
+### Client and server copies
+
+The trick events and the level events reach only a plugin's client copy. A server copy on a dedicated server has no skater, so it hears no skater, chat or music events either. See [client and server copies](/plugins/overview#client-and-server-copies).
+
+## Events with no permission
+
+### `load`
+
+**Permission:** none.
+
+Fires once, after the entry file has run, each time the plugin loads (and reloads). The handler gets no arguments.
+
+```lua
+reskate.on("load", function()
+    reskate.log("loaded, API " .. reskate.api_version)
+end)
+```
+
+### `unload`
+
+**Permission:** none.
+
+Fires when the plugin unloads while it runs: its mod switched off or removed, its files changed, `plugin off`, or `plugin reload`. The handler gets no arguments. All `unload` handlers share 20 ms; the rest are skipped once it is spent.
+
+```lua
+reskate.on("unload", function()
+    reskate.log("unloading")
+end)
+```
+
+<Warning>
+`unload` does not fire when a plugin is stopped over a limit, nor when the game closes. Storage is saved every 2 seconds and when a plugin stops, so you need no `unload` handler to keep it.
+</Warning>
+
+### `tick`
+
+**Permission:** none.
+
+Fires every game tick, after the plugin's due timers.
+
+<ResponseField name="dt" type="number">Milliseconds since the last tick (0 on the first).</ResponseField>
+
+```lua
+local elapsed = 0
+reskate.on("tick", function(dt)
+    elapsed += dt
+    if elapsed >= 1000 then
+        elapsed -= 1000
+        reskate.log("another second")
+    end
+end)
+```
+
+### `level_loaded`
+
+**Permission:** none.
+
+Fires when a level is being played that was not before.
+
+<ResponseField name="name" type="string">The level's name, as `reskate.level.current().name` gives it.</ResponseField>
+
+```lua
+reskate.on("level_loaded", function(name)
+    reskate.log("now playing " .. name)
+end)
+```
+
+<Tip>
+A plugin that loads while a level is already up does not hear `level_loaded` for it. Read `reskate.level.current()` in a `load` handler too.
+</Tip>
+
+### `level_unloading`
+
+**Permission:** none.
+
+Fires when the level being played changes or goes away, before `level_loaded` for the next one.
+
+<ResponseField name="name" type="string">The name of the level being left.</ResponseField>
+
+```lua
+reskate.on("level_unloading", function(name)
+    reskate.log("leaving " .. name)
+end)
+```
+
+## Tricks
+
+### `trick_started`
+
+**Permission:** `events.tricks`.
+
+Fires when the local skater starts a trick, as the score HUD shows it.
+
+<ResponseField name="e.at" type="vector">Where the skater was when the trick began.</ResponseField>
+
+```lua
+reskate.on("trick_started", function(e)
+    reskate.log(string.format("trick from %.1f, %.1f, %.1f", e.at.x, e.at.y, e.at.z))
+end)
+```
+
+### `trick_landed`
+
+**Permission:** `events.tricks`.
+
+Fires when a trick lands and its points show in the line's score.
+
+<ResponseField name="e.points" type="number">The trick's points, at the multiplier it raised the line to.</ResponseField>
+<ResponseField name="e.multiplier" type="number">That multiplier.</ResponseField>
+<ResponseField name="e.started_at" type="vector">Where it began.</ResponseField>
+<ResponseField name="e.landed_at" type="vector">Where the skater was when it landed.</ResponseField>
+<ResponseField name="e.ms" type="number">Milliseconds from its start to its landing.</ResponseField>
+<ResponseField name="e.name" type="string">The trick the score HUD named last, such as `"Kickflip"`. May be empty.</ResponseField>
+
+```lua
+reskate.on("trick_landed", function(e)
+    local metres = vector.magnitude(e.landed_at - e.started_at)
+    reskate.log(string.format("%s: %.0f points over %.1f m in %.1f s", e.name, e.points, metres, e.ms / 1000))
+end)
+```
+
+### `line_broken`
+
+**Permission:** `events.tricks`.
+
+Fires when the line going on is lost to a slam or a wipeout.
+
+<ResponseField name="e.reason" type="string">`"slam"` or `"wipeout"`.</ResponseField>
+
+```lua
+reskate.on("line_broken", function(e)
+    reskate.log("line lost to a " .. e.reason)
+end)
+```
+
+## The skater
+
+### `skater_state`
+
+**Permission:** `events.skater`.
+
+Fires when the local skater's state changes, checked every tick.
+
+<ResponseField name="state" type="string">The new state: `"riding"`, `"air"`, `"wipeout"`, `"grinding"`, `"off_board"`, `"planted"`, `"other"` or `"none"` (no skater).</ResponseField>
+<ResponseField name="previous" type="string">The state before, from the same list.</ResponseField>
+
+```lua
+reskate.on("skater_state", function(state, previous)
+    if state == "grinding" then reskate.log("grind from " .. previous) end
+end)
+```
+
+`reskate.skater.state()` reads the same value at any time.
+
+### `bail`
+
+**Permission:** `events.skater`.
+
+Fires when the local skater wipes out: when its count of wipeouts this session goes up.
+
+<ResponseField name="e.count" type="number">How many wipeouts the skater has had this session.</ResponseField>
+<ResponseField name="e.force" type="number">The slam's force. Only present when the game recorded a slam in the last second.</ResponseField>
+<ResponseField name="e.cause" type="number">The game's number for the slam's cause. Present with `force`.</ResponseField>
+<ResponseField name="e.at" type="vector">Where the skater is. Absent without a skater.</ResponseField>
+
+```lua
+reskate.on("bail", function(e)
+    if e.force then
+        reskate.log(string.format("bail %d, force %.2f", e.count, e.force))
+    else
+        reskate.log("bail " .. e.count)
+    end
+end)
+```
+
+### `board_landed`
+
+**Permission:** `events.skater`.
+
+Fires when the board comes down from the air, read in the physics step where it happens.
+
+<ResponseField name="e.down_speed" type="number">How fast it was coming down, in metres per second.</ResponseField>
+<ResponseField name="e.speed" type="number">How fast it was going along, in metres per second.</ResponseField>
+<ResponseField name="e.onto" type="string">`"rail"` or `"ground"`.</ResponseField>
+
+```lua
+reskate.on("board_landed", function(e)
+    if e.down_speed > 8 then reskate.log("hard landing onto the " .. e.onto) end
+end)
+```
+
+### `body_hit`
+
+**Permission:** `events.skater`.
+
+Fires during a bail when part of the skater's body hits something hard enough to be heard: 3 metres per second or more along the contact. Feet never count. A bone fires at most once every 220 ms, and the body at most once every 70 ms.
+
+<ResponseField name="e.bone" type="string">The body part, such as `"Head"`, `"Left forearm"`, `"Right shin"` or `"Pelvis"`.</ResponseField>
+<ResponseField name="e.impact" type="number">The hit's speed along the contact, in metres per second.</ResponseField>
+<ResponseField name="e.vehicle" type="boolean">Whether it hit a vehicle.</ResponseField>
+<ResponseField name="e.board" type="boolean">Whether it hit the board.</ResponseField>
+
+```lua
+reskate.on("body_hit", function(e)
+    local what = e.vehicle and "a car" or e.board and "the board" or "the world"
+    reskate.log(string.format("%s hit %s at %.1f m/s", e.bone, what, e.impact))
+end)
+```
+
+The body parts are `Head`, `Neck`, `Left hand`, `Left forearm`, `Left upper arm`, `Left collarbone`, `Right hand`, `Right forearm`, `Right upper arm`, `Right collarbone`, `Upper chest`, `Chest`, `Lower back`, `Spine`, `Left shin`, `Left thigh`, `Right shin`, `Right thigh` and `Pelvis`.
+
+### `bail_end`
+
+**Permission:** `events.skater`.
+
+Fires once a bail's fall is over: when the body is up again, or 3 seconds after the fall began. It sums up what the body went through.
+
+<ResponseField name="e.seconds" type="number">How long the fall lasted.</ResponseField>
+<ResponseField name="e.left" type="number">The impacts of the left arm and leg, summed (metres per second).</ResponseField>
+<ResponseField name="e.right" type="number">The impacts of the right arm and leg, summed.</ResponseField>
+<ResponseField name="e.bones" type="table">The body parts that hit or slid, by name. Each is a table with `impact` (its impacts summed, metres per second) and `slide` (how far it slid, in metres). Names are those of `body_hit`, plus the feet and toes.</ResponseField>
+
+```lua
+reskate.on("bail_end", function(fall)
+    local worst, most = nil, 0
+    for name, bone in fall.bones do
+        if bone.impact > most then worst, most = name, bone.impact end
+    end
+    reskate.log(string.format("%.1f s fall, worst: %s", fall.seconds, worst or "nothing"))
+end)
+```
+
+## Drawing
+
+### `draw`
+
+**Permission:** `overlay`.
+
+Fires every tick, after the `tick` handlers, to draw this frame's shapes. The handler gets the drawing object, and drawing works only inside it. What it draws replaces what it drew the frame before. A server copy's drawing is never shown.
+
+<ResponseField name="d" type="table">The drawing object: `d:text`, `d:rect`, `d:line`, `d:circle`, `d:poly`, `d:world_text`, `d:world_line`, `d:world_circle`, `d:image`, `d:world_image`, `d:size` and `d:world_to_screen`. See [overlay](/plugins/api/overlay).</ResponseField>
+
+```lua
+reskate.on("draw", function(d)
+    d:text(vector.create(40, 40, 0), "Hello", {colour = "#ffffff", size = 24})
+end)
+```
+
+## Multiplayer
+
+### `player_joined`
+
+**Permission:** `session.read`.
+
+Fires for each player who comes into the session. When you join or start one, it fires for every player already in it, you included. The game checks the session four times a second.
+
+<ResponseField name="player.id" type="string">Their SteamID64, as a string.</ResponseField>
+<ResponseField name="player.name" type="string">Their name.</ResponseField>
+<ResponseField name="player.me" type="boolean">Whether it is you.</ResponseField>
+<ResponseField name="player.host" type="boolean">Whether they host the lobby (never on a dedicated server).</ResponseField>
+<ResponseField name="player.server" type="boolean">Whether it is the session's authority. Always `false` here.</ResponseField>
+
+```lua
+reskate.on("player_joined", function(player)
+    if not player.me then reskate.log(player.name .. " joined") end
+end)
+```
+
+### `player_left`
+
+**Permission:** `session.read`.
+
+Fires for each player who leaves. When you leave the session, it fires for every player in it, you included. The handler gets the same player table as `player_joined`.
+
+```lua
+reskate.on("player_left", function(player)
+    reskate.log(player.name .. " left")
+end)
+```
+
+### `message`
+
+**Permission:** `net.session`.
+
+Fires when the same plugin on another game sends you a message with `reskate.net.send`: one addressed to everyone, or to you. A server copy hears those addressed to everyone or to `"server"`.
+
+<ResponseField name="from" type="table">Who sent it, as a player table (`id`, `name`, `me`, `host`, `server`). For a message from the session's authority (a server copy), `server` is `true`, and `name` is `"Server"` when the session has no name for the sender.</ResponseField>
+<ResponseField name="payload" type="string">What was sent. A buffer arrives as a string of its bytes.</ResponseField>
+
+```lua
+reskate.on("message", function(from, payload)
+    local data = reskate.json.decode(payload)
+    reskate.log(from.name .. " is at checkpoint " .. tostring(data.checkpoint))
+end)
+```
+
+<Note>
+The session says who sent a message; a plugin cannot pretend to be another player or the authority. Only a server copy's messages arrive with `from.server` set.
+</Note>
+
+### `chat`
+
+**Permission:** `chat.read`.
+
+Fires for each new line in your chat, as you see it (filtered when you filter chat). Lines from before the first plugin listened are not delivered. At most 20 lines a tick are; older ones past that are dropped. Lines plugins add with [`reskate.chat.notice`](/plugins/api/chat) (tagged "Plugin") are never delivered, to the plugin that added them or to any other, so an echo cannot loop.
+
+<ResponseField name="line.sender" type="string">The sender's SteamID64, as a string; `"0"` for a notice from ReSkate itself.</ResponseField>
+<ResponseField name="line.name" type="string">The sender's name.</ResponseField>
+<ResponseField name="line.text" type="string">The line, as your chat shows it (masked when your chat filter caught something).</ResponseField>
+<ResponseField name="line.local" type="boolean">Whether you sent it.</ResponseField>
+<ResponseField name="line.server" type="boolean">Whether a dedicated server said it itself (its console, its welcome or its answers).</ResponseField>
+
+```lua
+reskate.on("chat", function(line)
+    if line.text == "!where" then reskate.log(line.name .. " asked where everyone is") end
+end)
+```
+
+### `throwdown`
+
+**Permission:** `throwdowns`.
+
+Fires when a throwdown starts or ends for you.
+
+<ResponseField name="e.phase" type="string">`"started"` or `"ended"`.</ResponseField>
+
+```lua
+reskate.on("throwdown", function(e)
+    reskate.log("throwdown " .. e.phase)
+end)
+```
+
+## Input and screens
+
+### `action`
+
+**Permission:** `input`.
+
+Fires once for each press of a combo the plugin bound with `reskate.input.bind`, while the game itself has the input (no menu, console or text box open). When the player set their own combo for the action on the **Binds** page, theirs is the one that fires it.
+
+<ResponseField name="name" type="string">The action's name, as given to `reskate.input.bind`.</ResponseField>
+
+```lua
+reskate.input.bind("mark", "F7")
+
+reskate.on("action", function(name)
+    if name == "mark" then reskate.log("marked") end
+end)
+```
+
+### `screen_closed`
+
+**Permission:** `ui.screen`.
+
+Fires when the player closes the plugin's open full-screen screen with Esc. It does not fire when the plugin closes it with `reskate.ui.close`.
+
+<ResponseField name="title" type="string">The title of the screen that closed.</ResponseField>
+
+```lua
+reskate.ui.screen("Scores", function(ui)
+    ui:label("Press Esc to close")
+end)
+
+reskate.on("screen_closed", function(title)
+    reskate.log(title .. " closed")
+end)
+```
+
+## Music
+
+### `track_changed`
+
+**Permission:** `music`.
+
+Fires when the song in your outside music player (Spotify and the like) changes. It is checked once a second.
+
+<ResponseField name="track.app" type="string">The player it comes from.</ResponseField>
+<ResponseField name="track.title" type="string">The song's title.</ResponseField>
+<ResponseField name="track.artist" type="string">Its artist.</ResponseField>
+<ResponseField name="track.playing" type="boolean">Whether it is playing.</ResponseField>
+
+```lua
+reskate.on("track_changed", function(track)
+    reskate.log("now: " .. track.title .. " by " .. track.artist)
+end)
+```
+
+The event has no `album`; `reskate.music.current()` gives it.

@@ -1,0 +1,164 @@
+---
+title: "Plugins"
+description: "What a ReSkate plugin is, what it can and cannot do, and how ReSkate finds, runs and reloads it."
+---
+
+This page explains what a plugin is, how ReSkate runs it and how you manage plugins from the console. It needs no permission; the pages it links to say which permission each part of the API needs.
+
+## What a plugin is
+
+A plugin is a mod with two extra things in its folder:
+
+- a `reskate-plugin.json` beside the mod's `manifest.json`, which makes the mod a plugin (see [the manifest](/plugins/manifest)), and
+- Luau scripts, starting with the entry file the manifest names, such as `plugin/main.lua`.
+
+Plugins are written in Luau, Roblox's dialect of Lua 5.1. ReSkate gives each plugin its own Luau VM, sandboxed. Nothing a plugin does reaches the game except through the `reskate` table, and every call into it checks its arguments and its [permission](/plugins/permissions) before anything happens.
+
+```lua
+-- plugin/main.lua
+reskate.console.command("hi", "Says hello: hi", function(args)
+    reskate.console.print("Hello from " .. reskate.id)
+end)
+```
+
+## What a plugin can do
+
+What a plugin may touch depends on the permissions its manifest lists. With none, it gets the base set: logging, events such as `tick` and `level_loaded`, timers, its own files, JSON, and functions and events shared with other plugins. Each permission then unlocks one area, for example:
+
+- reading the skater, its tricks and its bails (`skater.read`, `events.tricks`, `events.skater`),
+- drawing on the screen and in the world, menu panels and full-screen screens (`overlay`, `menu`, `ui.screen`),
+- moving the skater, the camera and the board, and playing animation clips (`skater.teleport`, `skater.control`, `camera`, `board`, `skater.animation`),
+- talking to the same plugin on other players' games, and web requests to hosts it names (`net.session`, `net.http`),
+- running a session as its authority: kicking, announcing and moving players (`server`).
+
+[Permissions](/plugins/permissions) lists all 40 and what each one unlocks.
+
+## What a plugin can never do
+
+Some things are left out of the API on purpose, whatever a manifest asks for:
+
+- **Write cosmetics, entitlements or progression.** `progression.read` and `settings.read` only read. `outfit` wears tattoos, moles and eyewear over your outfit, and never a paid store item.
+- **Run ReSkate's console commands.** A plugin adds its own commands. ReSkate refuses a command name whose first word is one of ReSkate's, `plugin` or `help`.
+- **Reach game memory, files or programs.** There is no API for memory, no `io`, no `os.execute`, and no loading of code but the plugin's own Luau source. A plugin reads only files inside its own package.
+- **Use the microphone, voice audio or the clipboard.** `voice.control` sets how loud another player is to you, nothing more.
+
+[Limits](/plugins/limits) covers the sandbox and the limits that stop a plugin before it can harm the game.
+
+## How ReSkate finds plugins
+
+ReSkate looks through the `Mods` folder beside the game every 2 seconds. A mod is a plugin when:
+
+1. it is switched on (`mods.json` does not list it as off; a folder `mods.json` does not list is on), and
+2. it has a `reskate-plugin.json` at the top of its folder.
+
+A new plugin loads at the next game tick after ReSkate finds it, without a restart. When you switch its mod off or remove it, it unloads.
+
+<Warning>
+If `mods.json` cannot be read, the game loads no mods at all, and no plugins either.
+</Warning>
+
+### Hot reload
+
+ReSkate notices when any file of a plugin's folder changes (a name, a size or a write time). The plugin then unloads (its `unload` handlers run) and loads again from its files. Its [storage](/plugins/api/storage) is saved before it unloads and read back when it loads. The log says:
+
+```
+Plugin my-plugin reloading: its files changed.
+```
+
+A plugin you switched off with `plugin off` stays off when its files change.
+
+### Packages that are refused
+
+A plugin never ships a program. ReSkate refuses to load a plugin whose folder holds:
+
+- a Windows executable, found by its first bytes (`MZ`) whatever its name, or
+- a file with one of these extensions: `.exe`, `.dll`, `.sys`, `.scr`, `.com`, `.cpl`, `.msi`, `.msp`, `.bat`, `.cmd`, `.ps1`, `.psm1`, `.vbs`, `.vbe`, `.js`, `.jse`, `.wsf`, `.wsh`, `.hta`, `.lnk`, `.pif` or `.reg`, or
+- more than 20000 files.
+
+The log then says, for example:
+
+```
+Plugin my-plugin was not loaded: it holds tools/run.bat, a program or a script Windows runs. A plugin never ships one
+```
+
+<Note>
+`.js` is on the list: a plugin cannot ship JavaScript files, even ones it never runs.
+</Note>
+
+## The `plugin` console commands
+
+Open ReSkate's console to see and control plugins. `<id>` is the plugin's mod folder name, or `<folder>@server` for a server copy while this game hosts a lobby.
+
+| Command | What it does |
+| --- | --- |
+| `plugin list` | Lists the plugins: running (with memory, time a tick and command count), stopped and why, switched off, or not loaded here. While this game hosts a lobby, its server copies are listed too, as `<folder>@server`. |
+| `plugin commands` | Lists the console commands plugins added, with their help and the plugin that owns each. |
+| `plugin reload <id>` | Unloads the plugin and loads it again from its files. |
+| `plugin off <id>` | Switches the plugin off until `plugin on <id>`, or the next launch. Its mod stays on. |
+| `plugin on <id>` | Starts a plugin that was switched off or stopped. |
+
+`plugin list` prints one line a plugin:
+
+```
+my-plugin: running, 1.4 MB, 0.042 ms a tick, 2 commands
+broken-plugin: stopped (more than 5 errors in 10 s)
+quiet-plugin: switched off (plugin on quiet-plugin starts it again)
+referee: not loaded (it is a server plugin)
+referee@server: running, 0.6 MB, 0.010 ms a tick, 1 command
+```
+
+`plugin reload` and `plugin on` answer `Plugin <id> reloaded.` or `Plugin <id> started.` when it runs, and `error: Plugin <id> did not start: <why>` when it does not. For a server copy the answer names its folder, without `@server`.
+
+<Note>
+In the game, `plugin reload`, `plugin off` and `plugin on` act on a plugin's client copy, and on its server copy when you add `@server` to its id: `plugin reload referee@server`. Server copies run only while this game hosts a lobby; at other times `<folder>@server` answers `error: server copies run only while this game hosts a lobby.` A dedicated server's console has the same `plugin` commands for its own plugins, with no `@server`.
+</Note>
+
+<Tip>
+After a plugin stops over a limit, fix it and save a file: the change reloads it. `plugin on <id>` starts it again without a change.
+</Tip>
+
+## Client and server copies
+
+A plugin can run in two places:
+
+- **The client copy** runs on a player's game. It draws, reads the local skater and plays sounds.
+- **The server copy** is the session's authority. It runs on the game of a lobby's host (while that game hosts a lobby that is not on a dedicated server) and on a dedicated server, which loads plugins from a `Plugins` folder beside it. A server copy draws nothing.
+
+The manifest's `side` picks where a plugin runs: `"client"` (the default), `"server"` or `"both"`. A `"both"` plugin on a lobby's host runs twice there, as two separate VMs.
+
+On a lobby's host, the server copy has an id of its own, `<folder>@server`, and [`reskate.id`](/plugins/api/base) says so. Everything it holds in the game goes under that id, as do its log lines (`[<folder>@server] ...`), its storage and its console commands. The two copies share nothing in the game: when the server copy stops, or the game stops hosting, the client copy keeps its camera, its sounds, its outfit items, its board changes and the rest. On a dedicated server, the server copy's id is its folder name, with no `@server`.
+
+Your code tells the copies apart with `reskate.side`: `"server"` in the server copy, `"client"` in the client copy.
+
+```lua
+if reskate.side == "server" then
+    require("server") -- plugin/server.lua: the authority's part
+    return
+end
+-- the client's part from here on
+```
+
+Only the server copy can use the `server` functions (kick, announce, tell, move a player). Client copies talk to it with `reskate.net.send("server", ...)`, and it answers to `"all"` or to one player. The same plugin on every game shares one message channel: the `name` in its `manifest.json`.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/plugins/quickstart">
+    Make a first plugin with a console command and a speed readout.
+  </Card>
+  <Card title="Manifest" icon="file-code" href="/plugins/manifest">
+    Every field of `reskate-plugin.json`, and the rules it is checked against.
+  </Card>
+  <Card title="Permissions" icon="key" href="/plugins/permissions">
+    All 40 permissions: what each unlocks and what other players see.
+  </Card>
+  <Card title="Limits" icon="gauge" href="/plugins/limits">
+    The sandbox, every limit, and what happens when a plugin goes over one.
+  </Card>
+  <Card title="Events" icon="bolt" href="/plugins/events">
+    The 22 events, when they fire and what they hand your handler.
+  </Card>
+  <Card title="Base API" icon="code" href="/plugins/api/base">
+    `reskate.id`, `reskate.side`, `reskate.log`, `reskate.on` and `require`.
+  </Card>
+</CardGroup>

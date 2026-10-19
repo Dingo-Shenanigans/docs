@@ -1,0 +1,185 @@
+---
+title: "Board"
+description: "reskate.board: read the skateboard's motion and bones, and move, hide, park or toss its parts as they are drawn."
+---
+
+`reskate.board` reads the local skateboard and changes what is drawn of it. `reskate.board.motion` needs the `skater.read` permission; every other function needs the `board` permission. Calling a function without its permission raises an error. See [permissions](/plugins/permissions).
+
+A plugin changes only what is drawn. The next animation update writes the whole pose again, and what the plugin asked for is written over it every frame, as the pose goes to the renderer. The board itself, its physics and the skater riding it do not change.
+
+<Warning>
+`reskate.board` sends nothing to other players. `set`, `hide` and `toss` change your own board as your game draws it. `park` changes every board your game draws, other players' boards included, but only on your game.
+</Warning>
+
+## The rig
+
+The board is a rig of 16 bones, numbered 0 to 15. Each bone sits in its parent's frame.
+
+| Bone | What it is |
+| --- | --- |
+| 0 | The rig's reference. Never written. |
+| 1 | The board's place in the world. Never written: it places the board, and clips of the skater move it. |
+| 2 | The deck's mount. The deck, trucks and wheels hang on it. |
+| 3 | The deck. |
+| 4, 8 | The trucks. |
+| 6, 7, 10, 11 | The wheels. |
+| 12 to 15 | A breakable deck's four stretches. They are only in the deck model of a mod that has them (as Board Break's mods do). |
+| 5, 9 | Not named. |
+
+The functions that change bones take 2 to 15. Any other bone number raises an error.
+
+### Local and world space
+
+A bone you set is either in `"local"` space, its own parent's frame, as the pose holds it and as `bones()` reads it; or in `"world"` space, a position and rotation in the world. A world-space bone is written relative to wherever the board's place (bone 1) is that frame, so it stays put in the world while the board moves. Use world space for a bone that hangs on bone 1.
+
+## Reading
+
+### `reskate.board.motion()`
+
+The board's velocity in the last physics step.
+
+<ResponseField name="motion" type="table or nil">
+`nil` without a board.
+<Expandable title="fields">
+<ResponseField name="velocity" type="vector">Metres per second, in the world.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local motion = reskate.board.motion()
+if motion and vector.magnitude(motion.velocity) > 15 then
+    reskate.log("fast")
+end
+```
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.board.bones()`
+
+The local board's 16 bones as last drawn, each in its parent's frame.
+
+<ResponseField name="bones" type="table or nil">
+`nil` without a board. A table indexed 0 to 15 (note the 0: `ipairs` skips it).
+<Expandable title="each bone">
+<ResponseField name="position" type="vector">In the parent's frame.</ResponseField>
+<ResponseField name="rotation" type="table">A quaternion `{x, y, z, w}`.</ResponseField>
+<ResponseField name="scale" type="vector">The bone's scale.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local bones = reskate.board.bones()
+if bones then
+    for i = 0, 15 do
+        reskate.log(string.format("bone %d at %s", i, tostring(bones[i].position)))
+    end
+end
+```
+
+<Note>Needs the `board` permission.</Note>
+
+## Changing
+
+One plugin holds the local board at a time. The first `set`, `hide` or `toss` takes it; another plugin's call is refused with `"<plugin> holds the board"` until the holder clears every bone it set and its tossed piece.
+
+### `reskate.board.set(bone, pose)`
+
+Draws a bone where you say, every frame, until you clear it.
+
+<ParamField path="bone" type="number" required>2 to 15.</ParamField>
+<ParamField path="pose" type="table" required>
+<Expandable title="fields">
+<ParamField path="position" type="vector" required>Where the bone goes. Finite, within 100 km; the game refuses one more than 1000 m from its origin.</ParamField>
+<ParamField path="rotation" type="table" default="{0, 0, 0, 1}">A quaternion `{x, y, z, w}` of 4 finite numbers. It is normalised; one of no length raises an error.</ParamField>
+<ParamField path="space" type="string" default="local">`"local"` or `"world"`.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the bone is set.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"<plugin> holds the board"` or `"a bone's place is finite"`.</ResponseField>
+
+```lua
+-- Lift the deck 10 cm off its mount.
+local bones = reskate.board.bones()
+if bones then
+    reskate.board.set(3, {position = bones[3].position + vector.create(0, 0.1, 0), rotation = bones[3].rotation})
+end
+```
+
+Only the bone's position and rotation are written; its scale stays as the animation has it.
+
+<Note>Needs the `board` permission.</Note>
+
+### `reskate.board.hide(bone)`
+
+Moves a bone out of sight (far below the board), every frame, until you clear it. What hangs on the bone goes with it.
+
+<ParamField path="bone" type="number" required>2 to 15.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the bone is hidden.</ResponseField>
+<ResponseField name="why" type="string">`"<plugin> holds the board"` when another plugin has it.</ResponseField>
+
+```lua
+reskate.board.hide(3) -- the deck goes, the trucks and wheels stay
+```
+
+<Note>Needs the `board` permission.</Note>
+
+### `reskate.board.clear(bone)`
+
+Gives bones back to the animation.
+
+<ParamField path="bone" type="number">2 to 15: that bone only, set or hidden. Without it: every bone this plugin set or hid, its tossed piece, and its `park` list.</ParamField>
+
+Returns nothing. Clearing what the plugin does not hold does nothing.
+
+```lua
+reskate.board.clear()
+```
+
+<Note>Needs the `board` permission. When the plugin stops, everything it did to the board is cleared.</Note>
+
+### `reskate.board.park(bones)`
+
+Keeps these bones out of sight on every board your game draws, other players' too. It is meant for a breakable deck's stretches (12 to 15): the game draws a deck's layers so that stretches left inside the deck would show through as cracks.
+
+<ParamField path="bones" type="table" required>A list of 0 to 16 bone numbers, each 2 to 15. It replaces this plugin's list; an empty list `{}` parks nothing.</ParamField>
+
+Returns nothing. Every plugin has its own list; a bone is parked while any list has it. `park` does not take the board, so it works while another plugin holds it.
+
+```lua
+reskate.board.park({12, 13, 14, 15})
+```
+
+<Note>Needs the `board` permission.</Note>
+
+### `reskate.board.toss(bones, motion)`
+
+A piece of the board comes off: these bones leave together from where they are drawn, fly, fall, land flat on the ground height you give, slide a little and lie there until you clear them. The bones should hang on bone 1 (the deck's mount and what is on it, or a deck's stretches).
+
+<ParamField path="bones" type="table" required>A list of 1 to 16 bone numbers, each 2 to 15.</ParamField>
+<ParamField path="motion" type="table" required>
+<Expandable title="fields">
+<ParamField path="velocity" type="vector" required>Metres per second, in the world. At most 50 m/s.</ParamField>
+<ParamField path="spin" type="vector" default="no spin">Radians per second about each world axis. At most 50 rad/s.</ParamField>
+<ParamField path="ground" type="number" required>The world height it lands on (a `y`). Use `reskate.world.raycast` to find it.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the piece is tossed.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"<plugin> holds the board"`, `"a piece leaves at most 50 m/s, turning at most 50 rad/s"` or `"asked more than 4 times in a second"`.</ResponseField>
+
+```lua
+local s = reskate.skater.get()
+if s then
+    local hit = reskate.world.raycast(s.position + vector.create(0, 1, 0), s.position - vector.create(0, 5, 0))
+    local ground = hit and hit.y or s.position.y
+    reskate.board.toss({8}, {velocity = vector.create(1, 3, 1), spin = vector.create(4, 2, 0), ground = ground})
+end
+```
+
+A plugin has one piece at a time: a new toss replaces the last. `clear()` without a bone takes the piece away.
+
+<Note>
+Needs the `board` permission (and `world.raycast` for the example's raycast). Shares the budget of 4 control calls a second with `skater.noclip`, `boost`, `freeze`, `camera.follow`, `ai.spawn`, `animation.play` and `outfit.set`.
+</Note>

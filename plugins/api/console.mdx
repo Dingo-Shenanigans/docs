@@ -1,0 +1,63 @@
+---
+title: "Console"
+description: "reskate.console: print to ReSkate's console and add your own console commands."
+---
+
+`reskate.console` prints to ReSkate's console and adds console commands that run your functions. Both need the `console` [permission](/plugins/permissions).
+
+### `reskate.console.print(text)`
+
+Prints a line in ReSkate's console. On a dedicated server, the line goes to the server's log.
+
+<ParamField path="text" type="any" required>What to print. Any value is turned into text as `tostring` does. A line that starts with `error: ` is shown as an error.</ParamField>
+
+```lua
+reskate.console.print("my-plugin: 3 spots saved")
+reskate.console.print("error: that spot is taken")
+```
+
+<Note>
+Needs `console`. Shares a budget of 50 lines a second with `reskate.log` and `print`; past it, the rest of that second's lines are left out. A line longer than 2000 characters is cut short.
+</Note>
+
+### `reskate.console.command(name, help, fn)`
+
+Adds a console command. When the player types a line that starts with its name, `fn` runs with the words after the name.
+
+<ParamField path="name" type="string" required>
+1 to 3 words of lowercase letters `a-z`, digits `0-9`, `_` and `-`, with one space between them: `"spots"`, `"spots save"`, `"my-mode start now"`. At most 48 characters, no leading or trailing space.
+</ParamField>
+<ParamField path="help" type="string" required>One line saying what it does. `plugin commands` lists it. Cut to 200 characters.</ParamField>
+<ParamField path="fn" type="function" required>Called with one argument: a list of the words typed after the name (possibly empty).</ParamField>
+
+```lua
+reskate.console.command("spots save", "Saves where you stand as a spot: spots save <name>", function(args)
+    local name = args[1]
+    if not name then
+        reskate.console.print("error: spots save <name>")
+        return
+    end
+    reskate.console.print("saved " .. name)
+end)
+```
+
+Typing `spots save ledge` runs the function with `{"ledge"}`. Names are matched without regard to case, and the longest name the line starts with wins, so one plugin can have `spots` and `spots save` side by side.
+
+#### Names that are refused
+
+`reskate.console.command` raises an error when:
+
+- the name breaks the rules above;
+- its first word is `plugin`, `help`, or the first word of any of ReSkate's own console commands (`load`, for example). Pick a word of your own, such as your plugin's name;
+- another plugin has the same command, or one that one of the two starts with: when another plugin has `spots`, you cannot add `spots` or `spots save`, and the other way round;
+- this plugin added the same name already;
+- the plugin has 64 commands already.
+
+```lua
+local ok, why = pcall(reskate.console.command, "load mine", "x", function() end)
+-- ok is false: ReSkate has a console command "load"
+```
+
+<Note>
+Needs `console`. Each command call has 50 ms, like any handler. A plugin's commands go away when it stops or unloads. `plugin commands` in the console lists every plugin's commands with their help. On a dedicated server, a plugin's command runs only for a line the server does not know itself.
+</Note>

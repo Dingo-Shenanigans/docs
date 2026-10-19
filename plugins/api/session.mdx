@@ -1,0 +1,191 @@
+---
+title: "Session and messages"
+description: "reskate.session, reskate.voice and reskate.net: who is in the multiplayer session, their skaters and voices, and messages between copies of your plugin."
+---
+
+This page covers the multiplayer session: who is in it (`reskate.session`, which needs `session.read`), other players' skaters (`session.skaters`), tags beside their nametags (`session.nametags`), their voice volume (`voice.control`), and messages between the copies of your plugin on every player's game (`reskate.net.send` and the `message` event, which need `net.session`). See [permissions](/plugins/permissions).
+
+## Players
+
+A player is a table:
+
+| Field | Type | What it is |
+| --- | --- | --- |
+| `id` | string | Their SteamID64, as a string: `"76561197960287930"`. |
+| `name` | string | Their name. |
+| `me` | boolean | `true` for the local player. |
+| `host` | boolean | `true` for the player who hosts the lobby. On a dedicated server nobody is the host. |
+| `server` | boolean | `true` only for a message from the session's authority (see below). |
+
+Functions that take a player take either the table or its `id` string.
+
+The session is read four times a second, so a player who just joined may take up to a quarter of a second to appear. The `player_joined` and `player_left` events (they need `session.read`) say who came and went; see [events](/plugins/events).
+
+### `reskate.session.active()`
+
+<ResponseField name="active" type="boolean">`true` while the player is in a multiplayer session.</ResponseField>
+
+### `reskate.session.is_dedicated()`
+
+<ResponseField name="dedicated" type="boolean">`true` when the session is on a dedicated server, `false` in a player's lobby or outside a session.</ResponseField>
+
+### `reskate.session.players()`
+
+Everyone in the session, the local player first.
+
+<ResponseField name="players" type="table">A list of players; empty outside a session.</ResponseField>
+
+```lua
+for _, p in reskate.session.players() do
+    reskate.log(p.name .. (p.me and " (you)" or "") .. (p.host and " (host)" or ""))
+end
+```
+
+### `reskate.session.me()`
+
+<ResponseField name="me" type="table or nil">The local player, or `nil` outside a session.</ResponseField>
+
+### `reskate.session.host()`
+
+<ResponseField name="host" type="table or nil">The player who hosts the lobby, or `nil` outside a session and on a dedicated server.</ResponseField>
+
+```lua
+local host = reskate.session.host()
+if host and host.me then
+    reskate.log("you host this lobby")
+end
+```
+
+<Note>`active`, `is_dedicated`, `players`, `me` and `host` need `session.read`.</Note>
+
+On a plugin's server copy on a dedicated server, `active` and `is_dedicated` are `true`, `players` lists the players on the server, and `me` and `host` are `nil`: the server is none of them.
+
+## Other players' skaters
+
+### `reskate.session.skaters()`
+
+Where the other players' skaters are, as the session last heard. The local skater is not in it: use [`reskate.skater.get`](/plugins/api/skater).
+
+<ResponseField name="skaters" type="table">
+A list of tables:
+
+- `id` (string): the player's id.
+- `position` (vector): the skater's position, in world metres.
+- `heading` (number): the way it faces, in radians, as the local skater's heading.
+- `age_ms` (number): how old that pose is, in milliseconds.
+</ResponseField>
+
+```lua
+reskate.on("draw", function(d)
+    for _, s in reskate.session.skaters() do
+        d:world_text(s.position + vector.create(0, 2.4, 0), "TARGET", {align = "centre", colour = "#ff4040"})
+    end
+end)
+```
+
+<Note>Needs `session.skaters`.</Note>
+
+### `reskate.session.tag(player, text, colour)`
+
+Puts a short tag beside a player's nametag, or takes yours away. Only this player sees it: it changes nothing on anyone else's game.
+
+<ParamField path="player" type="table or string" required>A player, or their id.</ParamField>
+<ParamField path="text" type="string">At most 16 characters of printable ASCII. `nil` or `""` takes your tag away.</ParamField>
+<ParamField path="colour" type="number" default="white">A number `0xRRGGBBAA`.</ParamField>
+
+```lua
+reskate.session.tag(player, "IT", 0xFF4040FF)
+-- later
+reskate.session.tag(player, nil)
+```
+
+<Note>
+Needs `session.nametags`. Raises an error for a player that is not one, text over 16 characters or not printable, and a colour that is not a whole number from `0` to `0xFFFFFFFF`. When several plugins tag the same player, one tag shows. Your tags go away when your plugin stops.
+</Note>
+
+## Voice
+
+### `reskate.voice.set_volume(player, volume)`
+
+Sets how loud a player's voice chat is for the local player. It changes only what this player hears.
+
+<ParamField path="player" type="table or string" required>A player, or their id.</ParamField>
+<ParamField path="volume" type="number" required>0 mutes them, 1 is as heard, up to 10.</ParamField>
+
+<ResponseField name="ok" type="boolean">`true` when it was set.</ResponseField>
+<ResponseField name="why" type="string">Why not, when `ok` is false: "more than 10 changes in a second", or the session's own answer when it refused.</ResponseField>
+
+```lua
+local ok, why = reskate.voice.set_volume(player, 0)
+if not ok then reskate.log("could not mute: " .. why) end
+```
+
+<Note>Needs `voice.control`. At most 10 changes a second; past them it returns `false` and why. Raises an error for a player that is not one, and a volume outside 0 to 10.</Note>
+
+## Messages
+
+Your plugin talks to the copies of itself on the other players' games, and to its server copy, with `reskate.net.send`. Messages go only to the same plugin: two copies are the same plugin when their `manifest.json` gives the same `name` (case does not matter), whatever their folders are called. A plugin with no `name` in its `manifest.json` uses its folder's name.
+
+The session says who sent a message: a plugin cannot pretend to be another player, or the server.
+
+### `reskate.net.send(to, message)`
+
+Sends a message.
+
+<ParamField path="to" type="string or table" required>
+Who gets it:
+
+- `"all"`: every other player's copy (and the server copy).
+- a player, or a player's id: that player's copy only.
+- `"server"`: the plugin's server copy only: on the lobby's host, or on the dedicated server. A server copy cannot send to `"server"`: it is the server.
+</ParamField>
+<ParamField path="message" type="string or buffer" required>At most 4082 bytes. Text, or binary in a string or a `buffer`.</ParamField>
+
+<ResponseField name="sent" type="boolean">`true` when it was sent; `false` outside a session, or when too many messages wait to go out.</ResponseField>
+
+```lua
+reskate.net.send("all", reskate.json.encode({kind = "score", value = 1250}))
+
+reskate.on("message", function(from, text)
+    local ok, data = pcall(reskate.json.decode, text)
+    if ok and data.kind == "score" then
+        reskate.console.print(from.name .. " scored " .. data.value)
+    end
+end)
+```
+
+A message is not delivered back to the copy that sent it.
+
+<Note>
+Needs `net.session`. A message is at most 4082 bytes, and a plugin sends at most 16 KB a second (each message counts 14 bytes more for its header). Raises an error past those, for `to` that is not `"all"`, `"server"`, a player or a player's id, for `"server"` from a server copy, and for a message that is not a string or a buffer.
+</Note>
+
+### The `message` event
+
+```lua
+reskate.on("message", function(from, message) end)
+```
+
+Fires when a message from another copy of your plugin arrives. It needs `net.session`.
+
+- `from` is the player who sent it. A message from the server copy has `from.server == true`; its `name` is the host's, or `"Server"` on a dedicated server.
+- `message` is always a string, even when it was sent as a buffer: use `buffer.fromstring` to read it as one.
+
+```lua
+-- the server copy answers pings; the players' copies hear the answer
+reskate.on("message", function(from, text)
+    if reskate.side == "server" and text == "ping" then
+        reskate.net.send(from, "pong")
+    elseif from.server and text == "pong" then
+        reskate.console.print("the server answered")
+    end
+end)
+
+reskate.console.command("ping server", "Asks the server copy for a pong", function()
+    reskate.net.send("server", "ping")
+end)
+```
+
+<Warning>
+Only `from.server` is a message you can trust to come from the session's authority. Any player can run a changed copy of your plugin and send what they like to `"all"`, to you or to `"server"`: check what arrives, and let the server copy decide what counts.
+</Warning>

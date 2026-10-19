@@ -1,0 +1,84 @@
+---
+title: "Web requests"
+description: "reskate.http.request: HTTPS requests to the hosts your manifest lists."
+---
+
+`reskate.http.request` makes an HTTPS request and calls you back with the answer. It needs the `net.http` [permission](/plugins/permissions), and it reaches only the host names the manifest's `"domains"` lists.
+
+## Domains
+
+List every host your plugin talks to in `reskate-plugin.json`:
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "permissions": ["net.http"],
+    "domains": ["api.example.com", "scores.example.org"]
+}
+```
+
+- At most 16 host names. Each is a plain name with at least one dot: letters, digits, `.` and `-`, no scheme, port, path or `*`. Case does not matter.
+- A request goes only to a host that is exactly one of them: `"example.com"` does not allow `api.example.com`.
+- `"domains"` without the `net.http` permission is an error in the manifest. See [the manifest](/plugins/manifest).
+
+## What a request may do
+
+- HTTPS only, on port 443, with TLS 1.2 or 1.3. A certificate that is not valid fails the request.
+- A host whose name resolves to a private, local or reserved address (your own network, loopback, link-local, multicast) is refused: a plugin never reaches the player's own network.
+- Redirects are not followed: a `301` or `302` comes back to you as it is, with its status.
+- No cookies and no Windows sign-in are sent. The user agent is `ReSkate-Plugin/<plugin id>`.
+- The answer is at most 1 MB and comes within 10 seconds, or the request fails.
+
+### `reskate.http.request(options, callback)`
+
+Starts a request. It returns at once; `callback` runs when the answer comes, at the start of a later tick.
+
+<ParamField path="options" type="table" required>
+What to request:
+
+- `url` (string, required): `https://<host>/<path>`, at most 2048 characters of printable ASCII with no spaces. The host is one from `"domains"`, optionally followed by `:443`, with no user name, password or other port. The path keeps its query (`?q=1`); with no path, `/` is asked for.
+- `method` (string): `"GET"` (the default) or `"POST"`.
+- `body` (string): what to send, at most 64 KB.
+- `content_type` (string): the body's `Content-Type` header, at most 100 characters of printable ASCII.
+</ParamField>
+<ParamField path="callback" type="function" required>Called with `(status, body, error)`: the HTTP status (`0` when the request failed), the answer's body (a string, maybe empty), and `nil`, or why it failed.</ParamField>
+
+<ResponseField name="id" type="integer or nil">The request's number, or `nil` when no request can be started now.</ResponseField>
+<ResponseField name="why" type="string">Why not, when `id` is `nil`: "web requests cannot be made now" (8 requests from all plugins are going on, or this game cannot make them).</ResponseField>
+
+```lua
+reskate.http.request({url = "https://api.example.com/v1/spots?level=downtown"}, function(status, body, err)
+    if err then
+        reskate.log("the request failed: " .. err, "warn")
+        return
+    end
+    if status ~= 200 then
+        reskate.log("the server said " .. status, "warn")
+        return
+    end
+    local ok, spots = pcall(reskate.json.decode, body)
+    if ok then reskate.log(#spots .. " spots") end
+end)
+```
+
+```lua
+reskate.http.request({
+    url = "https://scores.example.org/submit",
+    method = "POST",
+    body = reskate.json.encode({player = reskate.id, score = 125000}),
+    content_type = "application/json",
+}, function(status, body, err)
+    reskate.log("submitted: " .. status)
+end)
+```
+
+The reasons a request can fail, in `error`: its host name could not be found; its host is on a private or local network; it could not connect; it took longer than 10 s; it failed (no answer, or its certificate was not valid); its answer is larger than 1 MB (the body is then empty); its answer broke off.
+
+<Note>
+Needs `net.http`. Raises an error for a URL that is not `https://`, a host that is not in `"domains"`, a URL, body or content type that is too long or not printable, a method other than `GET` or `POST`, more than 10 requests in a minute, and more than 4 requests of this plugin waiting for an answer. A plugin that unloads before its answer comes never gets it. On a dedicated server, no request can be started: it returns `nil` and why.
+</Note>
+
+<Warning>
+What you send leaves the player's computer. Do not send anything about the player that they would not expect your plugin to share.
+</Warning>

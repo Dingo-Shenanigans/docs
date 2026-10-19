@@ -1,0 +1,145 @@
+---
+title: "Manifest"
+description: "Every field of reskate-plugin.json, the rules ReSkate checks it against, and the manifest.json name that becomes the plugin's channel."
+---
+
+This page covers `reskate-plugin.json`, the file that makes a mod a plugin, and the one field of the mod's `manifest.json` that plugins use. Neither needs a permission; the manifest is where you ask for them.
+
+## reskate-plugin.json
+
+Put `reskate-plugin.json` at the top of the mod folder, beside `manifest.json`. ReSkate reads it when it loads the plugin, and again each time the plugin reloads.
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "side": "client",
+    "permissions": ["console", "storage", "net.http"],
+    "domains": ["api.example.com"]
+}
+```
+
+The file must be a JSON object, at most 64 KB, nested at most 8 deep. ReSkate ignores fields it does not know.
+
+### `api`
+
+<ParamField path="api" type="integer" required>
+  The plugin API version the plugin was written for. This ReSkate has API 1. It must be a whole number, 1 or more, and no newer than the ReSkate running it.
+</ParamField>
+
+Your code reads the running ReSkate's version as `reskate.api_version`.
+
+### `entry`
+
+<ParamField path="entry" type="string" required>
+  The Luau file to run when the plugin loads, as a path inside the mod folder, such as `"plugin/main.lua"`. It must end in `.lua` or `.luau`.
+</ParamField>
+
+The path follows these rules:
+
+- `/` between folders, never `\`.
+- Inside the mod folder: not starting with `/`, no `..`, `.` or empty segments, and no `:` (no drive letters or streams).
+- Printable ASCII only, at most 260 characters.
+- No segment ending in a dot or a space.
+
+The entry's folder is where `require` looks for modules: with `"plugin/main.lua"`, `require("rules")` loads `plugin/rules.luau` or `plugin/rules.lua`. The entry file itself can be at most 1 MB.
+
+### `side`
+
+<ParamField path="side" type="string" default="client">
+  Where the plugin runs: `"client"`, `"server"` or `"both"`.
+</ParamField>
+
+- `"client"`: on each player's game.
+- `"server"`: as the session's authority, on a lobby host's game and on a dedicated server.
+- `"both"`: in both places, as two copies. Each copy reads `reskate.side` to know which it is.
+
+A plugin is listed as not loaded where it does not run. On a player's game a server plugin shows as `not loaded (it is a server plugin)`. See [client and server copies](/plugins/overview#client-and-server-copies).
+
+### `permissions`
+
+<ParamField path="permissions" type="string[]" default="[]">
+  The permissions the plugin uses, by name, such as `["console", "overlay"]`.
+</ParamField>
+
+Every name must be one of the 40 on [permissions](/plugins/permissions). A name listed twice counts once. With no permissions, a plugin has the base set: logging, events such as `tick`, timers, its own files, JSON, and the functions and events plugins share.
+
+The log names the permissions a plugin loaded with:
+
+```
+Plugin speedo loaded (console, overlay, skater.read).
+```
+
+<Tip>
+Ask only for what you use. Players see the list in the log, and a call into an area you did not ask for raises an error that names the permission it needs.
+</Tip>
+
+### `domains`
+
+<ParamField path="domains" type="string[]">
+  The host names `reskate.http.request` may reach, such as `["api.example.com"]`. At most 16. Needs the `net.http` permission.
+</ParamField>
+
+Each entry is a bare host name:
+
+- letters, digits, `.` and `-`, at most 253 characters, with at least one dot;
+- not starting or ending with a dot, and no `..`;
+- no scheme, port, path or `*`.
+
+ReSkate lowercases each name. A request goes only to a host listed here, exactly: `example.com` does not cover `api.example.com`.
+
+## Errors
+
+When the manifest breaks a rule, the plugin does not load. The log says why, and so does `plugin list` (as the plugin's reason):
+
+```
+Plugin speedo was not loaded: "side" must be "client", "server" or "both"
+```
+
+| Message | Cause |
+| --- | --- |
+| `reskate-plugin.json is larger than 64 KB` | The file is over 64 KB. |
+| `reskate-plugin.json is not valid JSON: <detail>` | The file does not parse, or nests deeper than 8. |
+| `reskate-plugin.json must hold a JSON object` | The top level is not `{ ... }`. |
+| `reskate-plugin.json needs "api": the API version it was written for (1)` | `api` is missing or not a whole number. |
+| `"api" must be 1 or more` | `api` is 0 or less. |
+| `written for plugin API <n>, and this ReSkate has API 1: update ReSkate` | `api` is newer than this ReSkate. |
+| `reskate-plugin.json needs "entry": the Lua file to run, such as "plugin/main.lua"` | `entry` is missing or not a string. |
+| `"entry" must be a path inside the mod folder, with / between folders and no ..` | `entry` breaks a path rule. |
+| `"entry" must be a .lua or .luau file` | `entry` ends in something else. |
+| `"side" must be "client", "server" or "both"` | `side` is another value, or not a string. |
+| `"permissions" must be a list of names` | `permissions` is not a list, or holds something other than strings. |
+| `unknown permission "<name>": check the spelling, or update ReSkate` | A name is not one of the 40. |
+| `"domains" must be a list of at most 16 host names` | `domains` is not a list, or has more than 16 entries. |
+| `"domains" must be a list of host names` | An entry is not a string. |
+| `"<entry>" is not a host name for "domains" (such as api.example.com: no scheme, port, path or *)` | An entry breaks a host name rule. |
+| `"domains" is for web requests: add the "net.http" permission too` | `domains` lists hosts without `net.http`. |
+
+Problems with the entry file itself come after the manifest passed. The plugin stops, and its reason starts with the entry's path: `plugin/main.lua not found`, `plugin/main.lua is larger than 1 MB`, a syntax error, or `plugin/main.lua raised an error as it ran` (the error itself is in the log line before).
+
+## manifest.json and the plugin's channel
+
+`manifest.json` is the mod's own description, as Thunderstore packages carry it. ReSkate's plugin host reads one field of it: `name`.
+
+```json
+{
+    "name": "Speedo",
+    "version_number": "1.0.0",
+    "website_url": "",
+    "description": "Shows your speed in the top left of the screen.",
+    "dependencies": []
+}
+```
+
+<ParamField path="name" type="string">
+  The plugin's channel: the name its messages go under. When `manifest.json` has no `name`, or it is empty, the mod's folder name is used.
+</ParamField>
+
+The channel ties the copies of one plugin together across games:
+
+- `reskate.net.send` delivers only to the same channel on other games, compared without case. Two players can name the folder differently, and their copies still hear each other.
+- Other plugins can find yours by its channel or by its folder name, without case, in `reskate.require_plugin` and `reskate.on_plugin`.
+
+<Warning>
+Two different plugins with the same `name` share a channel and hear each other's messages. Pick a name that is yours, such as the one you publish under on Thunderstore.
+</Warning>

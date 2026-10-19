@@ -1,0 +1,79 @@
+---
+title: "Chat"
+description: "reskate.chat and the chat event: send to the session's chat, show lines only this player sees, and read what is said."
+---
+
+Your plugin can say something in the session's chat as the player (`reskate.chat.send`, which needs `chat.send`), show a line only this player sees (`reskate.chat.notice`, which needs `chat.local`), and hear every chat line (the `chat` event, which needs `chat.read`). See [permissions](/plugins/permissions).
+
+Chat is the multiplayer session's: outside a session there is none.
+
+### `reskate.chat.send(text)`
+
+Sends a chat line to everyone in the session, as the local player, as if they had typed it.
+
+<ParamField path="text" type="string" required>1 to 200 characters. It cannot start with `/`: a plugin cannot run chat commands.</ParamField>
+
+<ResponseField name="ok" type="boolean">`true` when it was sent.</ResponseField>
+<ResponseField name="why" type="string">Why not, when `ok` is false: "one line every 3 s", "not in a session", or the session's own answer when it refused the line.</ResponseField>
+
+```lua
+reskate.on("trick_landed", function(trick)
+    if trick.points > 100000 then
+        local ok, why = reskate.chat.send(string.format("landed a %d point line", trick.points))
+        if not ok then reskate.log("not said: " .. why) end
+    end
+end)
+```
+
+<Note>Needs `chat.send`. One line every 3 seconds; sooner, it returns `false` and why. Raises an error for empty text, text over 200 characters, and text that starts with `/`.</Note>
+
+<Warning>
+Everyone in the session sees the line, under the player's name. Send only what the player expects your plugin to say for them, and not often.
+</Warning>
+
+### `reskate.chat.notice(text, colour)`
+
+Adds a line to this player's chat only, under your plugin's folder name with a "Plugin" tag. Nobody else sees it, and no plugin hears it as a `chat` event, yours included.
+
+<ParamField path="text" type="string" required>1 to 200 characters, on one line: no line breaks or other control characters.</ParamField>
+<ParamField path="colour" type="number" default="the usual chat colour">The text's colour, a number `0xRRGGBBAA`. `0` is the usual colour.</ParamField>
+
+<ResponseField name="ok" type="boolean">`true` when it was shown.</ResponseField>
+<ResponseField name="why" type="string">Why not, when `ok` is false: "more than 5 lines in a second", or "not in a session".</ResponseField>
+
+```lua
+reskate.chat.notice("Race starts in 10 seconds", 0x5ECDFAFF)
+```
+
+<Note>Needs `chat.local`. At most 5 lines a second; past them it returns `false` and why. Raises an error for empty text, text over 200 characters or on more than one line, and a colour that is not a whole number from `0` to `0xFFFFFFFF`.</Note>
+
+### The `chat` event
+
+```lua
+reskate.on("chat", function(line) end)
+```
+
+Fires for every new line in this player's chat. It needs `chat.read`.
+
+<ResponseField name="line" type="table">
+- `sender` (string): the sender's id (SteamID64), as a string. `"0"` for a notice from ReSkate itself.
+- `name` (string): the name the line is shown under.
+- `text` (string): what was said.
+- `local` (boolean): `true` when the local player sent it.
+- `server` (boolean): `true` when a dedicated server said it itself: its console, its welcome, its answers.
+</ResponseField>
+
+```lua
+reskate.on("chat", function(line)
+    if line["local"] or line.server then return end
+    if line.text:lower() == "!race" then
+        reskate.chat.notice(line.name .. " wants a race")
+    end
+end)
+```
+
+`local` is a Luau keyword: read it as `line["local"]`.
+
+The lines are the ones this player sees, so a player they filter out is not heard. Lines said before the first plugin with `chat.read` started listening are not delivered, and at most 20 lines are delivered in one tick (the newest, when more came at once). Lines plugins add with `notice` (the ones tagged "Plugin") are never delivered, to your plugin or any other, so a plugin that answers chat with a notice cannot set off a loop.
+
+<Note>Needs `chat.read`.</Note>

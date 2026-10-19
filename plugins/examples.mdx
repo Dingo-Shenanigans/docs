@@ -1,0 +1,194 @@
+---
+title: "Example plugins"
+description: "The plugins in the ReSkate repository: reskate-test, which calls every API, and reskate-hostile, which attacks the sandbox."
+---
+
+The ReSkate repository keeps its example plugins in `contrib/plugins`. Two of them check ReSkate's plugin host: **reskate-test** calls every plugin API and says what worked, and **reskate-hostile** attacks the sandbox on purpose. Between them they ask for almost every [permission](/plugins/permissions), so read them for how each API is used, not for which permissions a plugin of your own needs.
+
+## Try one
+
+Copy the plugin's folder (such as `contrib/plugins/reskate-test`) into the game's `Mods` folder and open the console. The game looks for plugins every 2 s, so it loads without a restart. `plugin list` shows whether it is running.
+
+Both also run without the game, in the plugin tests (`dingosdk_plugin_tests`, built with `DINGOSDK_BUILD_PLUGIN_TESTS`).
+
+## reskate-test
+
+reskate-test calls every plugin API. `ptest all` runs every check, `ptest <module>` runs one module, and `ptest list` names the modules. It prints only the failures and one summary line, to stay under the 50 lines a second a plugin may log. It is also the example to copy when you make a plugin: every API ReSkate adds gets a module in `plugin/checks/`.
+
+### Its files
+
+```text
+reskate-test/
+  manifest.json          the mod's name, ReSkate_Test: its messages go under it
+  reskate-plugin.json    "side": "both", every permission, and "domains": ["api.github.com"]
+  data/                  sample.json and sample.txt, for the package checks
+  icons/ptest.png        the picture ptest picture draws
+  sounds/beep.wav        the sound ptest sound plays
+  plugin/
+    main.lua             picks the copy, loads the modules, adds the ptest command
+    harness.lua          the test runner
+    server.lua           the server copy
+    checks/              one module of checks for each part of the API
+    lib/                 modules the require checks load
+```
+
+### main.lua
+
+The entry first reads [`reskate.side`](/plugins/api/base). The server copy loads `server.lua` and stops there; the player's copy loads `harness.lua` and every module in `checks/`, then adds the `ptest` command:
+
+```lua
+if reskate.side == "server" then
+    require("server")
+    return
+end
+
+local harness = require("harness")
+for _, name in {"base", "time", "level", "package", "json", "require", "console", "storage", "sandbox", "skater", "tricks", "overlay", "menu", "audio", "mods", "session", "wider", "more", "ports"} do
+    require("checks/" .. name)
+end
+```
+
+### The harness
+
+`harness.lua` is a small test runner. A module calls `harness.module(name)` and adds checks to it:
+
+- `check(title, fn)`: passes when `fn` returns without an error. Returning `harness.skip(why)` skips it, for a check that needs something not there now, such as a skater.
+- `later(title, within, fn)`: `fn` gets a `done(ok, why)` to call within `within` ms, for checks that wait on timers or events.
+- `harness.refused(fn, ...)`: calls `fn` and fails unless it raised an error. Most checks use it to make sure a bad argument is refused.
+
+### The modules
+
+`ptest all` reads the game and changes nothing. What changes things runs by hand, from its own command.
+
+| Module | What `ptest all` checks | By hand |
+| --- | --- | --- |
+| `base` | `api_version`, `id`, the load and tick handlers, `log`, `print`, made-up events refused. | |
+| `time` | `now`, `after`, `every` and `cancel`; bad times refused. | |
+| `level` | `level.current` and the level events. | |
+| `package` | `read`, `read_json` and `list`; paths out of the package refused. | |
+| `json` | `encode` (and pretty), `decode`; values JSON cannot hold refused. | |
+| `require` | A module runs once; cycles, missing modules and paths outside refused. | |
+| `console` | `print`; ReSkate's command names, bad names and taken names refused. | `ptest echo a b c` |
+| `storage` | `get`, `set`, `add`, `keys`, the 1 MB quota, bad keys and values. | |
+| `sandbox` | No `io`, `load`, `os.execute` and the like; the `reskate` table and the libraries cannot be changed; endless recursion is an error. | |
+| `skater` | `skater.get` and its single readers, `world.raycast` under and over the skater, bad positions and long rays refused. | `ptest tp` |
+| `tricks` | `score.current` and the trick events. | `ptest trick` |
+| `overlay` | Draw handlers run each tick, the draw object is refused outside its handler, toasts. | `ptest hud` |
+| `menu` | A panel on the PLUGINS tab with every widget; widgets refused outside it. | The panel itself |
+| `audio` | `play_ui`, and a sound there is not refused. | |
+| `mods` | `mods.list` and `mods.installed` find this plugin. | |
+| `session` | `session.active`, `is_dedicated`, `me` and `players`; bad messages refused. | `ptest ping` |
+| `wider` | The skater's state, objects, travel, AI, other players' skaters, nametags, voice, chat, throwdowns, music, progress, settings, binds, a library, web requests. | `ptest noclip`, `boost`, `hidehud`, `object`, `night`, `day`, `ai`, `screen`, `bind`, `music`, `chat`, `web` |
+| `more` | The copy is the player's, chat notices, the camera, the game's song, the score's trick name, server calls refused, clips, throwdowns, pictures. | `ptest notice`, `camera`, `follow`, `freeze`, `picture`, `song`, `skip`, `manual`, `server`, `record`, `anim`, `replace`, `trickname`, `throwdown` |
+| `ports` | Flight input, pads and the board's motion, sounds only from the package, the outfit's slots, the board's bones. | `ptest fly`, `pad`, `sound`, `physics`, `wipeout`, `outfit`, `board` |
+
+`wider` also offers a library: `reskate.expose` gives other plugins `version` and `add`, as `reskate.require_plugin("ReSkate_Test")` returns them. See [libraries](/plugins/api/libraries).
+
+### Commands worth reading
+
+Some of the by-hand commands are small plugins of their own:
+
+- **`ptest hud`** (`checks/overlay.lua`) draws a box with text on screen, and a ring, a line and a label in the world around the skater. See [drawing a HUD](/plugins/guides/drawing).
+- **`ptest picture`** (`checks/more.lua`) draws `icons/ptest.png` on screen and standing over the skater.
+- **`ptest fly`** (`checks/ports.lua`) flies a camera for 15 s with the flight keys and mouse, renewing `input.capture` each tick and rolling the view. See [a free-flying camera](/plugins/guides/flying-camera).
+- **`ptest sound`** (`checks/ports.lua`) plays `sounds/beep.wav` at the skater, then a motor 5 m ahead whose throttle it changes every half second. See [playing sounds](/plugins/guides/sounds).
+- **`ptest record`**, **`ptest anim`** and **`ptest replace`** (`checks/more.lua`) record 3 s of the skater, play it back, and make the kickflip play it. See [recording and playing clips](/plugins/guides/clips).
+- **`ptest ping`** (`checks/session.lua`) asks every other player running reskate-test to answer with `reskate.net.send`.
+- **`ptest screen`** (`checks/wider.lua`) opens a full-screen screen; Esc closes it and the plugin hears `screen_closed`.
+- **`ptest web`** (`checks/wider.lua`) asks `api.github.com`, the one host its manifest lists, for a line of text.
+
+### The server copy
+
+reskate-test's manifest says `"side": "both"`, so on a lobby's host and on a dedicated server a second copy runs as the session's authority. `server.lua` is all it does: it answers a `"ping"` with a pong to everyone and says so in chat.
+
+```lua
+local pings = 0
+reskate.on("message", function(from, text)
+    if text ~= "ping" then return end
+    pings += 1
+    reskate.net.send("all", "pong: ping " .. pings .. " from " .. from.name)
+    reskate.server.say("reskate-test heard ping " .. pings .. " from " .. from.name)
+    reskate.log("server copy: ping " .. pings .. " from " .. from.name)
+end)
+```
+
+On a lobby's host its id is `reskate-test@server`, so its log lines read `[reskate-test@server] server copy: ping ...`.
+
+`ptest server` (in `checks/more.lua`) sends `"ping"` to `"server"`, and prints the pong when a message with `from.server` set comes back. See [a game mode with a server copy](/plugins/guides/game-modes).
+
+## reskate-hostile
+
+reskate-hostile is written to break the sandbox, one attack per command. Every attack must end with the plugin stopped or refused and the game running as before. `hostile list` names the attacks with what should happen, and `hostile <attack>` runs one. An attack that gets it stopped is expected: `plugin on reskate-hostile` starts it again for the next one.
+
+<Warning>
+reskate-hostile is for testing only. Some attacks hang a handler on purpose, flood the log, or send chat lines and messages to the session. Run it on your own, not in a session with other players.
+</Warning>
+
+Any line it prints starting with `ESCAPED` is a hole in the sandbox. Its manifest says `"side": "client"`.
+
+### Time and memory
+
+| Attack | What it does | What should happen |
+| --- | --- | --- |
+| `loop` | An endless loop. | Stopped: it ran longer than 50 ms. |
+| `caught-loop` | An endless loop inside `pcall`, in a loop. | Stopped the same way: the error cannot be caught. |
+| `tick-loop` | A tick handler that never returns. | Stopped at the next tick. |
+| `memory` | Builds strings until it runs out. | Stopped: more than 64 MB. |
+| `caught-memory` | The same inside `pcall`. | Stopped: going over its memory stops it, caught or not. |
+| `huge-string` | One 100 MB string. | Stopped: more than 64 MB. |
+| `buffer` | A 1 GB buffer. | Stopped: more than 64 MB. |
+| `coroutines` | Makes coroutines forever. | Stopped by its time or its memory. |
+| `errors` | A tick handler that raises an error every tick. | Stopped after more than 5 errors in 10 s. |
+| `slow` | A tick handler that takes 4 ms. | Stopped after 3 s over 2 ms a tick. |
+| `recursion` | Endless recursion. | An error, not a crash; it keeps running. |
+| `slow-unload` | An unload handler that never ends. | Cut off at 20 ms when it is switched off (`plugin off reskate-hostile`). |
+| `trick-loop` | A `trick_landed` handler that never returns. | Stopped at the next trick landed. |
+| `panel-loop` | A menu panel whose function never returns. | Stopped the next time the PLUGINS tab shows it. |
+| `screen-loop` | A full-screen screen whose function never returns. | Stopped as the screen is built. |
+
+### Rates and amounts
+
+Each of these keeps running: the calls past the limit are refused.
+
+| Attack | What it does | What should happen |
+| --- | --- | --- |
+| `log-flood` | 1000 log lines at once. | 50 are logged. |
+| `timers` | 2000 timers. | Refused past 1024. |
+| `teleport-spam` | 1000 teleports. | Two a second are sent. |
+| `raycast-flood` | 100 000 raycasts. | Refused past 64 a tick. |
+| `draw-flood` | 20 000 lines a frame. | 4000 shapes are drawn, the rest left out. |
+| `toast-spam` | 100 toasts. | Three are shown. |
+| `sound-spam` | 1000 menu sounds. | Ten a second play. |
+| `message-flood` | 1000 messages of 4000 bytes. | Refused past 16 KB a second. |
+| `chat-spam` | 100 chat lines. | One every 3 s is sent. |
+| `edit-spam` | 100 object placements. | Four a second are tried. |
+| `travel-spam` | 50 trips. | One every 5 s. |
+| `bind-spam` | 100 binds. | Refused past 16 actions. |
+| `notice-spam` | 100 chat notices. | Five a second are shown. |
+| `freeze-spam` | 50 freezes. | Four a second are asked. |
+| `throwdown-spam` | 20 drops. | One every 5 s. |
+
+### Ways out
+
+Each of these keeps running and must be refused.
+
+| Attack | What it tries | What should happen |
+| --- | --- | --- |
+| `web-elsewhere` | A web request to a host its manifest does not list. | Refused. |
+| `notice-spoof` | A chat notice of two lines, to fake a line under it. | Refused: a notice is one line. |
+| `server-spoof` | `reskate.server.say`, `kick` and `move` from a player's copy. | All refused: only the server copy rules. |
+| `picture-escape` | Drawing a picture from another plugin's package, and one from Windows. | Both refused. |
+| `clip-garbage` | Playing a Lua file as a clip, a clip outside the package, and a 600 s recording. | All refused. |
+| `outfit-anywhere` | An outfit item in the `top` slot, and moving the board's bone 1. | Refused: only tattoo, moles and eyewear slots, and bones 0 and 1 place the board. |
+| `escapes` | 17 ways out: `io`, `load`, `dofile`, `package`, `os` beyond the clock, changing `reskate` (directly, with `rawset`, with a metatable), changing a library or the string metatable, reading outside the package (with `..` and with `\`), `require` outside the package, taking a `plugin` command or a ReSkate command, and storage without its permission. | Every one refused. |
+
+## Ports
+
+The repository's README lists one more plugin, a port of a ReSkate feature to a plugin:
+
+- **road-rash** is Road Rash as a mod: bails leave marks that build up, worn over the outfit with [`reskate.outfit`](/plugins/api/outfit). It needs the Road Rash items mod, and the built-in Road Rash switched off (`roadrash 0`), since ReSkate refuses outfit changes while that one is on. While the built-in one exists it owns the `roadrash` command, so this one answers to `road rash` (`road rash heal`, `road rash bails 20`, `road rash blood 0`, `road rash tattoos 1`, and `road rash test` for its own checks). Its switches are on its panel in the PLUGINS tab too.
+
+## Where to go next
+
+- [Quickstart](/plugins/quickstart): your first plugin.
+- [Guides](/plugins/guides/game-modes): game modes, drawing, clips, a flying camera and sounds, each built step by step.

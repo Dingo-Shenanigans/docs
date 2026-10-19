@@ -1,0 +1,122 @@
+---
+title: "Throwdowns"
+description: "reskate.throwdowns: read the throwdown going on, and host a drop for chosen players of the session."
+---
+
+`reskate.throwdowns` reads the throwdown the local player is in, and hosts drops: a throwdown queue where the skater stands, for players of the session your plugin chooses. Every function, and the `throwdown` event, needs the `throwdowns` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+
+### `reskate.throwdowns.state()`
+
+The throwdown the local player is in, if any.
+
+<ResponseField name="state" type="table">
+<Expandable title="fields">
+<ResponseField name="active" type="boolean">True while a throwdown runs for the local player.</ResponseField>
+<ResponseField name="host" type="boolean">True when the local player hosts it.</ResponseField>
+<ResponseField name="skate" type="table">
+While a game of S.K.A.T.E. is shown, its players in order; otherwise an empty list. Each entry:
+<Expandable title="fields">
+<ResponseField name="name" type="string">The player's name.</ResponseField>
+<ResponseField name="letters" type="integer">How many letters of S.K.A.T.E. they have.</ResponseField>
+<ResponseField name="up" type="boolean">True when it is their turn.</ResponseField>
+<ResponseField name="out" type="boolean">True when they are out.</ResponseField>
+</Expandable>
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local t = reskate.throwdowns.state()
+for _, p in t.skate do
+    reskate.log(string.format("%s: %d letter(s)%s", p.name, p.letters, p.out and ", out" or ""))
+end
+```
+
+<Note>Needs the `throwdowns` permission.</Note>
+
+### `reskate.throwdowns.host(mode, players, options)`
+
+Hosts a drop where the local skater stands, shown only to the players you choose. They see it in their game and join it with the game's own Join; it starts once all of them have joined. The drop spawns over the next moments: follow it with `hosting()`.
+
+<ParamField path="mode" type="string" required>`"jam"` (a jam session), `"spot_battle"` or `"skate"` (S.K.A.T.E.). The game's own names, `"JamSession"`, `"SpotBattle"` and `"ThrowdownSkate"`, work too.</ParamField>
+<ParamField path="players" type="table" required>A list of 1 to 7 other players of the session: ids (`"7656..."`) or player tables with an `id`, as `reskate.session.players()` gives them. A player listed twice counts once.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="max" type="integer" default="the players, plus you">2 to 8 players in the drop. It is never less than the chosen players plus you.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the drop was asked for.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"one drop every 5 s"`, `"not in a session"`, `"<plugin> is hosting a drop"` (another plugin's drop is being asked for, spawning or open) or `"a drop is asked for already"`.</ResponseField>
+
+```lua
+local others = {}
+for _, p in reskate.session.players() do
+    if not p.me then table.insert(others, p) end
+end
+if #others > 0 then
+    local ok, why = reskate.throwdowns.host("skate", others, {max = 4})
+    if not ok then reskate.log("no drop: " .. why) end
+end
+```
+
+An unknown mode, a list of no players or more than 7, a player that is not an id, or a `max` out of range raises an error.
+
+<Note>
+Needs the `throwdowns` permission. One drop every 5 seconds; a refused call counts too. Reading the session's players needs `session.read`.
+</Note>
+
+### `reskate.throwdowns.hosting()`
+
+What became of this plugin's drop.
+
+<ResponseField name="status" type="string or nil">
+`nil` when the plugin has not hosted a drop, or another plugin has hosted one since. Otherwise one of:
+
+- `"asked"`: asked for; it spawns at the next moment it can.
+- `"spawning"`: being spawned where the skater stood.
+- `"open"`: the chosen players can see it and join it.
+- `"started"`: everyone joined, and it runs.
+- `"cancelled"`: the plugin cancelled it. It stays so until the plugin's next drop.
+- Why it failed: `"the skater is not in the world"`, `"a throwdown or challenge is running"`, `"a chosen player is not in the session"`, `"the throwdown events are not found yet; try again in a moment"`, `"your game is out of linked throwdowns (its speed or mods)"`, `"a plugin's drop is spawning already"`, `"the drop could not be queued"`, `"the drop never spawned"`, `"the drop did not spawn"` or `"the drop could not be described to the other players"`.
+
+</ResponseField>
+
+```lua
+reskate.time.every(1000, function()
+    local status = reskate.throwdowns.hosting()
+    if status then reskate.log("drop: " .. status) end
+end)
+```
+
+<Note>Needs the `throwdowns` permission.</Note>
+
+### `reskate.throwdowns.cancel()`
+
+Takes this plugin's drop away, if it has not started yet. A drop that started runs on. Cancelling when the plugin has no drop does nothing. After a cancel, `hosting()` says `"cancelled"` (from the next tick) until the plugin hosts another drop.
+
+Returns nothing.
+
+<Note>Needs the `throwdowns` permission. When the plugin stops, its drop is cancelled the same way.</Note>
+
+## The `throwdown` event
+
+Fired when a throwdown starts or ends for the local player, whoever hosted it.
+
+```lua
+reskate.on("throwdown", function(event)
+    if event.phase == "started" then
+        reskate.hud.hide(true)
+    else -- "ended"
+        reskate.hud.hide(false)
+    end
+end)
+```
+
+<ResponseField name="phase" type="string">`"started"` or `"ended"`.</ResponseField>
+
+Registering a handler needs the `throwdowns` permission. See [events](/plugins/events).
+
+<Tip>
+While a throwdown runs, `reskate.skater.wipeout` and `reskate.animation.play` are refused, and trick replacements do not play. See [skater](/plugins/api/skater) and [animation](/plugins/api/animation).
+</Tip>

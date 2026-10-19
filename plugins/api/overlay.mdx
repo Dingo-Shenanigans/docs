@@ -1,0 +1,248 @@
+---
+title: "Overlay"
+description: "Draw text, shapes and pictures over the game, on screen or at places in the world, and show toasts."
+---
+
+Your plugin draws over the game from a `draw` handler, and shows short notices with `reskate.ui.toast`. Both need the `overlay` [permission](/plugins/permissions).
+
+What plugins draw sits under ReSkate's own menus and chat, takes no input, and shows only on this player's screen. A plugin's server copy draws nothing.
+
+## The draw handler
+
+```lua
+reskate.on("draw", function(d)
+    d:text(vector.create(40, 40, 0), "Hello", {size = 24})
+end)
+```
+
+ReSkate calls your `draw` handlers once a game tick with a drawing object, `d`, and keeps what they drew until the next tick; the overlay shows the latest drawing every frame. Draw everything you want shown each time: nothing carries over from one call to the next.
+
+`d`'s functions are called with a colon (`d:text(...)`). The shape functions work only while a draw handler runs: calling one at any other time (from a timer, with a `d` you kept) raises an error.
+
+## Coordinates
+
+- **Screen shapes** take positions as vectors in pixels of the game window, from its top left: `vector.create(x, y, 0)` (the `z` is ignored). `d:size()` gives the window's width and height.
+- **World shapes** (`world_*`) take positions in world metres. They are projected through the game's camera as each frame is drawn, and a shape behind the camera is left out. Their sizes on screen (text size, line thickness) stay the same whatever the distance, except `world_circle`'s radius and `world_image`'s height, which are in metres.
+- **Sizes in the style** (text `size`, `thickness`, `rounding`) are pixels at 1080 lines: they scale with the window's height, so a `size` of 18 is 18 pixels at 1080p and 36 at 2160p.
+
+```lua
+reskate.on("draw", function(d)
+    local screen = d:size()
+    -- bottom centre, whatever the window's size
+    d:text(vector.create(screen.x / 2, screen.y - 80, 0), "LINE 12,500", {size = 32, align = "centre"})
+end)
+```
+
+Every position must be finite and within a million units of the origin, or the call raises an error.
+
+## The style table
+
+Most functions take a last, optional style table. Every field is optional.
+
+| Field | Type | Default | What it does |
+| --- | --- | --- | --- |
+| `colour` (or `color`) | string or number | white | `"#RRGGBB"`, `"#RRGGBBAA"`, or a number `0xRRGGBBAA`. |
+| `size` | number | `18` | Text height, 4 to 200, in pixels at 1080 lines. |
+| `thickness` | number | `2` | Line and outline thickness, 0.5 to 40, in pixels at 1080 lines. |
+| `fill` | boolean | `false` | Fills rectangles, circles and polygons instead of outlining them. |
+| `rounding` | number | `0` | Corner radius of rectangles and screen pictures, 0 to 200, in pixels at 1080 lines. |
+| `align` | string | `"left"` | Text: `"left"`, `"centre"` (or `"center"`) or `"right"` of its point. |
+| `shadow` | boolean | `true` | Text: a dark shadow under it. |
+| `uv` | table | `{0, 0, 1, 1}` | Pictures: the part of the picture drawn, `{u0, v0, u1, v1}`, each 0 to 1. |
+
+A `size`, `thickness` or `rounding` out of its range is brought into it. A colour in another form, an `align` that is not one of the three, a `uv` corner outside 0 to 1, or a number that is not finite raises an error.
+
+```lua
+local panel = {colour = "#000000a0", fill = true, rounding = 6}
+local title = {colour = 0x5ECDFAFF, size = 26, shadow = false}
+```
+
+## Screen shapes
+
+### `d:text(position, text, style)`
+
+Text at a point. The point is its top left, top centre or top right, as `align` says.
+
+<ParamField path="position" type="vector" required>Pixels from the window's top left.</ParamField>
+<ParamField path="text" type="string" required>At most 500 characters.</ParamField>
+<ParamField path="style" type="table">`colour`, `size`, `align`, `shadow`.</ParamField>
+
+```lua
+d:text(vector.create(56, 130, 0), "my-plugin", {colour = "#5ecdfa", size = 26})
+```
+
+### `d:rect(top_left, bottom_right, style)`
+
+A rectangle, outlined or filled.
+
+<ParamField path="top_left" type="vector" required>One corner, in pixels.</ParamField>
+<ParamField path="bottom_right" type="vector" required>The opposite corner, in pixels.</ParamField>
+<ParamField path="style" type="table">`colour`, `fill`, `thickness`, `rounding`.</ParamField>
+
+```lua
+d:rect(vector.create(40, 120, 0), vector.create(340, 190, 0), {colour = "#000000a0", fill = true, rounding = 6})
+```
+
+### `d:line(from, to, style)`
+
+A straight line.
+
+<ParamField path="from" type="vector" required>Pixels.</ParamField>
+<ParamField path="to" type="vector" required>Pixels.</ParamField>
+<ParamField path="style" type="table">`colour`, `thickness`.</ParamField>
+
+```lua
+d:line(vector.create(40, 200, 0), vector.create(340, 200, 0), {colour = "#ffc400", thickness = 3})
+```
+
+### `d:circle(centre, radius, style)`
+
+A circle, outlined or filled.
+
+<ParamField path="centre" type="vector" required>Pixels.</ParamField>
+<ParamField path="radius" type="number" required>0 or more, in pixels of the window (it does not scale with the window's height).</ParamField>
+<ParamField path="style" type="table">`colour`, `fill`, `thickness`.</ParamField>
+
+```lua
+local screen = d:size()
+d:circle(vector.create(screen.x / 2, screen.y / 2, 0), 4, {fill = true})
+```
+
+### `d:poly(points, style)`
+
+A closed polygon through 3 to 64 points. A filled polygon must be convex to fill as you expect.
+
+<ParamField path="points" type="table" required>A list of 3 to 64 vectors, in pixels.</ParamField>
+<ParamField path="style" type="table">`colour`, `fill`, `thickness`.</ParamField>
+
+```lua
+d:poly({vector.create(100, 100, 0), vector.create(140, 160, 0), vector.create(60, 160, 0)}, {colour = "#ff4040", fill = true})
+```
+
+### `d:image(path, top_left, bottom_right, style)`
+
+A picture from your package, stretched to the rectangle.
+
+<ParamField path="path" type="string" required>A `.png` or `.jpg` (`.jpeg`) file in your package, at most 200 characters. See [package paths](/plugins/api/package).</ParamField>
+<ParamField path="top_left" type="vector" required>Pixels.</ParamField>
+<ParamField path="bottom_right" type="vector" required>Pixels.</ParamField>
+<ParamField path="style" type="table">`colour` tints it (white draws it as it is), `rounding` rounds its corners, `uv` picks part of it.</ParamField>
+
+```lua
+d:image("icons/badge.png", vector.create(60, 220, 0), vector.create(188, 348, 0), {rounding = 12})
+
+-- one 32 x 32 tile of a 256 x 256 sheet
+d:image("icons/sheet.png", vector.create(20, 20, 0), vector.create(52, 52, 0), {uv = {0, 0, 0.125, 0.125}})
+```
+
+A picture is loaded the first time you draw it, and shows a few frames later. A picture file is at most 2 MB and 512 x 512 pixels; one larger, or one that is not a PNG or JPG inside, is not drawn, and a warning is logged. The overlay holds at most 32 pictures at once for all plugins together: a picture not drawn for 2 seconds makes room for a new one, and a new one finds no room while 32 others are being drawn.
+
+## World shapes
+
+### `d:world_text(position, text, style)`
+
+Text at a place in the world.
+
+<ParamField path="position" type="vector" required>World metres.</ParamField>
+<ParamField path="text" type="string" required>At most 500 characters.</ParamField>
+<ParamField path="style" type="table">`colour`, `size`, `align`, `shadow`.</ParamField>
+
+```lua
+local s = reskate.skater.get()
+if s then
+    d:world_text(s.position + vector.create(0, 2.2, 0), "FINISH", {align = "centre", size = 22})
+end
+```
+
+### `d:world_line(from, to, style)`
+
+A line between two places in the world. It is left out when either end is behind the camera.
+
+<ParamField path="from" type="vector" required>World metres.</ParamField>
+<ParamField path="to" type="vector" required>World metres.</ParamField>
+<ParamField path="style" type="table">`colour`, `thickness`.</ParamField>
+
+```lua
+local s = reskate.skater.get() -- needs skater.read
+local ahead = s.position + vector.create(math.sin(s.heading), 0, math.cos(s.heading)) * 5
+d:world_line(s.position, ahead, {colour = "#ffc400", thickness = 3})
+```
+
+### `d:world_circle(centre, radius, style)`
+
+A circle around a place in the world, with a radius of `radius` metres at that distance: it grows as the camera comes closer. It always faces the camera: it is a ring on the screen, not one lying on the ground.
+
+<ParamField path="centre" type="vector" required>World metres.</ParamField>
+<ParamField path="radius" type="number" required>0 or more, in metres.</ParamField>
+<ParamField path="style" type="table">`colour`, `fill`, `thickness`.</ParamField>
+
+```lua
+local s = reskate.skater.get()
+d:world_circle(s.position, 1.2, {colour = "#5ecdfa", thickness = 3})
+```
+
+### `d:world_image(path, position, height, style)`
+
+A picture standing at a place in the world, centred on it, `height` metres tall; its width follows the picture's shape.
+
+<ParamField path="path" type="string" required>A `.png` or `.jpg` file in your package.</ParamField>
+<ParamField path="position" type="vector" required>Its centre, in world metres.</ParamField>
+<ParamField path="height" type="number" required>More than 0 and at most 1000 metres.</ParamField>
+<ParamField path="style" type="table">`colour` tints it, `uv` picks part of it.</ParamField>
+
+```lua
+local s = reskate.skater.get()
+d:world_image("icons/badge.png", s.position + vector.create(0, 2.6, 0), 0.8)
+```
+
+## Measuring
+
+### `d:size()`
+
+The game window's size.
+
+<ResponseField name="size" type="vector">`x` its width and `y` its height, in pixels; `z` is 0.</ResponseField>
+
+```lua
+local screen = d:size()
+d:rect(vector.create(0, 0, 0), vector.create(screen.x, 48, 0), {colour = "#00000080", fill = true})
+```
+
+### `d:world_to_screen(position)`
+
+Where a place in the world is on the screen now.
+
+<ParamField path="position" type="vector" required>World metres.</ParamField>
+
+<ResponseField name="point" type="vector or nil">`x` and `y` in pixels from the window's top left, and `z` its depth in front of the camera; `nil` when it is behind the camera.</ResponseField>
+
+```lua
+local on = d:world_to_screen(goal)
+if on then
+    d:text(vector.create(on.x, on.y - 30, 0), string.format("%.0f m", on.z), {align = "centre"})
+end
+```
+
+## Limits
+
+<Note>
+Needs `overlay`, for the `draw` event and every `d` function. In one tick a plugin draws at most 4000 shapes and 64 KB of text; the rest are left out, and a warning is logged at most once every 10 s, saying which of the two limits was hit. A plugin draws at most 32 different pictures in all its life (each path counts once); the next raises an error. A wrong argument raises an error: a position that is not a vector, text over 500 characters, a negative radius, a polygon of fewer than 3 or more than 64 points, a picture that is not a `.png` or `.jpg` file in the package.
+</Note>
+
+## Toasts
+
+### `reskate.ui.toast(message, level)`
+
+Shows a short notice in ReSkate's notices, top left, titled with your plugin's folder name.
+
+<ParamField path="message" type="string" required>At most 200 characters.</ParamField>
+<ParamField path="level" type="string" default='"info"'>`"info"`, `"warn"` or `"error"`.</ParamField>
+
+<ResponseField name="shown" type="boolean">`true` when it is shown; `false` when the plugin showed 3 toasts in the last 5 seconds.</ResponseField>
+
+```lua
+reskate.ui.toast("Spot saved")
+reskate.ui.toast("That spot is taken", "warn")
+```
+
+<Note>Needs `overlay`. At most 3 toasts in 5 seconds; past them it returns `false`. Raises an error for a message over 200 characters or another level.</Note>

@@ -1,0 +1,203 @@
+---
+title: "Menu panels and screens"
+description: "reskate.menu.panel and reskate.ui.screen: settings panels on the PLUGINS tab, and full-screen screens, built from widgets."
+---
+
+A plugin shows controls to the player in two places: panels on the **PLUGINS** tab of ReSkate's **ADDONS** page (`reskate.menu.panel`, which needs the `menu` [permission](/plugins/permissions)), and full-screen screens it opens itself (`reskate.ui.screen`, which needs `ui.screen`). Both are built from the same widgets. For short notices, see [`reskate.ui.toast`](/plugins/api/overlay#toasts).
+
+A plugin's server copy shows neither.
+
+## How panels work
+
+You give a panel a function that builds it. ReSkate calls that function ten times a second while the panel can be seen, with a builder, `ui`, and your function calls `ui`'s widget functions in order, top to bottom. Nothing is kept from one build to the next: build the whole panel each time, from your plugin's own variables.
+
+When the player uses a widget, what they did comes back in the next build: the widget's function returns the new value instead of the one you passed. Keep it in your variable, and pass it the next time.
+
+```lua
+local hud_on, size, colour = true, 5, 1
+
+reskate.menu.panel("My HUD", function(ui)
+    ui:heading("Display")
+    hud_on = ui:toggle("hud", "Show the HUD", hud_on)
+    size = ui:slider("size", "Text size", size, 1, 10)
+    colour = ui:dropdown("colour", "Colour", {"Blue", "Yellow", "Red"}, colour)
+    ui:separator()
+    if ui:button("reset", "Reset") then
+        hud_on, size, colour = true, 5, 1
+    end
+end)
+```
+
+### `reskate.menu.panel(title, build)`
+
+Adds a panel to the PLUGINS tab. It is shown as a card with your title, and your plugin's id under it. Panels are built only while the PLUGINS tab is open.
+
+<ParamField path="title" type="string" required>1 to 40 characters, different from your plugin's other panels. A widget's actions are matched to its panel by this title.</ParamField>
+<ParamField path="build" type="function" required>Called with `ui` each time the panel is built.</ParamField>
+
+<Note>Needs `menu`. Raises an error for an empty or too long title, a title this plugin used already, a `build` that is not a function, and more than 8 panels. Each build has 50 ms, like any handler.</Note>
+
+## Widgets
+
+Every widget function is called on `ui` with a colon, only inside a panel's or a screen's build function: called anywhere else, it raises an error. A panel has at most 64 widgets.
+
+Widgets the player can use (`button`, `toggle`, `slider`, `dropdown`) take an `id`: 1 to 32 characters, different from the other widgets' ids in the same panel. The id is how the player's action finds its widget, so keep it the same from one build to the next.
+
+### `ui:heading(text)`
+
+A section heading.
+
+<ParamField path="text" type="string" required>At most 300 characters.</ParamField>
+
+### `ui:label(text)`
+
+A line of text, wrapped to the panel's width.
+
+<ParamField path="text" type="string" required>At most 300 characters.</ParamField>
+
+```lua
+ui:label(string.format("Best line: %d", best))
+```
+
+### `ui:separator()`
+
+A horizontal line between widgets.
+
+### `ui:button(id, text)`
+
+A button.
+
+<ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
+<ParamField path="text" type="string" required>Its label, at most 60 characters.</ParamField>
+
+<ResponseField name="pressed" type="boolean">`true` in the build after the player pressed it, otherwise `false`.</ResponseField>
+
+```lua
+if ui:button("clear", "Clear saved spots") then
+    reskate.storage.set("spots", nil)
+end
+```
+
+### `ui:toggle(id, text, on)`
+
+A switch, on or off.
+
+<ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
+<ParamField path="text" type="string" required>Its label, at most 60 characters.</ParamField>
+<ParamField path="on" type="boolean" default="false">Whether it shows on.</ParamField>
+
+<ResponseField name="on" type="boolean">What the player set it to, when they changed it since the last build; otherwise `on`.</ResponseField>
+
+```lua
+enabled = ui:toggle("enabled", "Enabled", enabled)
+```
+
+### `ui:slider(id, text, value, minimum, maximum)`
+
+A slider between two numbers.
+
+<ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
+<ParamField path="text" type="string" required>Its label, at most 60 characters.</ParamField>
+<ParamField path="value" type="number" required>Its value now.</ParamField>
+<ParamField path="minimum" type="number" required>The left end.</ParamField>
+<ParamField path="maximum" type="number" required>The right end, above `minimum`.</ParamField>
+
+<ResponseField name="value" type="number">What the player set, when they moved it since the last build; otherwise `value`. Always between `minimum` and `maximum`.</ResponseField>
+
+```lua
+volume = ui:slider("volume", "Volume", volume, 0, 1)
+```
+
+### `ui:dropdown(id, text, choices, chosen)`
+
+A list to pick one from.
+
+<ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
+<ParamField path="text" type="string" required>Its label, at most 60 characters.</ParamField>
+<ParamField path="choices" type="table" required>A list of 1 to 32 strings, each at most 60 characters.</ParamField>
+<ParamField path="chosen" type="integer" default="1">The number of the choice shown, from 1.</ParamField>
+
+<ResponseField name="chosen" type="integer">The number of the choice the player picked, when they picked one since the last build; otherwise `chosen`. Always 1 to the number of choices.</ResponseField>
+
+```lua
+local modes = {"Score", "Time", "Combo"}
+mode = ui:dropdown("mode", "Mode", modes, mode)
+ui:label("Playing " .. modes[mode])
+```
+
+### `ui:bar(text, value, minimum, maximum)`
+
+A gauge the player cannot change: a progress bar with a label on it.
+
+<ParamField path="text" type="string" required>Its label, at most 60 characters.</ParamField>
+<ParamField path="value" type="number" required>Where it is, kept between `minimum` and `maximum`.</ParamField>
+<ParamField path="minimum" type="number" required>Empty.</ParamField>
+<ParamField path="maximum" type="number" required>Full, above `minimum`.</ParamField>
+
+```lua
+ui:bar(string.format("%d / %d goals", done, total), done, 0, total)
+```
+
+<Note>
+A widget raises an error outside a build function, past 64 widgets, for an id that is empty, longer than 32 characters or used twice in the panel, for text over its length, for a `maximum` that is not above `minimum`, for a number that is not finite (or is beyond a million either way), and for a dropdown with no choices or more than 32.
+</Note>
+
+## Full-screen screens
+
+A screen is a panel that covers the whole game window, over everything, with your title at the top and the input while it shows. The player closes it with Esc. Use one for a mode's lobby, a results table, or anything the player should look at before playing on.
+
+```lua
+local results = {}
+
+reskate.ui.screen("Results", function(ui)
+    for i, row in results do
+        ui:label(string.format("%d. %s  %d", i, row.name, row.score))
+    end
+    ui:separator()
+    if ui:button("close", "Close") then
+        reskate.ui.close()
+    end
+end)
+
+reskate.on("screen_closed", function(title)
+    reskate.log(title .. " was closed with Esc")
+end)
+
+-- later
+reskate.ui.open("Results")
+```
+
+### `reskate.ui.screen(title, build)`
+
+Adds a screen. It is built ten times a second while it is open, whether or not a menu is.
+
+<ParamField path="title" type="string" required>1 to 40 characters, different from your plugin's other screens. It is shown at the top, with your plugin's id and "Esc closes it" under it.</ParamField>
+<ParamField path="build" type="function" required>Called with `ui` each time the screen is built. It takes the same widgets as a panel.</ParamField>
+
+<Note>Needs `ui.screen`. Raises an error for a title that is empty or longer than 40 characters, a title this plugin used already, a `build` that is not a function, and more than 4 screens.</Note>
+
+### `reskate.ui.open(title)`
+
+Opens one of your screens. A plugin has one screen open at a time: opening another replaces it.
+
+<ParamField path="title" type="string" required>A screen's title.</ParamField>
+
+<Note>Needs `ui.screen`. Raises an error for a title you added no screen for.</Note>
+
+### `reskate.ui.close()`
+
+Closes your open screen, if one is open. Closing it this way does not fire `screen_closed`.
+
+<Note>Needs `ui.screen`.</Note>
+
+### The `screen_closed` event
+
+```lua
+reskate.on("screen_closed", function(title) end)
+```
+
+Fires when the player closes your screen with Esc, with the screen's title. It needs `ui.screen`. See [events](/plugins/events).
+
+<Warning>
+While your screen is open, it has the player's input: the game behind it does not get the keys. Close it when you are done with it, and let Esc close it.
+</Warning>

@@ -1,0 +1,69 @@
+---
+title: "Time"
+description: "reskate.time: the clock, and timers that run a function once or again and again."
+---
+
+`reskate.time` reads a steady clock and runs functions later. It needs no permission.
+
+Timers run in the game tick in which they fall due, just before the `tick` handlers. A timer is only as precise as the tick: a timer of 1 ms runs once a tick.
+
+### `reskate.time.now()`
+
+The time in milliseconds on a steady clock. It only goes forward, and it does not follow the wall clock: use it to measure how long something took, not to tell the date (`os.time` and `os.date` do that).
+
+<ResponseField name="ms" type="number">Milliseconds, with fractions. Only differences between two readings mean anything.</ResponseField>
+
+```lua
+local started = reskate.time.now()
+-- ...
+reskate.log(string.format("took %.1f ms", reskate.time.now() - started))
+```
+
+### `reskate.time.after(ms, fn)`
+
+Runs `fn` once, `ms` milliseconds from now.
+
+<ParamField path="ms" type="number" required>0 or more. 0 runs it at the next tick.</ParamField>
+<ParamField path="fn" type="function" required>Called with no arguments.</ParamField>
+
+<ResponseField name="id" type="integer">The timer's id, for `reskate.time.cancel`.</ResponseField>
+
+```lua
+reskate.time.after(3000, function()
+    reskate.log("three seconds later")
+end)
+```
+
+### `reskate.time.every(ms, fn)`
+
+Runs `fn` every `ms` milliseconds until you cancel it. Each next run is `ms` after the tick in which the last one ran.
+
+<ParamField path="ms" type="number" required>1 or more.</ParamField>
+<ParamField path="fn" type="function" required>Called with no arguments.</ParamField>
+
+<ResponseField name="id" type="integer">The timer's id, for `reskate.time.cancel`.</ResponseField>
+
+```lua
+local count = 0
+local id
+id = reskate.time.every(1000, function()
+    count += 1
+    reskate.log("second " .. count)
+    if count == 10 then reskate.time.cancel(id) end
+end)
+```
+
+### `reskate.time.cancel(id)`
+
+Stops a timer. A timer that has already run once (`after`), or was cancelled already, is ignored.
+
+<ParamField path="id" type="integer" required>What `after` or `every` returned.</ParamField>
+
+```lua
+local warning = reskate.time.after(5000, function() reskate.log("too slow") end)
+reskate.on("trick_landed", function() reskate.time.cancel(warning) end)
+```
+
+<Note>
+A wrong argument raises an error: a negative or non-finite `ms` for `after`, less than 1 for `every`, or a `fn` that is not a function. A plugin has at most 1024 timers waiting; the next one raises an error. Each timer call has 50 ms, like any handler. See [limits](/plugins/limits).
+</Note>

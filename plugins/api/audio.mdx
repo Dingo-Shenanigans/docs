@@ -1,0 +1,132 @@
+---
+title: "Audio"
+description: "reskate.audio: the game's menu sounds, and your plugin's own sounds played in the world."
+---
+
+`reskate.audio` plays two kinds of sound. `play_ui` plays one of the game's menu sounds and needs the `audio.ui` [permission](/plugins/permissions). `play`, `set`, `stop` and `playing` play your plugin's own WAV files, or a synthesised motor, at a place in the level, and need `audio`.
+
+## Menu sounds
+
+### `reskate.audio.play_ui(name)`
+
+Plays one of the game's menu sounds, as its own menus do.
+
+<ParamField path="name" type="string" required>`"select"`, `"cancel"`, `"navigate"`, `"toggle"` or `"tab"`.</ParamField>
+
+<ResponseField name="played" type="boolean">`true` when it played; `false` past 10 menu sounds in a second.</ResponseField>
+
+```lua
+if ui:button("save", "Save") then
+    reskate.audio.play_ui("select")
+end
+```
+
+<Note>Needs `audio.ui`. At most 10 a second; past them it returns `false`. Raises an error for a name that is not one of the five.</Note>
+
+## Your own sounds
+
+Your sounds play through the game's positioned sound, the one other players' voices and Board Break use, so the level's mix and echo apply. They play only in a level: out of one, `play` fails, and leaving a level ends every sound playing.
+
+How loud a sound is depends on how far it is from the camera: it is at its `volume` at the camera and fades to silence at `range` metres.
+
+### Sound files
+
+A sound is a WAV file in your package:
+
+- RIFF WAVE, 8, 16, 24 or 32-bit PCM, or 32-bit float;
+- 1 to 8 channels, 4,000 to 192,000 samples a second;
+- at most 30 seconds long, and at most 8 MB.
+
+ReSkate turns it into 16 kHz mono when it first plays it (channels are mixed down). A plugin plays at most 32 different files in all; each is read once and kept.
+
+### `reskate.audio.play(sound, options)`
+
+Starts a sound and returns its id.
+
+<ParamField path="sound" type="string" required>A WAV file's path in your package (see [package paths](/plugins/api/package)), at most 200 characters, or `"motor"` for a synthesised motor: four rotors and a rush of wind, whose note follows `throttle` and wind follows `speed`.</ParamField>
+<ParamField path="options" type="table">The sound's options, below. Every one is optional.</ParamField>
+
+<ResponseField name="id" type="number or false">The sound's id, for `set`, `stop` and `playing`; or `false` when it could not start.</ResponseField>
+<ResponseField name="why" type="string">Why not, when `id` is `false`: "more than 20 sounds in a second", or "it plays 8 sounds already, or there is no level".</ResponseField>
+
+#### Options
+
+| Option | Range | Default | What it does |
+| --- | --- | --- | --- |
+| `volume` | 0 to 1 | `1` | How loud it is at the camera. |
+| `pitch` | 0.25 to 4 | `1` | Plays a WAV faster and higher (above 1) or slower and lower (below 1); scales the motor's note. |
+| `range` | 1 to 500 | `40` | Metres from the camera at which it fades to silence. |
+| `throttle` | 0 to 1 | `0` | The motor's: how hard its rotors spin. They spin up and down over about 80 ms. |
+| `speed` | 0 to 200 | `0` | The motor's: metres a second of wind. The wind is loudest from 60. |
+| `loop` | boolean | `false` | Plays a WAV over and over until you stop it. Only for `play`. |
+| `position` | vector or `"skater"` | `"skater"` | Where it plays: a world position, or `"skater"` to follow the local skater. |
+
+A number outside its range raises an error ("volume is 0 to 1").
+
+```lua
+-- a beep where the skater is
+reskate.audio.play("sounds/beep.wav")
+
+-- a looping hum at a fixed place, heard up to 80 m away
+local hum = reskate.audio.play("sounds/hum.wav", {loop = true, range = 80, position = vector.create(10, 2, -30)})
+
+-- a motor that follows the skater
+local motor, why = reskate.audio.play("motor", {throttle = 0.2, volume = 0.6})
+if not motor then reskate.log("no motor: " .. why) end
+```
+
+<Note>
+Needs `audio`. A plugin plays at most 8 sounds at once (and all plugins 48), and starts at most 20 in a second; past those, it returns `false` and why. Raises an error for a file that is not in the package, cannot be read, is not a WAV it can play or is longer than 30 seconds, for a 33rd different file, and for an option out of its range.
+</Note>
+
+### `reskate.audio.set(id, options)`
+
+Changes a sound while it plays.
+
+<ParamField path="id" type="number" required>What `play` returned.</ParamField>
+<ParamField path="options" type="table">Any of `volume`, `pitch`, `range`, `throttle`, `speed` and `position`, with the ranges above. Options you leave out keep their values. `loop` cannot be changed.</ParamField>
+
+<ResponseField name="changed" type="boolean">`true` when it was changed; `false` when the sound has finished, was stopped, or is not this plugin's.</ResponseField>
+
+```lua
+reskate.on("tick", function()
+    local s = reskate.skater.get()
+    if motor and s then
+        reskate.audio.set(motor, {throttle = math.clamp(s.speed / 15, 0, 1), speed = s.speed})
+    end
+end)
+```
+
+<Note>Needs `audio`. Raises an error for an id that is not a whole number of 1 or more, and for an option out of its range.</Note>
+
+### `reskate.audio.stop(id)`
+
+Stops a sound. It goes silent at once. A sound that has finished, or is not this plugin's, is ignored.
+
+<ParamField path="id" type="number" required>What `play` returned.</ParamField>
+
+```lua
+reskate.audio.stop(hum)
+```
+
+<Note>Needs `audio`.</Note>
+
+### `reskate.audio.playing(id)`
+
+Whether a sound still plays.
+
+<ParamField path="id" type="number" required>What `play` returned.</ParamField>
+
+<ResponseField name="playing" type="boolean">`true` while it plays; `false` once a WAV that does not loop has played out, after `stop`, after leaving the level, or for a sound that is not this plugin's.</ResponseField>
+
+```lua
+if not reskate.audio.playing(hum) then
+    hum = reskate.audio.play("sounds/hum.wav", {loop = true})
+end
+```
+
+<Note>Needs `audio`.</Note>
+
+<Tip>
+For a sound every player hears, send a [message](/plugins/api/session) and let each player's copy of your plugin play it: a sound plays only on the game that started it.
+</Tip>

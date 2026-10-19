@@ -1,0 +1,127 @@
+---
+title: "Server"
+description: "reskate.server: what only the session's authority does: kick a player, speak in chat, tell one player, move a skater."
+---
+
+`reskate.server` is the session's authority acting on its players. It works only in a plugin's **server copy**, and every function needs the `server` permission. See [permissions](/plugins/permissions) and [manifest](/plugins/manifest).
+
+## Server copies
+
+A plugin whose manifest says `"side": "server"` or `"side": "both"` has a server copy, which runs as the session's authority:
+
+- **On a lobby's host.** While a player's game hosts a lobby, the server copies of their plugins run on that game beside the client copies. Each has its own id, `<folder>@server` ([`reskate.id`](/plugins/api/base)), for its log lines, its storage, its console commands and all it holds in the game, so it shares nothing with the client copy. They stop when the game stops hosting, and the client copies carry on untouched.
+- **On a dedicated server**, from the `Plugins` folder beside the server.
+
+In a server copy, `reskate.side` is `"server"`; in a client copy it is `"client"`. Branch on it in a plugin for both sides:
+
+```lua
+-- Needs the "server" and "session.read" permissions.
+if reskate.side == "server" then
+    reskate.on("player_joined", function(player)
+        reskate.server.say("Welcome, " .. player.name .. ".")
+    end)
+end
+```
+
+Calling a `reskate.server` function in a client copy raises an error, as does calling one without the `server` permission.
+
+## Lobby host and dedicated server
+
+The four functions do not all work the same way in both places.
+
+| Function | On a lobby's host | On a dedicated server |
+| --- | --- | --- |
+| `kick` | The player is disconnected and cannot join this lobby again. The host cannot be kicked. | The player is dropped from the server. |
+| `say` | A line in the host's own chat, under the host's name, needing a session. | A line from the server to every player. |
+| `tell` | Not available: a lobby has no private chat. It returns `false` and says to message that player's copy instead. | A line to that player only. |
+| `move` | The player's game moves their skater (only a player in the world, not the host). | The same: the player's game makes the move. |
+
+Chat lines from `say` and `tell` start with the plugin's name in brackets (`[My Plugin] ...`): the `name` in its `manifest.json`, or its folder's name without one.
+
+## Players
+
+A player is a player's id (`"7656..."`, a string) or a player table with an `id`, such as `reskate.session.players()` and the `player_joined` event give. Anything else raises an error.
+
+### `reskate.server.kick(player, why)`
+
+Removes a player from the session.
+
+<ParamField path="player" type="string or table" required>The player.</ParamField>
+<ParamField path="why" type="string">At most 120 characters, shown to the player: "You were removed from the session: " (lobby) or "Removed from the server: " (dedicated server), then `why`.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the player was removed.</ResponseField>
+<ResponseField name="why" type="string">Why not: on a lobby's host `"the host cannot be kicked"` or `"that player is not in the session"`; on a dedicated server `"that player is not on the server"`.</ResponseField>
+
+```lua
+-- Players this server does not want, by id, kept in the plugin's storage.
+reskate.on("player_joined", function(player)
+    local banned = reskate.storage.get("banned") or {}
+    if banned[player.id] then
+        reskate.server.kick(player, "you are banned here")
+    end
+end)
+```
+
+<Warning>A kick on a lobby's host also keeps the player out of that lobby until it closes.</Warning>
+
+<Note>Needs the `server` permission and a server copy. The example also needs `session.read` and `storage`.</Note>
+
+### `reskate.server.say(text)`
+
+A chat line to everyone in the session.
+
+<ParamField path="text" type="string" required>1 to 200 characters, not starting with `/`.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the line was sent.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"one line a second"`, or on a lobby's host `"not in a session"` or the chat's own reason.</ResponseField>
+
+```lua
+reskate.server.say("Round two starts in 10 seconds.")
+```
+
+An empty line, one starting with `/`, or one longer than 200 characters raises an error.
+
+<Note>Needs the `server` permission and a server copy. One line a second.</Note>
+
+### `reskate.server.tell(player, text)`
+
+A chat line to one player only. Only a dedicated server has it: a lobby has no private chat. On a lobby's host, send that player's copy a message with [`reskate.net.send`](/plugins/api/session) and show it there.
+
+<ParamField path="player" type="string or table" required>The player.</ParamField>
+<ParamField path="text" type="string" required>1 to 200 characters.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the line was sent.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"that player is not on the server"`, or on a lobby's host `"a lobby has no private chat: send that player's copy a message (reskate.net.send) and show it there"`.</ResponseField>
+
+```lua
+-- Needs "net.session" too, for the lobby's way.
+local ok = reskate.server.tell(player, "You are it.")
+if not ok then reskate.net.send(player, "You are it.") end -- its copy shows it
+```
+
+<Note>Needs the `server` permission and a server copy.</Note>
+
+### `reskate.server.move(player, position)`
+
+Moves a player's skater, on a lobby's host and on a dedicated server alike. The player's game makes the move, as for the console's `tpall` and `tphere`.
+
+<ParamField path="player" type="string or table" required>The player.</ParamField>
+<ParamField path="position" type="vector" required>Where the skater goes. Finite, within 100 km.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the teleport was sent.</ResponseField>
+<ResponseField name="why" type="string">Why not: on a lobby's host `"that player is not in the world"` (or not in the session, or the host) or `"it could not be sent"`; on a dedicated server `"that player is not on the server"`.</ResponseField>
+
+```lua
+local start = vector.create(120, 4, -36)
+for _, p in reskate.session.players() do
+    reskate.server.move(p, start)
+end
+```
+
+<Note>Needs the `server` permission and a server copy. A position that is not finite raises an error.</Note>
+
+## Limits
+
+<Note>
+A server copy makes at most 20 `reskate.server` calls a second; the 21st raises an error. `say` also has its own limit of one line a second, which returns `false`. See [limits](/plugins/limits).
+</Note>

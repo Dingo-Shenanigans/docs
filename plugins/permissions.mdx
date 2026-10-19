@@ -1,0 +1,123 @@
+---
+title: "Permissions"
+description: "All 40 permissions a plugin can ask for: the functions and events each unlocks, and what other players see of it."
+---
+
+This page lists every permission a plugin can name in its [manifest](/plugins/manifest)'s `permissions`, what each one unlocks, and what other players can see when a plugin uses it.
+
+## How permissions work
+
+A plugin asks for permissions in `reskate-plugin.json`:
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "permissions": ["events.tricks", "overlay", "storage"]
+}
+```
+
+A function or event outside the plugin's permissions raises a Lua error that names what it needs:
+
+```
+reskate.camera.look needs the "camera" permission in reskate-plugin.json
+the draw event needs the "overlay" permission in reskate-plugin.json
+```
+
+The event error comes from `reskate.on`, when you register the handler, not when the event fires.
+
+<Note>
+A name not on this page fails the manifest: `unknown permission "<name>": check the spelling, or update ReSkate`. Every permission ReSkate plans is on the list already, so a manifest written for a later ReSkate still loads here.
+</Note>
+
+## The base set: no permission
+
+Every plugin has these without asking:
+
+- `reskate.id`, `reskate.api_version`, `reskate.side`, `reskate.log`, `print` and `require` ([base](/plugins/api/base))
+- `reskate.on` with the events `load`, `unload`, `tick`, `level_loaded` and `level_unloading` ([events](/plugins/events))
+- `reskate.time.now`, `after`, `every` and `cancel` ([time](/plugins/api/time))
+- `reskate.level.current` ([base](/plugins/api/base))
+- `reskate.package.read`, `read_json` and `list`: the plugin's own files ([package](/plugins/api/package))
+- `reskate.json.encode` and `decode` ([JSON](/plugins/api/json))
+- `reskate.expose`, `require_plugin`, `emit` and `on_plugin`: functions and events between plugins ([libraries](/plugins/api/libraries))
+
+## Interface
+
+| Permission | Unlocks | What other players see |
+| --- | --- | --- |
+| `console` | [`reskate.console.command`, `reskate.console.print`](/plugins/api/console) | Nothing. |
+| `overlay` | The `draw` event and its drawing object (`d:text`, `d:rect`, `d:line`, `d:circle`, `d:poly`, `d:world_text`, `d:world_line`, `d:world_circle`, `d:image`, `d:world_image`, `d:size`, `d:world_to_screen`) ([overlay](/plugins/api/overlay)); [`reskate.ui.toast`](/plugins/api/menu) | Nothing: it draws on your screen only. |
+| `menu` | [`reskate.menu.panel`](/plugins/api/menu) and its widgets (`ui:heading`, `ui:label`, `ui:separator`, `ui:bar`, `ui:button`, `ui:toggle`, `ui:slider`, `ui:dropdown`), on the **ADDONS** page's **PLUGINS** tab | Nothing. |
+| `ui.screen` | [`reskate.ui.screen`, `reskate.ui.open`, `reskate.ui.close`](/plugins/api/menu); the `screen_closed` event | Nothing. |
+| `input` | [`reskate.input.bind`, `flight`, `gamepad`, `joystick`, `capture`](/plugins/api/input); the `action` event | Nothing. Your binds show on your **Binds** page. |
+| `hud` | [`reskate.hud.hide`](/plugins/api/skater) | Nothing: it hides your HUD only. |
+| `audio.ui` | [`reskate.audio.play_ui`](/plugins/api/audio) | Nothing. |
+| `audio` | [`reskate.audio.play`, `set`, `stop`, `playing`](/plugins/api/audio) | Nothing: your game plays the sounds. |
+
+## The skater
+
+| Permission | Unlocks | What other players see |
+| --- | --- | --- |
+| `events.tricks` | The `trick_started`, `trick_landed` and `line_broken` events; [`reskate.score.current`](/plugins/api/skater) | Nothing. |
+| `events.skater` | The `skater_state`, `bail`, `board_landed`, `body_hit` and `bail_end` events; [`reskate.skater.state`](/plugins/api/skater) | Nothing. |
+| `skater.read` | [`reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`](/plugins/api/skater); [`reskate.board.motion`](/plugins/api/board) | Nothing. |
+| `skater.teleport` | [`reskate.skater.teleport`](/plugins/api/skater) | Your skater where it lands, as with the console's teleport. Refused in a session whose host turned teleporting off. |
+| `skater.control` | [`reskate.skater.noclip`, `boost`, `freeze`, `wipeout`](/plugins/api/skater) | Your skater as it moves and bails. Noclip and boosts follow the host's rules. |
+| `trainer` | [`reskate.trainer.set_point`, `reskate.trainer.back`](/plugins/api/skater) | Your skater going back to the point, as a teleport. Refused when the host turned teleporting off. |
+| `skater.animation` | [`reskate.animation.play`, `stop`, `playing`, `replace`, `record`, `recorded`, `forget`, `trick`](/plugins/api/animation) | The clips your skater plays: other players see your body as your game draws it. |
+| `outfit` | [`reskate.outfit.set`, `clear`, `find`, `slots`, `status`](/plugins/api/outfit) | What your skater wears over the outfit (tattoos, moles, eyewear; never a paid store item). |
+| `board` | [`reskate.board.bones`, `set`, `hide`, `clear`, `park`, `toss`](/plugins/api/board) | Nothing of your board changes, only what your game draws of it. `park` hides those bones on every board you see, other players' included. |
+| `camera` | [`reskate.camera.look`, `set`, `follow`, `release`, `held`, `get`](/plugins/api/camera) | Nothing. |
+
+## The world
+
+| Permission | Unlocks | What other players see |
+| --- | --- | --- |
+| `world.raycast` | [`reskate.world.raycast`](/plugins/api/world) | Nothing. |
+| `world.objects` | [`reskate.objects.catalog`, `list`, `place`, `move`, `remove`](/plugins/api/world) | The objects you place, as any park editor object, under the session's object rules and its limit on your objects. |
+| `world.environment` | [`reskate.world.set_time`, `set_control`, `set_park`](/plugins/api/world) | Your game's time of day, world controls and parks. In a session, only the host chooses the parks. |
+| `world.ai` | [`reskate.ai.spawn`, `clear`, `count`](/plugins/api/world) | Nothing: spawning is refused in a session, where the other players would never see the AI skaters. |
+| `travel` | [`reskate.travel.locations`, `levels`, `go`, `load`](/plugins/api/world) | In a session only the host can travel, and the host's travel changes where everyone is. |
+
+## Multiplayer
+
+| Permission | Unlocks | What other players see |
+| --- | --- | --- |
+| `session.read` | [`reskate.session.active`, `is_dedicated`, `players`, `me`, `host`](/plugins/api/session); the `player_joined` and `player_left` events | Nothing. |
+| `session.skaters` | [`reskate.session.skaters`](/plugins/api/session) | Nothing. |
+| `session.nametags` | [`reskate.session.tag`](/plugins/api/session) | Nothing: the tags show beside nametags on your game. |
+| `net.session` | [`reskate.net.send`](/plugins/api/session); the `message` event | The same plugin on other players' games (or its server copy) gets your messages. The session says who sent them. |
+| `voice.control` | [`reskate.voice.set_volume`](/plugins/api/session) | Nothing: it sets how loud a player is to you. |
+| `chat.read` | The `chat` event ([chat](/plugins/api/chat)) | Nothing. |
+| `chat.send` | [`reskate.chat.send`](/plugins/api/chat) | Everyone in the session sees the line, as your chat. |
+| `chat.local` | [`reskate.chat.notice`](/plugins/api/chat) | Nothing: the line shows in your chat only, under the plugin's name with a Plugin tag. |
+| `server` | [`reskate.server.kick`, `say`, `tell`, `move`](/plugins/api/server), in the plugin's server copy only | Everyone: players kicked, chat lines under the plugin's name, skaters moved. |
+| `throwdowns` | [`reskate.throwdowns.state`, `host`, `cancel`, `hosting`](/plugins/api/throwdowns); the `throwdown` event | The players you choose see your drop and join it with the game's own Join. |
+
+## Game and files
+
+| Permission | Unlocks | What other players see |
+| --- | --- | --- |
+| `storage` | [`reskate.storage.get`, `set`, `add`, `keys`](/plugins/api/storage) | Nothing: storage stays on your PC. |
+| `net.http` | [`reskate.http.request`](/plugins/api/http), to the hosts in the manifest's `domains` | Nothing in game. The web servers you name see requests from your PC, with the user agent `ReSkate-Plugin/<folder name>`. |
+| `music` | [`reskate.music.current`, `play`, `pause`, `next`, `previous`, `game`, `game_next`](/plugins/api/music); the `track_changed` event | Nothing: it reads and controls your music. |
+| `progression.read` | [`reskate.progression.get`](/plugins/api/progression) | Nothing. It only reads. |
+| `settings.read` | [`reskate.settings.game`, `reskate.settings.names`](/plugins/api/progression) | Nothing. It only reads. |
+| `mods.read` | [`reskate.mods.installed`, `reskate.mods.list`](/plugins/api/mods) | Nothing. |
+| `replay` | No function or event yet. | Nothing. The manifest accepts it, so a plugin written for a later ReSkate loads. |
+
+<Warning>
+A permission says what a plugin may try, not that the game lets it. Many calls still answer `false` and a reason when the game refuses: the host turned something off, you are a guest in a session, or the call came too often. The API pages say which.
+</Warning>
+
+## Shared budgets
+
+Some functions under different permissions share one rate budget. They are easy to trip over together:
+
+- `reskate.skater.noclip`, `boost` and `freeze`, `reskate.camera.follow`, `reskate.ai.spawn`, `reskate.animation.play`, `reskate.board.toss` and `reskate.outfit.set`: 4 calls a second between them.
+- `reskate.skater.teleport` and `reskate.trainer.back`: 2 a second between them.
+- `reskate.music.play`, `pause`, `next`, `previous` and `game_next`: 2 a second between them.
+- `reskate.chat.send` and `reskate.server.say` share one clock: a `chat.send` must come 3 s after the last line of either, and a `server.say` 1 s after.
+
+[Limits](/plugins/limits) lists every rate.

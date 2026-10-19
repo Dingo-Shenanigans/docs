@@ -1,0 +1,84 @@
+---
+title: "Storage"
+description: "reskate.storage: values your plugin keeps between sessions, saved to disk for it."
+---
+
+`reskate.storage` keeps values between game launches: settings, scores, saved spots. Every function needs the `storage` [permission](/plugins/permissions).
+
+Storage is a set of keys, each holding a value that can be turned into JSON: `nil`, booleans, numbers, strings, and tables of those (a list, or a table with string keys). It is not shared with other plugins or other players.
+
+## Keys and sizes
+
+- A key is a string of 1 to 128 characters.
+- The whole store, written as compact JSON, is at most 1 MB. A `set` or `add` that would make it larger raises an error ("storage is full"), and the key keeps the value it had.
+- A value has the same rules as [`reskate.json.encode`](/plugins/api/json): tables nested at most 32 deep, no functions, vectors or buffers, no NaN or infinity.
+
+## Where and when it is saved
+
+ReSkate saves a plugin's storage at most every 2 seconds while it changes, and once more when the plugin unloads or stops. It is written to a temporary file first, so a crash mid-save leaves the last good file.
+
+| Copy | File |
+| --- | --- |
+| A player's game | `%LOCALAPPDATA%\ReSkate\Plugins\<folder>\storage.json` |
+| The server copy on a lobby's host | `%LOCALAPPDATA%\ReSkate\Plugins\server\<folder>@server\storage.json` |
+| A dedicated server | `data\plugins\<folder>\storage.json`, beside the server's config file |
+
+`<folder>` is the plugin's mod folder name, and each copy's storage folder is its [`reskate.id`](/plugins/api/base): `<folder>@server` for the server copy on a lobby's host, so it never shares storage with the client copy beside it. A renamed mod folder starts with empty storage.
+
+The file is saved as compact JSON, the same way the 1 MB quota measures it. When it cannot be read (it is too large, or broken, or not a JSON object), it is renamed `storage.json.bad`, a warning is logged, and the plugin starts with empty storage. The next save does not overwrite the `.bad` file.
+
+### `reskate.storage.get(key)`
+
+The value a key holds.
+
+<ParamField path="key" type="string" required>1 to 128 characters.</ParamField>
+
+<ResponseField name="value" type="any">A copy of the value, or `nil` when the key holds nothing. Changing a table you got changes nothing in storage until you `set` it again.</ResponseField>
+
+```lua
+local best = reskate.storage.get("best_line") or 0
+```
+
+### `reskate.storage.set(key, value)`
+
+Sets a key's value, or removes the key.
+
+<ParamField path="key" type="string" required>1 to 128 characters.</ParamField>
+<ParamField path="value" type="any" required>A value that can be turned into JSON. `nil` removes the key.</ParamField>
+
+```lua
+reskate.storage.set("spots", {
+    {name = "ledge", x = 12.5, y = 0, z = -40},
+})
+reskate.storage.set("old_key", nil) -- removed
+```
+
+### `reskate.storage.add(key, by)`
+
+Adds a number to a key's number and returns the new value. A key that holds nothing counts from 0.
+
+<ParamField path="key" type="string" required>1 to 128 characters.</ParamField>
+<ParamField path="by" type="number" default="1">A finite number, negative to take away.</ParamField>
+
+<ResponseField name="value" type="number">The key's value after adding.</ResponseField>
+
+```lua
+local launches = reskate.storage.add("launches")
+reskate.log("launch number " .. launches)
+```
+
+### `reskate.storage.keys()`
+
+Every key that holds a value.
+
+<ResponseField name="keys" type="table">A list of strings, sorted.</ResponseField>
+
+```lua
+for _, key in reskate.storage.keys() do
+    if key:sub(1, 6) == "spots." then reskate.storage.set(key, nil) end
+end
+```
+
+<Note>
+Needs `storage`. Raises an error for a key that is empty or longer than 128 characters, a value that cannot be turned into JSON, `add` on a key that holds something other than a number, a non-finite `by`, and a store that would grow past 1 MB.
+</Note>

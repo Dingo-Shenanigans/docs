@@ -1,0 +1,165 @@
+---
+title: "Quickstart"
+description: "Make a first plugin: a console command and a speed readout on the screen, reloaded as you edit it."
+---
+
+This page walks you through a first plugin: a mod folder, its two manifests, and a script with a console command and a draw handler. It uses the `console`, `overlay` and `skater.read` permissions.
+
+## What you make
+
+A plugin called Speedo. It draws your skater's speed in the top left of the screen, and adds a console command, `speedo`, that shows or hides it.
+
+<Steps>
+  <Step title="Make the mod folder">
+    In the game's folder, open `Mods` and make a folder for the plugin, such as `speedo`. This folder name is the plugin's id: `plugin list`, `plugin reload` and the log all use it.
+
+    Use plain ASCII for the name: letters, digits, spaces, `_`, `-` and `.`, not starting with a dot, at most 64 characters.
+
+    You end up with this layout:
+
+    ```
+    Mods/
+      speedo/
+        manifest.json
+        reskate-plugin.json
+        plugin/
+          main.lua
+    ```
+  </Step>
+
+  <Step title="Write manifest.json">
+    `manifest.json` is the mod's own description, the one Thunderstore packages carry. Its `name` matters to plugins: it is the plugin's message channel, so the same plugin on every player's game finds itself under it, whatever its folder is called.
+
+    ```json
+    {
+        "name": "Speedo",
+        "version_number": "1.0.0",
+        "website_url": "",
+        "description": "Shows your speed in the top left of the screen.",
+        "dependencies": []
+    }
+    ```
+  </Step>
+
+  <Step title="Write reskate-plugin.json">
+    This file makes the mod a plugin. It names the API version, the entry script, where the plugin runs and the permissions it needs.
+
+    ```json
+    {
+        "api": 1,
+        "entry": "plugin/main.lua",
+        "side": "client",
+        "permissions": ["console", "overlay", "skater.read"]
+    }
+    ```
+
+    - `console` lets it add a command and print to the console.
+    - `overlay` lets it draw.
+    - `skater.read` lets it read the skater's speed.
+
+    [The manifest](/plugins/manifest) covers every field.
+  </Step>
+
+  <Step title="Write plugin/main.lua">
+    The entry script runs once when the plugin loads. It registers what the plugin does: here a console command and a `draw` handler.
+
+    ```lua
+    -- Speedo: your speed in the top left of the screen. `speedo` shows or hides it.
+    local shown = true
+
+    reskate.console.command("speedo", "Shows or hides the speed readout", function(args)
+        shown = not shown
+        reskate.console.print("speedo: " .. (shown and "on" or "off"))
+    end)
+
+    reskate.on("draw", function(d)
+        if not shown then return end
+        local skater = reskate.skater.get()
+        if skater == nil then return end -- no skater: the menu, or a load
+        local kmh = skater.speed * 3.6     -- speed is in metres per second
+        d:rect(vector.create(40, 200, 0), vector.create(240, 250, 0), {colour = "#000000a0", fill = true, rounding = 6})
+        d:text(vector.create(56, 210, 0), string.format("%.0f km/h", kmh), {colour = "#ffffff", size = 26})
+    end)
+
+    reskate.log("Speedo loaded")
+    ```
+
+    A few things to know about this code:
+
+    - `reskate.on("draw", ...)` runs its handler every tick. The handler gets `d`, the drawing object, and draws with `d:rect`, `d:text` and the rest. Drawing works only inside a draw handler.
+    - Screen positions are vectors, `vector.create(x, y, 0)`, in pixels from the top left.
+    - `reskate.skater.get()` returns `nil` when there is no skater, so check for it.
+    - `reskate.log` writes to ReSkate's log, not the console. `reskate.console.print` writes to the console.
+  </Step>
+
+  <Step title="Switch it on">
+    A mod folder that `mods.json` does not list is on, so a new plugin needs nothing more: ReSkate looks for plugins every 2 seconds, and loads a new one at the next game tick. You do not restart the game.
+
+    If you switched the mod off earlier, switch it on again in your mod manager.
+  </Step>
+
+  <Step title="Check that it runs">
+    Open ReSkate's console and run:
+
+    ```
+    plugin list
+    ```
+
+    You see a line like this:
+
+    ```
+    speedo: running, 0.3 MB, 0.021 ms a tick, 1 command
+    ```
+
+    Load into a level. The readout shows your speed. Run `speedo` in the console to hide it, and again to show it.
+  </Step>
+
+  <Step title="Edit it and watch it reload">
+    Change something in `plugin/main.lua`, such as the text size from `26` to `40`, and save the file. Within 2 seconds ReSkate notices the change, unloads the plugin and loads it again. The log says:
+
+    ```
+    Plugin speedo reloading: its files changed.
+    ```
+
+    The readout shows the new size. You never restart the game while you work on a plugin.
+  </Step>
+
+  <Step title="Read its errors">
+    Errors go to ReSkate's log, `logs/ReSkate.log` beside the game (or `%LOCALAPPDATA%\ReSkate\logs` when that folder cannot be written). The plugin's own lines (what it logs, its errors, why it stopped) start with its id in brackets.
+
+    Try it: change `skater.speed` to `skater.sped` and save. The draw handler now raises an error each tick, and the log shows each one with where it happened, followed by a traceback:
+
+    ```
+    [speedo] the draw handler: plugin/main.lua:13: attempt to perform arithmetic (mul) on nil and number
+    ```
+
+    After more than 5 errors in 10 seconds, ReSkate stops the plugin:
+
+    ```
+    [speedo] stopped: more than 5 errors in 10 s
+    ```
+
+    `plugin list` shows it as `stopped (more than 5 errors in 10 s)`. Fix the line and save: the change loads it again.
+  </Step>
+</Steps>
+
+<Note>
+If the plugin does not show up in `plugin list` at all, the mod is off or its folder has no `reskate-plugin.json`. If it shows as stopped right away, its reason says why: a mistake in the manifest, a missing entry file, or an error as the entry script ran. A mistake in `reskate-plugin.json` shows in the log as `Plugin speedo was not loaded: <why>`.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Events" icon="bolt" href="/plugins/events">
+    React to ticks, levels, tricks, bails and players.
+  </Card>
+  <Card title="Permissions" icon="key" href="/plugins/permissions">
+    Find the permission for what you want to do next.
+  </Card>
+  <Card title="Limits" icon="gauge" href="/plugins/limits">
+    Learn what stops a plugin, so yours never is.
+  </Card>
+  <Card title="Overlay" icon="pen-ruler" href="/plugins/api/overlay">
+    Everything a draw handler can draw.
+  </Card>
+</CardGroup>

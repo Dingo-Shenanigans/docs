@@ -1,0 +1,147 @@
+---
+title: "Camera"
+description: "reskate.camera: show the view from a pose of your own, follow another player with Spectate, and give the game its camera back."
+---
+
+`reskate.camera` takes the game's camera and shows the view your plugin chooses, follows a session player with Spectate's camera, and reads the camera as it is now. Every function needs the `camera` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+
+## How the camera is shared
+
+- One plugin holds the camera at a time. The first `look` or `set` takes it; another plugin's `look`, `set` or `follow` is refused with `"<plugin> has the camera"` until the holder releases it.
+- The view you give is held until you give another. To move the camera, call `look` or `set` again, usually every tick.
+- Spectate takes the camera back while it runs, whether the player started it or a plugin did with `follow`. Your plugin still holds the camera meanwhile, but its view is not shown: `held()` says `"Spectate has the camera"`. When Spectate ends, your view is shown again.
+- `release()` gives the game its own camera back. When the plugin stops (unloaded, reloaded, or stopped for going over a limit), its camera is released the same way, and a Spectate it started with `follow` ends.
+
+Your view also decides what [input](/plugins/api/input) the plugin may read: `input.flight` and `input.capture` work only while the plugin's own view is shown.
+
+### `reskate.camera.look(position, target, fov)`
+
+Shows the view from `position` towards `target`, upright (no roll). Use it for a camera that watches something.
+
+<ParamField path="position" type="vector" required>Where the camera is. Finite, within 100 km.</ParamField>
+<ParamField path="target" type="vector" required>What it looks at. Finite, within 100 km, and not the same point as `position`.</ParamField>
+<ParamField path="fov" type="number" default="the camera's own">The vertical field of view: 10 to 150 degrees. 0 or nothing keeps the camera's own.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the plugin holds the camera with this view.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"<plugin> has the camera"` or `"<plugin> is following a player with it"`.</ResponseField>
+
+```lua
+-- A camera 4 m above and behind the skater, looking at it.
+reskate.on("tick", function()
+    local s = reskate.skater.get()
+    if not s then return end
+    local back = vector.create(-math.sin(s.heading), 0, -math.cos(s.heading)) * 6
+    reskate.camera.look(s.position + back + vector.create(0, 4, 0), s.position + vector.create(0, 1, 0), 60)
+end)
+```
+
+A position that is not finite, the same point twice, or a field of view out of range raises an error.
+
+<Note>Needs the `camera` permission. It has no rate limit: call it every tick.</Note>
+
+### `reskate.camera.set(position, forward, up, fov)`
+
+Shows the view from `position` along `forward`, with `up` giving the camera's roll. Use it for a camera that flies, banks or turns over.
+
+<ParamField path="position" type="vector" required>Where the camera is. Finite, within 100 km.</ParamField>
+<ParamField path="forward" type="vector" required>The way it looks. Any length but 0.</ParamField>
+<ParamField path="up" type="vector" required>Which way is up on screen. It need not be at right angles to `forward`, but it cannot be along it.</ParamField>
+<ParamField path="fov" type="number" default="the camera's own">The vertical field of view: 10 to 150 degrees. 0 or nothing keeps the camera's own.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the plugin holds the camera with this view.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"<plugin> has the camera"` or `"<plugin> is following a player with it"`.</ResponseField>
+
+A heading is in radians about world up, 0 facing +Z. Facing +Z, the view's right is -X, so for a heading `h` the right is `vector.create(-math.cos(h), 0, math.sin(h))`.
+
+```lua
+-- Roll the view by `roll` radians about the way it looks.
+local function view(at, yaw, pitch, roll)
+    local forward = vector.create(math.sin(yaw) * math.cos(pitch), math.sin(pitch), math.cos(yaw) * math.cos(pitch))
+    local right = vector.create(-math.cos(yaw), 0, math.sin(yaw)) -- facing +Z, the view's right is -X
+    local up = vector.create(0, 1, 0) * math.cos(roll) + right * math.sin(roll)
+    return reskate.camera.set(at, forward, up, 75)
+end
+```
+
+A `forward` of no length, an `up` along `forward`, or a field of view out of range raises an error.
+
+<Note>Needs the `camera` permission. It has no rate limit: call it every tick.</Note>
+
+### `reskate.camera.follow(player)`
+
+Starts Spectate's camera on a session player, or stops the Spectate this plugin started. If the plugin held the camera with a view of its own, that view is released first.
+
+<ParamField path="player" type="string or table">A player's id (`"7656..."`) or a player table with an `id`, such as one from `reskate.session.players()`. `nil` or nothing stops following.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when Spectate was asked to follow the player (or to stop).</ResponseField>
+<ResponseField name="why" type="string">Why not: `"<plugin> has the camera"`, `"not in a session"` or `"asked more than 4 times in a second"`.</ResponseField>
+
+```lua
+for _, p in reskate.session.players() do
+    if not p.me then
+        reskate.camera.follow(p)
+        break
+    end
+end
+-- later
+reskate.camera.follow(nil)
+```
+
+A `player` that is not an id raises an error.
+
+<Note>
+Needs the `camera` permission. Shares the budget of 4 control calls a second with `skater.noclip`, `boost`, `freeze`, `ai.spawn`, `animation.play`, `board.toss` and `outfit.set`.
+</Note>
+
+### `reskate.camera.release()`
+
+Gives the game its own camera back, and stops a Spectate this plugin started. Releasing a camera the plugin does not hold does nothing.
+
+Returns nothing.
+
+```lua
+reskate.on("unload", function() reskate.camera.release() end)
+```
+
+<Note>Needs the `camera` permission. The camera is released when the plugin stops whether or not it calls this.</Note>
+
+### `reskate.camera.held()`
+
+Whether the plugin's view (or its Spectate) is the one shown now. After `look` or `set`, the view takes a moment to be shown.
+
+<ResponseField name="ok" type="boolean">True while the plugin's view is shown, or while the Spectate it started is running.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"it does not hold the camera"`, `"waiting for the game's camera"`, `"Spectate has the camera"`, `"Spectate is starting"`, or the game's reason it cannot show the view now.</ResponseField>
+
+```lua
+local shown, why = reskate.camera.held()
+if not shown then reskate.log("camera: " .. why) end
+```
+
+<Note>Needs the `camera` permission.</Note>
+
+### `reskate.camera.get()`
+
+The camera as it is now: the game's own, Spectate's, or a plugin's view.
+
+<ResponseField name="view" type="table or nil">
+`nil` when there is no camera to read.
+<Expandable title="fields">
+<ResponseField name="position" type="vector">Where the camera is.</ResponseField>
+<ResponseField name="forward" type="vector">The way it looks, length 1.</ResponseField>
+<ResponseField name="fov" type="number">Its vertical field of view, in degrees.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+-- Start a flying camera where the game's camera is.
+local view = reskate.camera.get()
+if view then
+    reskate.camera.set(view.position, view.forward, vector.create(0, 1, 0), view.fov)
+end
+```
+
+<Note>Needs the `camera` permission.</Note>
+
+<Tip>
+For a camera the player flies with the keyboard, mouse or a gamepad, see [input](/plugins/api/input) and the [flying camera guide](/plugins/guides/flying-camera).
+</Tip>

@@ -1,0 +1,189 @@
+---
+title: "Input"
+description: "reskate.input: named actions on keys and pad combos, flight keys and mouse look, gamepads, joysticks, and keeping the controller from the game."
+---
+
+`reskate.input` gives your plugin actions the player can press, and reads the keyboard, mouse, gamepad and joystick for a plugin that flies something. Every function, and the `action` event, needs the `input` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+
+## Actions
+
+### `reskate.input.bind(action, key)`
+
+Puts a named action on a key or a pad combo. Each press fires the `action` event with the action's name, once, while the game itself has the input: not while a menu, the console or a text box is open.
+
+The player sees your actions on the **Binds** page of ReSkate's settings and can record another combo for any of them, or clear it. The player's choice wins over yours and is kept between sessions.
+
+<ParamField path="action" type="string" required>The action's name, 1 to 48 characters. It is what the `action` event hands your handler. Binding a name again replaces its combo.</ParamField>
+<ParamField path="key" type="string" required>A key, a key combo, or a pad combo, at most 60 characters (see below).</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the action is bound.</ResponseField>
+<ResponseField name="why" type="string">`"that is not a key or pad combo"` when `ok` is false.</ResponseField>
+
+```lua
+reskate.input.bind("mark", "F7")
+reskate.input.bind("menu", "Ctrl+K")
+reskate.input.bind("boost", "Pad.LB+Pad.RB")
+
+reskate.on("action", function(name)
+    if name == "mark" then
+        reskate.log("marked")
+    elseif name == "boost" then
+        reskate.skater.boost("forward")
+    end
+end)
+```
+
+A key name that is not one raises an error, as does a 17th action.
+
+<Note>
+Needs the `input` permission. A plugin has at most 16 actions. When the plugin stops, its actions go away (the player's choices for them are kept).
+</Note>
+
+### Key and pad combo names
+
+A combo is names joined with `+`, with no spaces. Case does not matter. A combo is either keys or pad buttons, never both.
+
+**Keys** (up to 5 held together):
+
+| Name | Key |
+| --- | --- |
+| `A` to `Z` | Letters |
+| `0` to `9` | The number row |
+| `F1` to `F12` | Function keys |
+| `Space` | Space bar |
+| `Ctrl`, `Shift`, `Alt` | Modifiers, alone or in a combo |
+
+Examples: `"F7"`, `"Ctrl+K"`, `"Shift+Alt+1"`, `"Space"`.
+
+**Pad buttons**, each written `Pad.` and the button:
+
+| Name | Button |
+| --- | --- |
+| `Pad.A`, `Pad.B`, `Pad.X`, `Pad.Y` | Face buttons (Xbox names) |
+| `Pad.LB`, `Pad.RB` | Bumpers |
+| `Pad.LT`, `Pad.RT` | Triggers, pressed past their dead zone |
+| `Pad.Up`, `Pad.Down`, `Pad.Left`, `Pad.Right` | The d-pad |
+| `Pad.Start`, `Pad.Back` | Start and Back |
+| `Pad.L3`, `Pad.R3` | Stick clicks |
+
+Examples: `"Pad.A"`, `"Pad.LB+Pad.RB"`, `"Pad.Up+Pad.Y"`.
+
+### The `action` event
+
+```lua
+reskate.on("action", function(name)
+    -- name: the action's name, as you bound it
+end)
+```
+
+A combo fires once when all of it is held, and again only after it is let go. Registering a handler needs the `input` permission. See [events](/plugins/events).
+
+## Flight input
+
+### `reskate.input.flight()`
+
+The flight keys and the mouse, as Freecam reads them, for a plugin that flies its own camera. It answers only while the plugin's [camera](/plugins/api/camera) view is the one shown, the game window has the focus, and no ReSkate menu is open.
+
+<ResponseField name="input" type="table or nil">
+`nil` when the plugin's view is not shown, or the game cannot be read now.
+<Expandable title="fields">
+<ResponseField name="right" type="number">1 with D, -1 with A, 0 with neither (or both).</ResponseField>
+<ResponseField name="up" type="number">1 with E, -1 with Q.</ResponseField>
+<ResponseField name="forward" type="number">1 with W, -1 with S.</ResponseField>
+<ResponseField name="look_x" type="number">How far the mouse moved right since the last read, in pixels, while the right mouse button is held. 0 otherwise.</ResponseField>
+<ResponseField name="look_y" type="number">How far it moved down, in pixels, the same way.</ResponseField>
+<ResponseField name="boost" type="boolean">True while Shift is held.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local yaw, pitch = 0, 0
+reskate.on("tick", function(dt)
+    local input = reskate.input.flight()
+    if not input then return end
+    yaw -= input.look_x * 0.003
+    pitch = math.clamp(pitch - input.look_y * 0.003, -1.4, 1.4)
+end)
+```
+
+The mouse's movement is used up as it is read, and it is read once a tick: two calls in one tick see the same values.
+
+<Note>Needs the `input` permission and a camera view of the plugin's own (`camera.look` or `camera.set`).</Note>
+
+## Controllers
+
+### `reskate.input.gamepad()`
+
+The gamepad's sticks, triggers and buttons. It reads the pad even while the game is kept from it (see `capture`).
+
+<ResponseField name="pad" type="table or nil">
+`nil` when no pad is connected or the game window does not have the focus.
+<Expandable title="fields">
+<ResponseField name="left_x" type="number">The left stick, -1 (left) to 1 (right).</ResponseField>
+<ResponseField name="left_y" type="number">The left stick, -1 (down) to 1 (up).</ResponseField>
+<ResponseField name="right_x" type="number">The right stick, -1 to 1.</ResponseField>
+<ResponseField name="right_y" type="number">The right stick, -1 to 1.</ResponseField>
+<ResponseField name="left_trigger" type="number">0 (released) to 1 (pulled all the way).</ResponseField>
+<ResponseField name="right_trigger" type="number">0 to 1.</ResponseField>
+<ResponseField name="buttons" type="table">A boolean for each button: `up`, `down`, `left`, `right` (the d-pad), `start`, `back`, `left_stick`, `right_stick` (stick clicks), `lb`, `rb`, `a`, `b`, `x`, `y`.</ResponseField>
+<ResponseField name="playstation" type="boolean">True for a PlayStation pad. Its buttons keep the Xbox names above.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local pad = reskate.input.gamepad()
+if pad and pad.buttons.a then
+    reskate.log(string.format("left stick %.2f %.2f", pad.left_x, pad.left_y))
+end
+```
+
+<Note>Needs the `input` permission.</Note>
+
+### `reskate.input.joystick()`
+
+A joystick or RC radio connected to Windows. When there are several, one whose name holds "radio" is chosen first, otherwise the first one found.
+
+<ResponseField name="stick" type="table or nil">
+`nil` when none is connected or the game window does not have the focus.
+<Expandable title="fields">
+<ResponseField name="axes" type="table">A list of 6 numbers, each -1 to 1. Axes the device does not have read 0.</ResponseField>
+<ResponseField name="buttons" type="table">A list of 32 booleans, button 1 first.</ResponseField>
+<ResponseField name="name" type="string">The device's name, as Windows gives it.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local stick = reskate.input.joystick()
+if stick then
+    local throttle = (stick.axes[3] + 1) / 2
+end
+```
+
+<Note>Needs the `input` permission.</Note>
+
+### `reskate.input.capture(on)`
+
+Keeps the game from reading the controller, so the player can fly your camera with the pad without the skater moving too. Each call keeps it for 250 ms: call it every tick for as long as you want it. Your plugin still reads the pad with `gamepad()`.
+
+<ParamField path="on" type="boolean" required>True to keep the controller for the next 250 ms, false (or nothing) to give it back now.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the controller is kept (or given back).</ResponseField>
+<ResponseField name="why" type="string">`"only while the plugin's camera is shown"` when `ok` is false.</ResponseField>
+
+```lua
+reskate.on("tick", function()
+    if flying then
+        reskate.input.capture(true)
+        local pad = reskate.input.gamepad()
+        -- fly with the pad
+    end
+end)
+```
+
+<Note>
+Needs the `input` permission. It works only while the plugin's own camera view is shown: when Spectate takes the camera, or the plugin releases it, the game has the controller again at once. One plugin captures at a time: the latest call wins.
+</Note>
+
+<Tip>
+The [flying camera guide](/plugins/guides/flying-camera) puts `camera.set`, `input.flight`, `input.gamepad` and `input.capture` together.
+</Tip>

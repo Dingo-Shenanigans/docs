@@ -1,0 +1,183 @@
+---
+title: "Limits"
+description: "The sandbox every plugin runs in, every limit ReSkate holds it to, and what happens when it goes over one."
+---
+
+This page covers the sandbox, the limits each plugin has, and what happens past each one. Limits apply to every plugin, whatever its permissions, and to each plugin on its own: one plugin going over stops that plugin, never the game or another plugin.
+
+## The sandbox
+
+Each plugin runs in its own Luau VM, made for it when it loads and closed when it unloads.
+
+- **Its own globals.** A global one plugin sets is invisible to every other plugin. Plugins share nothing but what they pass through `reskate.expose`, `reskate.emit` and messages, and those cross as JSON copies: tables, strings, numbers and booleans, never functions.
+- **Read-only libraries.** The `reskate` table, its sub-tables and Luau's libraries (`string`, `table`, `math` and the rest) cannot be changed or given a metatable.
+- **No files, programs or code loading.** There is no `io`, `package`, `dofile`, `loadfile`, `loadstring` or `load`. `os` has no `execute`, `remove`, `rename`, `getenv` or `exit`.
+- **Source only.** ReSkate compiles the plugin's own `.lua` and `.luau` text. It never loads bytecode.
+- **Its own package.** `require` and `reskate.package` read only inside the plugin's folder. A path with `..`, a drive, `\` or a link that leads outside is refused.
+- **Through the API only.** Nothing reaches the game except the `reskate` functions, and each checks its arguments and [permission](/plugins/permissions) first.
+
+## Stopped or refused
+
+Going over a limit does one of two things.
+
+**The plugin is stopped.** ReSkate closes its VM at once:
+
+- Its unload handlers do not run. Its storage is saved.
+- Its console commands go, and so does everything it held of the game: its clips and trick replacements, its sounds, the items it put on the outfit, its board changes, a drop it hosts, the camera, a freeze, a hidden HUD, its nametags and its binds. Only its own: on a lobby's host, the server copy (`<folder>@server`) and the client copy hold their things apart, so one stopping leaves the other's alone.
+- The log says `[<id>] stopped: <why>`, and `plugin list` shows `stopped (<why>)`. For a server copy on a lobby's host, `<id>` is `<folder>@server`.
+- It stays stopped until you change one of its files (which reloads it) or run `plugin on <id>`.
+
+**The call is refused.** The plugin keeps running. The function either:
+
+- raises a Lua error, which you can catch with `pcall` (uncaught, it counts towards the error limit), or
+- returns `false` and a reason (or `false` alone, where the API page says so), with nothing raised.
+
+### Halts cannot be caught
+
+When a plugin goes over its memory or its time for a call, ReSkate halts it. A halt raises `the plugin was stopped` at every point Luau checks: every loop, call and return. A `pcall` in the script cannot catch it and carry on. Every `reskate` function the halted plugin calls raises the same error, and nothing it asks for is done. The plugin is then stopped.
+
+```lua
+-- This plugin is stopped all the same: the pcall cannot save it.
+reskate.console.command("spin", "Loops forever", function()
+    while true do
+        pcall(function() while true do end end)
+    end
+end)
+```
+
+## Limits that stop a plugin
+
+| Limit | Value | Reason it stops with |
+| --- | --- | --- |
+| Memory | 64 MB for the VM's heap | `it used more than 64 MB of memory` |
+| Time for one call | 50 ms | `<what> ran longer than 50 ms` |
+| Time for unloading | 20 ms for all `unload` handlers together | `the unload handler ran longer than <n> ms` |
+| Time a tick | 2 ms on average, over a 1 s window, 3 windows in a row | `it took <n> ms a tick for 3 s, over its 2 ms` |
+| Errors | more than 5 in 10 s | `more than 5 errors in 10 s` |
+| Errors as it loads | an error as the entry file runs | `plugin/main.lua raised an error as it ran` |
+
+### Memory
+
+The VM may hold 64 MB. An allocation past that fails, and the plugin stops, even when the script catches the out-of-memory error.
+
+### Time for one call
+
+Every call ReSkate makes into a plugin has 50 ms: running the entry file, each event handler, each timer, each console command, each panel or screen build, each exposed function another plugin calls, and each web request's callback. `<what>` names the call, such as `the tick handler` or `the command speedo`.
+
+When a plugin unloads (its mod switched off, its files changed, `plugin off` or `plugin reload`), its `unload` handlers have 20 ms between them. Once they are spent, the rest are skipped.
+
+### Time a tick
+
+Everything a plugin runs counts towards its tick: its timers, its tick handlers, its events, its draw handlers and its panels. ReSkate averages that time over each second. A plugin that averages more than 2 ms a tick for 3 seconds in a row is stopped. `plugin list` shows each plugin's last average:
+
+```
+speedo: running, 0.3 MB, 0.021 ms a tick, 1 command
+```
+
+<Tip>
+A spike is fine; a habit is not. Spread heavy work over ticks with `reskate.time.every`, or cache what you read.
+</Tip>
+
+### Errors
+
+Every error a plugin does not catch is logged with where it happened and a traceback:
+
+```
+[speedo] the draw handler: plugin/main.lua:13: attempt to perform arithmetic (mul) on nil and number
+```
+
+More than 5 of them within 10 seconds stops the plugin. An error in the entry file as it first runs stops it at once. Errors you catch with `pcall` do not count.
+
+## Logging
+
+`reskate.log`, `print` and `reskate.console.print` share 50 lines a second. Past that, the rest of that second's lines are left out, with one warning:
+
+```
+[speedo] more than 50 lines in a second: the rest of this second's are left out
+```
+
+A line longer than 2000 characters is cut, with ` ...` at its end.
+
+## Limits that refuse a call with an error
+
+These raise a Lua error. The plugin runs on.
+
+| What | Limit | Error |
+| --- | --- | --- |
+| Handlers | 256 per event | `more than 256 handlers for one event` |
+| Timers | 1024 at once | `more than 1024 timers` |
+| Console commands | 64 | `more than 64 commands` |
+| Storage | 1 MB, as compact JSON, the way it is saved | `storage is full: that would make it <n> KB, and a plugin has 1024 KB` |
+| Storage keys | 1 to 128 characters | `a storage key must be 1 to 128 characters` |
+| Package file reads | 16 MB a file | `<path> is larger than 16 MB` |
+| Source files (`require`) | 1 MB a file | `is larger than 1 MB` |
+| Package folder listing | 1000 entries | `the folder holds more than 1000 entries` |
+| Raycasts | 64 a tick | `more than 64 raycasts in one tick` |
+| Ray length | 1000 m | `a ray is at most 1000 m long` |
+| Pictures | 32 different files | `a plugin draws at most 32 different pictures` |
+| Animation clips | 48 MB of poses | `a plugin's clips hold at most 48 MB of poses` |
+| Sounds | 32 different files | `a plugin plays at most 32 different sounds` |
+| Menu panels | 8 | `more than 8 panels` |
+| Widgets | 64 a panel | `a panel has at most 64 widgets` |
+| Screens | 4 | `at most 4 screens` |
+| Binds | 16 actions | `at most 16 actions` |
+| Exposed functions | 64, names up to 48 characters | `at most 64 functions, each name 48 characters` |
+| `on_plugin` handlers | 64 | `more than 64 on_plugin handlers` |
+| Emitted event data | 64 KB as JSON | `an event's data is at most 64 KB as JSON` |
+| Emitted events | 64 in each of the plugin's ticks | `more than 64 events in one tick` |
+| Message size | 4082 bytes | `a message is at most 4082 bytes` |
+| Messages | 16 KB a second (each counts 14 bytes more than its payload) | `more than 16 KB of messages in a second` |
+| Web requests | 10 a minute | `more than 10 web requests in a minute` |
+| Web requests waiting | 4 | `more than 4 web requests waiting for an answer` |
+| Web request body | 65536 characters | `a web request's body is longer than 65536 characters` |
+| Web request URL | 2048 characters | `a web request's url is longer than 2048 characters` |
+| Server calls | 20 a second, all `reskate.server` functions together | `more than 20 server calls in a second` |
+| Turning a value into JSON | nested at most 32 deep | `tables nested deeper than 32 cannot be turned into JSON` |
+
+## Limits that refuse a call with false
+
+These return `false` and a reason, and raise nothing. Check the result.
+
+| What | Limit | Reason |
+| --- | --- | --- |
+| `reskate.skater.teleport`, `reskate.trainer.back` | 2 a second, together | `asked more than twice in a second` |
+| `reskate.skater.noclip`, `boost`, `freeze`; `reskate.camera.follow`; `reskate.ai.spawn`; `reskate.animation.play`; `reskate.board.toss`; `reskate.outfit.set` | 4 a second, together | `asked more than 4 times in a second` |
+| `reskate.skater.wipeout` | 1 every 2 s | `one wipeout every 2 s` |
+| `reskate.objects.place`, `move`, `remove` | 4 a second | `more than 4 edits in a second` |
+| `reskate.world.set_time`, `set_control`, `set_park` | 4 a second | `more than 4 changes in a second` |
+| `reskate.travel.go`, `reskate.travel.load` | 1 every 5 s | `one trip every 5 s` |
+| `reskate.voice.set_volume` | 10 a second | `more than 10 changes in a second` |
+| `reskate.chat.send` | 1 every 3 s | `one line every 3 s` |
+| `reskate.chat.notice` | 5 a second | `more than 5 lines in a second` |
+| `reskate.server.say` | 1 a second | `one line a second` |
+| `reskate.audio.play` | 20 a second | `more than 20 sounds in a second` |
+| `reskate.audio.play` | 8 playing at once (48 for all plugins) | `it plays 8 sounds already, or there is no level` |
+| `reskate.music.play`, `pause`, `next`, `previous` | 2 a second, with `game_next` | `more than 2 a second` |
+| `reskate.music.game_next` | 2 a second, with the others | `asked more than twice in a second` |
+| `reskate.throwdowns.host` | 1 every 5 s | `one drop every 5 s` |
+| `reskate.animation.record` | room for a 10 s recording in the 48 MB of clips | `its clips hold too much already (each recording can be 10 s of poses)` |
+| `reskate.ui.toast` | 3 in 5 s | returns `false` alone |
+| `reskate.audio.play_ui` | 10 a second | returns `false` alone |
+
+## Limits on what a plugin draws and sends
+
+These neither stop the plugin nor raise an error.
+
+- **Shapes.** A plugin draws at most 4000 shapes a frame, with at most 64 KB of text between them. The rest of that frame's shapes are left out. The log warns at most once every 10 s, naming the limit it hit: `more than 4000 shapes in a frame: the rest are left out`, or `more than 64 KB of text in a frame's shapes: the rest are left out`.
+- **Emitted events.** ReSkate holds at most 1024 emitted events a tick for all plugins together. `reskate.emit` returns `false` past that.
+- **Messages out.** At most 64 messages wait to go out each tick on a player's game (256 on a dedicated server). `reskate.net.send` returns `false` past that, and without a session.
+- **Messages in transit.** The session passes at most 200 plugin messages a player every 5 s, from all that player's plugins together; past that they are dropped. Messages reach only players on the same map, and a lobby's host passes on none from a player whose mods change scoring or physics.
+- **Web requests at once.** ReSkate runs at most 8 web requests at a time for all plugins together. `reskate.http.request` returns `nil` and `web requests cannot be made now` past that.
+- **Web answers.** A request has 10 s, follows no redirects and sends no cookies. An answer over 1 MB comes back with no body and the error `its answer is larger than 1 MB`. A host on a private or local network is refused.
+
+## File sizes
+
+| File | Most |
+| --- | --- |
+| `reskate-plugin.json` | 64 KB |
+| A Luau source file (the entry, or one `require` loads) | 1 MB |
+| A file `reskate.package.read` or `read_json` reads | 16 MB |
+| A sound (WAV) | 8 MB, and 30 s of sound |
+| An animation clip | 8 MB |
+| A picture | PNG or JPG; 32 different files a plugin |
+| The whole package | 20000 files |

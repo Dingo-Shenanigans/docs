@@ -1,0 +1,266 @@
+---
+title: "Drawing a HUD"
+description: "Build a line score HUD with screen shapes, world shapes, pictures from a font atlas, and world_to_screen."
+---
+
+This guide builds a HUD that shows the line you are skating: its score in big digits drawn from a picture, its multiplier, a ring where the line started, and a badge that follows the skater. It needs the `overlay`, `events.tricks` and `skater.read` [permissions](/plugins/permissions). Every drawing function is listed on the [overlay](/plugins/api/overlay) page.
+
+## 1. The package
+
+```text
+Line_HUD/
+  manifest.json
+  reskate-plugin.json
+  hud/
+    digits.png
+    badge.png
+  plugin/
+    main.lua
+```
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "permissions": ["overlay", "events.tricks", "skater.read"]
+}
+```
+
+## 2. The draw handler
+
+Everything a plugin draws, it draws in a `draw` handler. The handler gets a drawing object, `d`, and draws with its methods (`d:text(...)`, `d:rect(...)`). It runs once a tick, and what it drew replaces what it drew the tick before: draw everything every time, and stop drawing a thing to make it go away.
+
+```lua
+reskate.on("draw", function(d)
+    d:text(vector.create(40, 40, 0), "Line HUD", {size = 24})
+end)
+```
+
+The shape methods work only while the handler runs. Calling one anywhere else, or keeping `d` and drawing with it later, raises `drawing is only inside a draw handler`.
+
+<Note>
+A plugin draws at most 4000 shapes and 64 KB of text a tick. Past that, the rest are left out, and a warning is logged at most once every 10 s, saying whether the shapes or the text ran out. See [limits](/plugins/limits).
+</Note>
+
+## 3. Read the line
+
+[`reskate.score.current()`](/plugins/api/skater) (`events.tricks`) returns the score HUD as it is now: `line` (the line's score), `multiplier`, `in_trick`, `trick` and `detail` (what the HUD names), and `manual`. It returns `nil` when there is no score HUD, in the menu or on foot.
+
+The trick events say when a line starts and ends. `trick_started` gives `at`, where it began; `line_broken` gives `reason`, `"slam"` or `"wipeout"`. See [events](/plugins/events).
+
+```lua
+local line_start = nil      -- where the line began, a vector
+local broken_until = 0      -- show "BAILED" until then
+
+reskate.on("trick_started", function(trick)
+    if not line_start then line_start = trick.at end
+end)
+reskate.on("line_broken", function()
+    line_start = nil
+    broken_until = reskate.time.now() + 1500
+end)
+```
+
+## 4. Screen shapes
+
+Screen shapes take positions as vectors in pixels from the top left of the game's window. The `z` of a screen position is ignored. `d:size()` returns the window's size as a vector: `x` is its width and `y` its height.
+
+| Method | Draws |
+| --- | --- |
+| `d:text(at, text, style)` | Text from `at` (at most 500 characters). |
+| `d:rect(top_left, bottom_right, style)` | A rectangle. |
+| `d:line(from, to, style)` | A line. |
+| `d:circle(centre, radius, style)` | A circle, `radius` in pixels. |
+| `d:poly(points, style)` | A polygon of 3 to 64 points. Filled, it must be convex. |
+
+Put a dark panel at the bottom centre, sized from the window:
+
+```lua
+local size = d:size()
+local k = size.y / 1080 -- 1 on a 1080-line window
+local centre = vector.create(size.x / 2, size.y - 160 * k, 0)
+d:rect(centre - vector.create(220 * k, 50 * k, 0), centre + vector.create(220 * k, 60 * k, 0),
+    {colour = "#000000a0", fill = true, rounding = 10})
+```
+
+## 5. Styles
+
+The last argument of every shape is a style table. Every field is optional.
+
+| Field | What it does |
+| --- | --- |
+| `colour` (or `color`) | `"#RRGGBB"`, `"#RRGGBBAA"` or a number `0xRRGGBBAA`. White when left out. A picture is tinted by it. |
+| `size` | Text height, 4 to 200. Default 18. |
+| `thickness` | Line and outline width, 0.5 to 40. Default 2. |
+| `fill` | `true` fills a rectangle, circle or polygon. |
+| `rounding` | Corner radius of a rectangle or picture, 0 to 200. |
+| `align` | Text: `"left"` (default), `"centre"` (or `"center"`) or `"right"` of its point. |
+| `shadow` | Text: a drop shadow, on by default. `false` turns it off. |
+| `uv` | A picture: the part of it to draw, `{u0, v0, u1, v1}` from 0 to 1. |
+
+Sizes, thicknesses and rounding are given as they look on a 1080-line window, and scale with the window's height. A size, thickness or rounding out of its range is clamped into it. Positions and a screen circle's radius are plain pixels: scale them yourself, as with `k` above, when the layout should grow with the window.
+
+A wrong style raises an error: a colour that is not one of the three forms, a `uv` corner outside 0 to 1, or an `align` that is not one of the three.
+
+To fade something out, build the colour with its alpha:
+
+```lua
+local alpha = math.floor(255 * fade) -- fade from 0 to 1
+d:text(at, "BAILED", {size = 40, align = "centre", colour = string.format("#ff4040%02x", alpha)})
+```
+
+## 6. Pictures and a font atlas
+
+`d:image(path, top_left, bottom_right, style)` draws a PNG or JPG from your own package, stretched to the rectangle. The path is inside the package, with `/` between folders.
+
+A font atlas puts many glyphs in one picture, and `uv` picks one of them. `hud/digits.png` here is one row of ten glyphs, `0123456789`, each the same width: the glyph for digit `n` runs from `n / 10` to `(n + 1) / 10` across.
+
+```lua
+local ATLAS = "hud/digits.png"
+local GLYPH_ASPECT = 0.7 -- a glyph's width over its height, as drawn in the atlas
+
+-- Draws a whole number from the atlas, centred on `centre`, `height` pixels tall.
+local function draw_number(d, number, centre, height, colour)
+    local text = tostring(math.floor(number))
+    local width = height * GLYPH_ASPECT
+    local x = centre.x - (#text * width) / 2
+    for i = 1, #text do
+        local n = string.byte(text, i) - 48 -- "0" is 48
+        local left = vector.create(x + (i - 1) * width, centre.y - height / 2, 0)
+        d:image(ATLAS, left, left + vector.create(width, height, 0),
+            {uv = {n / 10, 0, (n + 1) / 10, 1}, colour = colour})
+    end
+end
+```
+
+Draw the glyphs white in the picture, and colour them with the style's `colour`, which tints the picture.
+
+<Note>
+A plugin draws at most 32 different pictures. Each must be a PNG or JPG of at most 512 x 512 pixels and 2 MB, or it is not drawn and the game's log says why. Pictures load in the background, so a new one can take a few frames to appear. One atlas is one picture however many glyphs you draw from it.
+</Note>
+
+## 7. World shapes
+
+World shapes take positions in the world, in metres, and are drawn through the camera. Those behind the camera are left out.
+
+| Method | Draws |
+| --- | --- |
+| `d:world_text(at, text, style)` | Text at a world position. |
+| `d:world_line(from, to, style)` | A line between two world positions. |
+| `d:world_circle(centre, radius, style)` | A circle of `radius` metres, facing the camera. |
+| `d:world_image(path, at, height, style)` | A picture standing at `at`, `height` metres tall (more than 0, at most 1000). |
+
+Mark where the line started, and join it to the skater:
+
+```lua
+local s = reskate.skater.get()
+if s and line_start then
+    d:world_circle(line_start, 0.8, {colour = "#5ecdfa", thickness = 3})
+    d:world_line(line_start, s.position, {colour = "#5ecdfa80", thickness = 2})
+end
+```
+
+[`reskate.skater.get()`](/plugins/api/skater) (`skater.read`) returns the local skater's `position`, `heading` and more, or `nil` without a skater.
+
+## 8. world_to_screen
+
+`d:world_to_screen(position)` returns where a world position is on screen: a vector with `x` and `y` in pixels and `z` the distance in front of the camera. It returns `nil` for a position behind the camera.
+
+Use it to draw screen shapes that follow something in the world. Here a badge rides 2.2 m above the skater, shrinking with distance:
+
+```lua
+local over = d:world_to_screen(s.position + vector.create(0, 2.2, 0))
+if over then
+    local half = math.clamp(400 / over.z, 12, 64) -- pixels
+    local corner = vector.create(half, half, 0)
+    local at = vector.create(over.x, over.y, 0)
+    d:image("hud/badge.png", at - corner, at + corner, {rounding = half})
+    d:text(at + vector.create(0, half + 4, 0), string.format("x%.1f", score.multiplier), {size = 20, align = "centre"})
+end
+```
+
+Keep `z` out of the result before you add it to screen positions, as `at` does here, so the arithmetic stays in pixels.
+
+## The whole plugin
+
+```lua
+-- plugin/main.lua: a line score HUD
+local ATLAS = "hud/digits.png"
+local BADGE = "hud/badge.png"
+local GLYPH_ASPECT = 0.7
+
+local line_start = nil
+local broken_until = 0
+
+reskate.on("trick_started", function(trick)
+    if not line_start then line_start = trick.at end
+end)
+reskate.on("line_broken", function()
+    line_start = nil
+    broken_until = reskate.time.now() + 1500
+end)
+
+local function draw_number(d, number, centre, height, colour)
+    local text = tostring(math.floor(number))
+    local width = height * GLYPH_ASPECT
+    local x = centre.x - (#text * width) / 2
+    for i = 1, #text do
+        local n = string.byte(text, i) - 48
+        local left = vector.create(x + (i - 1) * width, centre.y - height / 2, 0)
+        d:image(ATLAS, left, left + vector.create(width, height, 0),
+            {uv = {n / 10, 0, (n + 1) / 10, 1}, colour = colour})
+    end
+end
+
+reskate.on("draw", function(d)
+    local size = d:size()
+    local k = size.y / 1080
+    local centre = vector.create(size.x / 2, size.y - 160 * k, 0)
+    local now = reskate.time.now()
+
+    -- A bail: a fading word where the score was.
+    if now < broken_until then
+        local fade = (broken_until - now) / 1500
+        d:text(centre, "BAILED", {size = 40, align = "centre",
+            colour = string.format("#ff4040%02x", math.floor(255 * fade))})
+        return
+    end
+
+    local score = reskate.score.current()
+    if not score or score.line <= 0 then
+        line_start = nil
+        return
+    end
+
+    -- The panel, the score in atlas digits, and what the HUD names.
+    d:rect(centre - vector.create(220 * k, 50 * k, 0), centre + vector.create(220 * k, 60 * k, 0),
+        {colour = "#000000a0", fill = true, rounding = 10})
+    draw_number(d, score.line, centre, 64 * k, score.in_trick and "#ffc400" or "#ffffff")
+    if score.trick ~= "" then
+        d:text(centre + vector.create(0, 34 * k, 0), score.trick, {size = 18, align = "centre", colour = "#ffffffc0"})
+    end
+
+    -- In the world: where the line began, and a badge over the skater.
+    local s = reskate.skater.get()
+    if not s then return end
+    if line_start then
+        d:world_circle(line_start, 0.8, {colour = "#5ecdfa", thickness = 3})
+        d:world_line(line_start, s.position, {colour = "#5ecdfa80", thickness = 2})
+    end
+    local over = d:world_to_screen(s.position + vector.create(0, 2.2, 0))
+    if over then
+        local half = math.clamp(400 / over.z, 12, 64)
+        local corner = vector.create(half, half, 0)
+        local at = vector.create(over.x, over.y, 0)
+        d:image(BADGE, at - corner, at + corner, {rounding = half})
+        d:text(at + vector.create(0, half + 4, 0), string.format("x%.1f", score.multiplier), {size = 20, align = "centre"})
+    end
+end)
+```
+
+## Where to go next
+
+- [Overlay](/plugins/api/overlay): every drawing method, its arguments and errors.
+- [Menu](/plugins/api/menu): panels on the PLUGINS tab and full-screen screens, for settings rather than a HUD.
+- [Skater](/plugins/api/skater): `reskate.score.current()` and the skater's state.
+- [Examples](/plugins/examples): `ptest hud` and `ptest picture` in reskate-test draw on screen and in the world.

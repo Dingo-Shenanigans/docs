@@ -1,0 +1,134 @@
+---
+title: "Music"
+description: "reskate.music: read and control the music an outside player plays, and the game's own soundtrack."
+---
+
+`reskate.music` reads the song playing and skips it. Every function, and the `track_changed` event, needs the `music` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+
+There are two kinds of music:
+
+- **An outside player**: Spotify or another app playing on the player's computer, read and controlled through Windows' own media controls (the ones the media keys use). `current`, `play`, `pause`, `next` and `previous` work on it.
+- **The game's own soundtrack**, on the player's headphones. `game` and `game_next` work on it. While a Spotify station is on, the outside player's song is the one heard, and the game's soundtrack has no song.
+
+`play`, `pause`, `next`, `previous` and `game_next` share a budget of 2 calls a second.
+
+## An outside player
+
+### `reskate.music.current()`
+
+The song the outside player has now. The first call starts ReSkate listening to it.
+
+<ResponseField name="track" type="table or nil">
+`nil` when there is no outside player to read.
+<Expandable title="fields">
+<ResponseField name="app" type="string">The app playing it, by its application id as Windows names it.</ResponseField>
+<ResponseField name="title" type="string">The song's title.</ResponseField>
+<ResponseField name="artist" type="string">Its artist.</ResponseField>
+<ResponseField name="album" type="string">Its album.</ResponseField>
+<ResponseField name="playing" type="boolean">False while it is paused.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local track = reskate.music.current()
+if track and track.playing then
+    reskate.ui.toast(track.artist .. " - " .. track.title)
+end
+```
+
+<Note>Needs the `music` permission.</Note>
+
+### `reskate.music.play()`
+
+Tells the outside player to play.
+
+<ResponseField name="ok" type="boolean">True when the command was sent. It does not say an app took it.</ResponseField>
+<ResponseField name="why" type="string">`"more than 2 a second"` when `ok` is false.</ResponseField>
+
+<Note>Needs the `music` permission.</Note>
+
+### `reskate.music.pause()`
+
+Tells the outside player to pause.
+
+<ResponseField name="ok" type="boolean">True when the command was sent.</ResponseField>
+<ResponseField name="why" type="string">`"more than 2 a second"` when `ok` is false.</ResponseField>
+
+<Note>Needs the `music` permission.</Note>
+
+### `reskate.music.next()`
+
+Tells the outside player to skip to the next song.
+
+<ResponseField name="ok" type="boolean">True when the command was sent.</ResponseField>
+<ResponseField name="why" type="string">`"more than 2 a second"` when `ok` is false.</ResponseField>
+
+```lua
+reskate.input.bind("skip", "Pad.Back+Pad.RB")
+reskate.on("action", function(name)
+    if name == "skip" then reskate.music.next() end
+end)
+```
+
+<Note>Needs the `music` permission (and `input` for the example's bind).</Note>
+
+### `reskate.music.previous()`
+
+Tells the outside player to go back a song.
+
+<ResponseField name="ok" type="boolean">True when the command was sent.</ResponseField>
+<ResponseField name="why" type="string">`"more than 2 a second"` when `ok` is false.</ResponseField>
+
+<Note>Needs the `music` permission.</Note>
+
+## The game's soundtrack
+
+### `reskate.music.game()`
+
+The song the game's own soundtrack plays now.
+
+<ResponseField name="track" type="table or nil">
+`nil` while a Spotify station is on, or before a song has started.
+<Expandable title="fields">
+<ResponseField name="app" type="string">Always `"skate."`.</ResponseField>
+<ResponseField name="title" type="string">The song's title.</ResponseField>
+<ResponseField name="artist" type="string">Its artist.</ResponseField>
+<ResponseField name="album" type="string">Always empty.</ResponseField>
+<ResponseField name="playing" type="boolean">Always true.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local song = reskate.music.game()
+if song then reskate.log("now playing " .. song.title .. " by " .. song.artist) end
+```
+
+<Note>Needs the `music` permission.</Note>
+
+### `reskate.music.game_next()`
+
+Skips the game's soundtrack to its next song.
+
+<ResponseField name="ok" type="boolean">True when the song was skipped.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"asked more than twice in a second"` or `"the game's music cannot skip now (a Spotify station is on, or no song has started)"`.</ResponseField>
+
+<Note>Needs the `music` permission. Shares the budget of 2 calls a second with the outside player's commands.</Note>
+
+## The `track_changed` event
+
+Fired when anything about the outside player's song changes: another song, or it pauses or plays. ReSkate looks once a second. The game's own soundtrack does not fire it.
+
+```lua
+reskate.on("track_changed", function(track)
+    if track.playing then
+        reskate.ui.toast("Now playing: " .. track.title)
+    end
+end)
+```
+
+<ResponseField name="app" type="string">The app playing it, by its application id as Windows names it.</ResponseField>
+<ResponseField name="title" type="string">The song's title.</ResponseField>
+<ResponseField name="artist" type="string">Its artist.</ResponseField>
+<ResponseField name="playing" type="boolean">False while it is paused.</ResponseField>
+
+The event's table has no `album`; call `reskate.music.current()` for it. Registering a handler needs the `music` permission. See [events](/plugins/events).

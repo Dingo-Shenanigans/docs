@@ -1,0 +1,152 @@
+---
+title: "Base API"
+description: "The reskate table every plugin gets: its id and side, logging, events, print, require and the sandbox."
+---
+
+The base set is what every plugin has, with no permission: who the plugin is, where it runs, its log, its event handlers, `print`, `require` for its own modules, and the Luau libraries the sandbox keeps.
+
+The `reskate` table and every table inside it are read-only. Assigning to them, `rawset` on them or a new metatable raises an error.
+
+## The plugin
+
+### `reskate.id`
+
+The plugin's id: the name of its mod folder (`Mods/<folder>`). A server copy on a lobby's host has `<folder>@server`, so it never shares an id with the client copy beside it; on a dedicated server there is no `@server`. Its storage, its log lines, its toasts, its console commands and everything it holds in the game go under this id.
+
+```lua
+reskate.log("running as " .. reskate.id)
+```
+
+### `reskate.side`
+
+Which copy of the plugin this is: `"client"` for the copy on a player's game, `"server"` for the session authority's copy (on the lobby's host, or on a dedicated server). The manifest's `"side"` decides which copies run; see [the manifest](/plugins/manifest).
+
+```lua
+if reskate.side == "server" then
+    reskate.log("the server copy is up")
+end
+```
+
+### `reskate.api_version`
+
+The plugin API this ReSkate gives plugins, a number. It is `1`. A plugin whose manifest asks for a newer `"api"` is not loaded.
+
+### `reskate.level.current()`
+
+The level being played.
+
+<ResponseField name="level" type="table or nil">`{name = "<level>"}`, or `nil` when no level is being played (the menu, a load).</ResponseField>
+
+```lua
+local level = reskate.level.current()
+if level then reskate.log("in " .. level.name) end
+```
+
+## Logging
+
+### `reskate.log(message, level)`
+
+Writes a line to ReSkate's log, under `[<plugin id>]`.
+
+<ParamField path="message" type="any" required>What to write. Any value is turned into text as `tostring` does.</ParamField>
+<ParamField path="level" type="string" default='"info"'>`"info"`, `"warn"` or `"error"`. Anything else raises an error.</ParamField>
+
+```lua
+reskate.log("loaded")
+reskate.log("the save is from an older version", "warn")
+```
+
+<Note>
+`reskate.log`, `print` and [`reskate.console.print`](/plugins/api/console) share one budget of 50 lines a second. Past it, the rest of that second's lines are left out, and one warning says so. A line longer than 2000 characters is cut short.
+</Note>
+
+### `print(...)`
+
+Writes its arguments to ReSkate's log at the info level, joined by tabs. It replaces Luau's own `print`. It writes to the log, not to the console: use [`reskate.console.print`](/plugins/api/console) for the console.
+
+<ParamField path="..." type="any">Any values. Each is turned into text as `tostring` does.</ParamField>
+
+```lua
+print("speed", 12.5, true) -- [my-plugin] speed	12.5	true
+```
+
+<Note>Shares the 50 lines a second of `reskate.log`.</Note>
+
+## Events
+
+### `reskate.on(event, handler)`
+
+Adds a handler for an event. Every handler of an event runs, in the order they were added. There is no way to take a handler away: keep a flag in your plugin if it should stop acting.
+
+<ParamField path="event" type="string" required>The event's name. The full list, what each passes to its handler and the permission each needs is on [the events page](/plugins/events).</ParamField>
+<ParamField path="handler" type="function" required>Called with the event's values.</ParamField>
+
+```lua
+reskate.on("load", function()
+    reskate.log("ready")
+end)
+
+reskate.on("tick", function(dt_ms)
+    -- runs every game tick
+end)
+
+reskate.on("level_loaded", function(name)
+    reskate.log("now in " .. name)
+end)
+```
+
+These events need no permission: `load`, `unload`, `tick`, `level_loaded`, `level_unloading`. Every other event needs the permission [the events page](/plugins/events) names.
+
+<Note>
+Raises an error for an event there is none of, for an event whose permission the manifest does not list, and past 256 handlers for one event. Each handler call has 50 ms; see [limits](/plugins/limits).
+</Note>
+
+## Modules
+
+### `require(name)`
+
+Runs a module of the plugin's own package once and returns what it returned. Modules are found beside the entry: with `"entry": "plugin/main.lua"`, `require("rules")` runs `plugin/rules.luau`, or `plugin/rules.lua` when there is no `.luau`.
+
+<ParamField path="name" type="string" required>The module's path from the entry's folder. A leading `./` is allowed. With no extension, `.luau` is tried, then `.lua`; with `.lua` or `.luau`, that file only. Folders are separated by `/`: `require("checks/overlay")`.</ParamField>
+
+<ResponseField name="value" type="any">What the module returned, or `true` when it returned nothing. Later calls return the same value without running the module again.</ResponseField>
+
+```lua
+-- plugin/rules.lua
+local rules = {}
+function rules.points(trick) return trick.points * 2 end
+return rules
+```
+
+```lua
+-- plugin/main.lua
+local rules = require("rules")
+reskate.on("trick_landed", function(trick)
+    reskate.log("worth " .. rules.points(trick))
+end)
+```
+
+<Note>
+Raises an error when the file is not there, when the path is not a path inside the package (no `..`, no `\`, no drive), and when modules require each other in a circle. A source file is at most 1 MB. Modules share the plugin's globals.
+</Note>
+
+## The sandbox
+
+A plugin runs in its own Luau VM. Its globals are its own: it can set new ones, and they are shared by its entry and its modules, but the libraries and the `reskate` table are read-only, as is the string metatable.
+
+What the sandbox keeps:
+
+| Global | What is there |
+| --- | --- |
+| Base functions | `assert`, `error`, `pcall`, `xpcall`, `ipairs`, `pairs`, `next`, `select`, `type`, `typeof`, `tostring`, `tonumber`, `rawget`, `rawset`, `rawequal`, `rawlen`, `getmetatable`, `setmetatable`, `getfenv`, `setfenv`, `unpack`, `gcinfo`, `newproxy`, `_G`, `_VERSION` |
+| `print`, `require` | ReSkate's, described above |
+| `string`, `table`, `math`, `coroutine`, `utf8`, `bit32`, `buffer`, `vector` | Luau's libraries |
+| `os` | `clock`, `date`, `difftime` and `time` only |
+| `debug` | `info` and `traceback` only |
+| `reskate` | This API |
+
+What it does not have: `io`, `package`, `dofile`, `loadfile`, `load`, `loadstring`, `collectgarbage`, and `os.execute`, `os.remove`, `os.rename`, `os.getenv` and `os.exit`. A plugin cannot load code from text or bytecode, and it reaches files only through [`reskate.package`](/plugins/api/package) and [`reskate.storage`](/plugins/api/storage).
+
+<Warning>
+A plugin that goes over a limit (memory, time, too many errors) is stopped, even when it catches the error with `pcall`: every call after that raises "the plugin was stopped". See [limits](/plugins/limits).
+</Warning>

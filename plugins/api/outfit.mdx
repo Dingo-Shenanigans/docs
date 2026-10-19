@@ -1,0 +1,113 @@
+---
+title: "Outfit"
+description: "reskate.outfit: put tattoos, moles and eyewear on the local skater over the player's own outfit."
+---
+
+`reskate.outfit` puts items on the local skater, over the outfit the player chose: a tattoo where your plugin places it, moles, a pair of glasses. Every function needs the `outfit` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+
+<Warning>
+Other players see what the skater wears. The player's own outfit is never changed: what a plugin puts on is worn over it, and taken off again when the plugin clears it or stops.
+</Warning>
+
+## How it works
+
+- **Slots.** An item goes in a slot of the skater's outfit, by the slot's name (`"tattoo_legl"`, `"moles"`, `"eyewear"`). Only slots whose name holds `tattoo`, `moles` or `eyewear` are allowed: the face and skin layers, and eyewear. `reskate.outfit.slots()` lists the skater's slots.
+- **One plugin a slot.** A slot taken by one plugin is refused to the others until it clears it.
+- **Covers.** By default an item goes only in an empty slot: where the player wears something of their own, the player's item stays. With `covers = true` your item goes over theirs.
+- **Placement.** A tattoo's first parameters say where it sits. `placement` writes up to 8 numbers over them; `slots()` shows what the parameters are now.
+- **Paid items.** An item sold in the game's store is refused, whoever owns it.
+- **Menus.** While one of the game's menus is up, the skater is given back its own outfit, because the menus change it. Your items go back on about a second after the menu closes.
+- **Skaters.** After a respawn or a level change the new skater comes from the player's profile; your items are put on it again.
+- While ReSkate's own Road Rash is on, it wears the skater's marks, and every `set` is refused.
+
+### `reskate.outfit.set(slot, item, options)`
+
+Puts `item` in `slot`, over the skater's outfit. The item is put on within a second or two; `status()` says how it went.
+
+<ParamField path="slot" type="string" required>The slot's name, at most 48 characters, any case. The first of the skater's slots whose name contains it is used.</ParamField>
+<ParamField path="item" type="string" required>The item's name, at most 200 characters. `find()` turns the end of a name into the full one.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="placement" type="table">Up to 8 numbers, each finite and within -100 to 100, written over the item's first parameters.</ParamField>
+<ParamField path="covers" type="boolean" default="false">True to go over the player's own item in the slot.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the slot is taken for the item.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"only tattoo, moles and eyewear slots"`, `"Road Rash is on: it wears the skater's marks"`, `"<plugin> has that slot"`, `"the paid items are not known yet; try again in a moment"`, `"that is a paid store item"`, `"a placement is at most 8 finite numbers"` or `"asked more than 4 times in a second"`.</ResponseField>
+
+```lua
+-- "my_design" stands for the end of an installed item's name.
+local item = reskate.outfit.find("my_design")
+if item then
+    local ok, why = reskate.outfit.set("tattoo_legl", item, {placement = {0.5, 0.3}, covers = true})
+    if not ok then reskate.log("no tattoo: " .. why, "warn") end
+end
+```
+
+A slot or item name that is too long, more than 8 placement numbers, or a placement that is not numbers raises an error. Everything else the game decides returns `false` and why.
+
+<Note>
+Needs the `outfit` permission. Shares the budget of 4 control calls a second with `skater.noclip`, `boost`, `freeze`, `camera.follow`, `ai.spawn`, `animation.play` and `board.toss`.
+</Note>
+
+### `reskate.outfit.clear(slot)`
+
+Takes this plugin's items off.
+
+<ParamField path="slot" type="string">One slot's name (at most 48 characters, any case). Without it, every slot this plugin took.</ParamField>
+
+Returns nothing. When nothing is worn any more, the skater has its own outfit again.
+
+```lua
+reskate.on("unload", function() reskate.outfit.clear() end)
+```
+
+<Note>Needs the `outfit` permission. When the plugin stops, its items are cleared whether or not it calls this.</Note>
+
+### `reskate.outfit.find(ending)`
+
+The installed item whose name ends in `ending`, any case. Use it to find an item's full name from its end, which stays the same between installs.
+
+<ParamField path="ending" type="string" required>At most 200 characters.</ParamField>
+
+<ResponseField name="item" type="string or nil">The item's full name, or `nil` when none ends so (or there is no skater to look with).</ResponseField>
+
+```lua
+local glasses = reskate.outfit.find(settings.glasses) -- the end of a name the player chose
+```
+
+<Note>Needs the `outfit` permission.</Note>
+
+### `reskate.outfit.slots()`
+
+The skater's outfit slots as they are now, with what is in each.
+
+<ResponseField name="slots" type="table">
+A list, empty without a skater. Each entry:
+<Expandable title="fields">
+<ResponseField name="slot" type="string">The slot's name.</ResponseField>
+<ResponseField name="item" type="string">The item in it; empty or a name ending in `_empty` when there is none.</ResponseField>
+<ResponseField name="parameters" type="table">The item's parameters, as numbers.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+for _, s in reskate.outfit.slots() do
+    reskate.log(s.slot .. ": " .. s.item)
+end
+```
+
+<Note>Needs the `outfit` permission.</Note>
+
+### `reskate.outfit.status()`
+
+What the outfit service is doing now, for the player or your log.
+
+<ResponseField name="status" type="string">Such as `"nothing worn"`, `"2 item(s) worn"`, `"a game menu is up: the outfit is the game's"`, or `"waiting: "` and why.</ResponseField>
+
+```lua
+reskate.console.print("outfit: " .. reskate.outfit.status())
+```
+
+<Note>Needs the `outfit` permission.</Note>

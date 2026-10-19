@@ -1,0 +1,315 @@
+---
+title: "World"
+description: "reskate.world, reskate.objects, reskate.travel and reskate.ai: raycasts, time of day and world controls, park editor objects, travel and AI skaters."
+---
+
+These tables read and change the world the local skater is in. Each function needs a permission, named in its section:
+
+- `world.raycast`: `reskate.world.raycast`.
+- `world.environment`: `reskate.world.set_time`, `set_control` and `set_park`.
+- `world.objects`: `reskate.objects.*`.
+- `travel`: `reskate.travel.*`.
+- `world.ai`: `reskate.ai.*`.
+
+Calling a function without its permission raises an error. See [permissions](/plugins/permissions). Positions are Luau vectors in metres, `y` up; a position you pass must be finite and within 100 km of the map's centre, or the call raises an error. Headings are radians about world up, as the [skater's](/plugins/api/skater#positions-and-headings).
+
+## Raycasts
+
+### `reskate.world.raycast(from, to)`
+
+Where the line from `from` to `to` first meets the world's collision. Use it to find the ground under a point, or whether something is in the way.
+
+<ParamField path="from" type="vector" required>The ray's start.</ParamField>
+<ParamField path="to" type="vector" required>The ray's end, at most 1000 m from `from`.</ParamField>
+
+<ResponseField name="hit" type="vector or nil">Where the ray first meets the world, or `nil` when it is clear.</ResponseField>
+
+```lua
+-- The ground under the skater.
+local s = reskate.skater.get()
+if s then
+    local ground = reskate.world.raycast(s.position + vector.create(0, 1, 0), s.position - vector.create(0, 50, 0))
+    if ground then reskate.log(string.format("%.1f m up", s.position.y - ground.y)) end
+end
+```
+
+<Note>
+Needs the `world.raycast` permission. A ray longer than 1000 m, or more than 64 raycasts in one tick, raises an error. Collision is loaded only near the skater: far from it, a ray meets nothing and returns `nil`.
+</Note>
+
+## Time of day and world controls
+
+These change the world's look and life as ReSkate's world menu does. All three share a budget of 4 changes a second; past it they return `false, "more than 4 changes in a second"`.
+
+<Warning>
+`set_control` and `set_park` save the player's own choices, as the world menu does. They stay after your plugin stops: put back what you changed when you are done.
+</Warning>
+
+### `reskate.world.set_time(time)`
+
+Forces a time of day on the map, or gives it back to the level.
+
+<ParamField path="time" type="string" required>`"morning"`, `"noon"`, `"afternoon"`, `"evening"`, `"night"`, `"weatherday"`, `"weathernight"`, or `"default"` for the level's own. At most 20 characters.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the time of day was set.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"the host chooses the time of day"`, `"no map is loaded"`, `"this map has no time of day"`, the list of times for one that is not, or the game's reason.</ResponseField>
+
+```lua
+reskate.world.set_time("night")
+```
+
+<Note>Needs the `world.environment` permission. In a session, the host chooses the time of day.</Note>
+
+### `reskate.world.set_control(control, value)`
+
+Sets one of the world controls. -1 gives a control back to the game's own.
+
+<ParamField path="control" type="string" required>
+At most 30 characters, one of:
+
+- `"fog"`: 0 or 1.
+- `"fog_distance"`: 0.1 to 5.
+- `"sky_brightness"`: 0 to 3.
+- `"clouds"`: 0 to 2.
+- `"wind_strength"`: 0 to 30.
+- `"wind_direction"`: 0 to 360 degrees.
+- `"traffic"`: 0 to 3, a whole number.
+- `"pedestrians"`: 0 to 3, a whole number.
+- `"reset_environment"`: any value; every control but traffic and pedestrians goes back to the game's own.
+
+</ParamField>
+<ParamField path="value" type="number" required>Within the control's range, or -1 for the game's own. Not finite raises an error.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the control was saved; it is applied a moment later.</ResponseField>
+<ResponseField name="why" type="string">`"the game refused it (no map loaded, or not that control)"` for a name or value it does not take, or `"more than 4 changes in a second"`.</ResponseField>
+
+```lua
+reskate.world.set_control("fog", 1)
+reskate.world.set_control("fog_distance", 0.5)
+reskate.world.set_control("traffic", 0)
+```
+
+<Note>Needs the `world.environment` permission.</Note>
+
+### `reskate.world.set_park(lot, layout)`
+
+Chooses the community park layout on one of the map's park lots. It loads when the game's park controller is ready.
+
+<ParamField path="lot" type="string" required>`"construction"` (Construction site / Hedgemont), `"historic"` (Piers 1 / Historic) or `"financial"` (Piers 2 / Financial). At most 30 characters.</ParamField>
+<ParamField path="layout" type="string" required>A layout id, at most 40 characters: a family (`flumppark`, `megapark`, `skatepark` or `streetpark`), `_` and a two-digit variant, such as `"skatepark_03"`; or `"empty"`. Each lot has its own variants, below.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the choice was saved.</ResponseField>
+<ResponseField name="why" type="string">`"that is not a lot and one of its layouts"` for a lot or layout not in the table below, `"the host chooses the parks, or that is not a lot and layout"`, or `"more than 4 changes in a second"`.</ResponseField>
+
+The lot and layout are checked first. Each lot takes `"empty"` and these layouts:
+
+| Lot | `flumppark` | `megapark` | `skatepark` | `streetpark` |
+| --- | --- | --- | --- | --- |
+| `"construction"` | `_01` to `_08` | `_01` to `_04` | `_01` to `_04` | `_01` to `_09` |
+| `"historic"` | `_01` to `_10` | `_01` to `_05` | `_01` to `_07` | `_01` to `_06` |
+| `"financial"` | `_01` to `_08` | `_01` to `_04` | `_01` to `_07` | `_01` to `_06` |
+
+```lua
+reskate.world.set_park("historic", "megapark_02")
+```
+
+<Note>Needs the `world.environment` permission. In a session, the lobby's host chooses the parks.</Note>
+
+## Objects
+
+`reskate.objects` places, moves and removes park editor objects on the map being played. Every edit goes through the park editor, as if the player made it there (the editor need not be open): the same catalog, the same limits, and in a session the same object rules the host set.
+
+An edit is applied over the next moments. While one is being applied, the next is refused with `"the last edit is still being applied"`: space your edits out, or try again a tick later. `place`, `move` and `remove` share a budget of 4 edits a second.
+
+### `reskate.objects.catalog()`
+
+The objects that can be placed: the installed Build Kit catalog.
+
+<ResponseField name="items" type="table">
+A list, empty when there is no catalog. Each entry:
+<Expandable title="fields">
+<ResponseField name="key" type="string">What `place` takes.</ResponseField>
+<ResponseField name="title" type="string">Its name, as the park editor shows it.</ResponseField>
+<ResponseField name="category" type="string">Its category in the editor.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `world.objects` permission.</Note>
+
+### `reskate.objects.list()`
+
+The park editor objects on the map being played.
+
+<ResponseField name="objects" type="table">
+A list. Each entry:
+<Expandable title="fields">
+<ResponseField name="id" type="string">The object's id, for `move` and `remove`.</ResponseField>
+<ResponseField name="item" type="string">Its catalog key.</ResponseField>
+<ResponseField name="position" type="vector">Where it is.</ResponseField>
+<ResponseField name="heading" type="number">The way it is turned about world up, in radians.</ResponseField>
+<ResponseField name="scale" type="number">Its size, 1 as made.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+for _, o in reskate.objects.list() do
+    reskate.log(o.id .. ": " .. o.item)
+end
+```
+
+<Note>Needs the `world.objects` permission.</Note>
+
+### `reskate.objects.place(item, position, heading, scale)`
+
+Places a new object. Find its id afterwards with `list()`.
+
+<ParamField path="item" type="string" required>A catalog key, at most 200 characters.</ParamField>
+<ParamField path="position" type="vector" required>Where it goes.</ParamField>
+<ParamField path="heading" type="number" default="0">Radians about world up.</ParamField>
+<ParamField path="scale" type="number" default="1">0.1 to 10.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the edit was started.</ResponseField>
+<ResponseField name="why" type="string">Why not, such as `"objects cannot be placed here now"`, `"the last edit is still being applied"`, `"The host has disabled object placement for you."`, `"Park object limit reached."`, `"Object is not available in the installed Build Kit catalog."` or `"more than 4 edits in a second"`.</ResponseField>
+
+```lua
+local s = reskate.skater.get()
+local items = reskate.objects.catalog()
+if s and #items > 0 then
+    local ahead = s.position + vector.create(math.sin(s.heading), 0, math.cos(s.heading)) * 4
+    reskate.objects.place(items[1].key, ahead, s.heading)
+end
+```
+
+A heading that is not finite or a scale out of range raises an error.
+
+<Note>
+Needs the `world.objects` permission. A map holds at most 1024 objects; in a session the host may set a lower limit for each player.
+</Note>
+
+### `reskate.objects.move(id, position, heading, scale)`
+
+Moves an object, and turns or resizes it if you ask. What you leave out keeps the object's own: with no `heading` it keeps its rotation, and with no `scale` its size.
+
+<ParamField path="id" type="string" required>The object's id, from `list()`.</ParamField>
+<ParamField path="position" type="vector" required>Where it goes.</ParamField>
+<ParamField path="heading" type="number" default="the object's own">Radians about world up.</ParamField>
+<ParamField path="scale" type="number" default="the object's own">0.1 to 10.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the edit was started.</ResponseField>
+<ResponseField name="why" type="string">Why not, such as `"The selected object no longer exists."` or any of `place`'s reasons.</ResponseField>
+
+```lua
+local o = reskate.objects.list()[1]
+if o then
+    reskate.objects.move(o.id, o.position + vector.create(0, 1, 0)) -- 1 m up, turned and sized as it was
+end
+```
+
+<Note>Needs the `world.objects` permission. An id that is not a number, a heading that is not finite, or a scale out of range raises an error.</Note>
+
+### `reskate.objects.remove(id)`
+
+Removes an object.
+
+<ParamField path="id" type="string" required>The object's id, from `list()`.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the edit was started.</ResponseField>
+<ResponseField name="why" type="string">Why not, such as `"The selected object no longer exists."` or any of `place`'s reasons.</ResponseField>
+
+<Note>Needs the `world.objects` permission.</Note>
+
+## Travel
+
+### `reskate.travel.locations()`
+
+The fast travel destinations.
+
+<ResponseField name="locations" type="table">
+A list. Each entry:
+<Expandable title="fields">
+<ResponseField name="id" type="string">What `go` takes.</ResponseField>
+<ResponseField name="name" type="string">Its name.</ResponseField>
+<ResponseField name="map" type="string">The map it is on.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `travel` permission.</Note>
+
+### `reskate.travel.levels()`
+
+The levels the game knows.
+
+<ResponseField name="levels" type="table">
+A list. Each entry:
+<Expandable title="fields">
+<ResponseField name="asset" type="string">What `load` takes.</ResponseField>
+<ResponseField name="name" type="string">Its name.</ResponseField>
+<ResponseField name="can_load" type="boolean">Whether it can be loaded.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `travel` permission.</Note>
+
+### `reskate.travel.go(id)`
+
+Fast travels to a destination.
+
+<ParamField path="id" type="string" required>A destination's `id` from `locations()`, at most 260 characters.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the trip was queued.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"one trip every 5 s"`, `"only the session's host changes where everyone is"`, `"there is no destination <id>"` or `"it cannot travel now"`.</ResponseField>
+
+```lua
+local places = reskate.travel.locations()
+if #places > 0 then reskate.travel.go(places[1].id) end
+```
+
+<Note>Needs the `travel` permission. One trip every 5 seconds, `go` and `load` together; a refused trip counts too. In a session, only the host changes where everyone is.</Note>
+
+### `reskate.travel.load(asset)`
+
+Loads a level.
+
+<ParamField path="asset" type="string" required>A level's `asset` from `levels()`, at most 260 characters.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the load was queued.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"one trip every 5 s"`, `"only the session's host changes where everyone is"`, `"that level cannot be loaded now"` or the game's reason.</ResponseField>
+
+<Note>Needs the `travel` permission. Shares the one trip every 5 seconds with `go`.</Note>
+
+## AI skaters
+
+AI skaters ride the world on the player's game only, so they are refused in a session, where the other players would never see them.
+
+### `reskate.ai.spawn(count)`
+
+Spawns AI skaters.
+
+<ParamField path="count" type="integer" default="1">1 to 8 at a time. Out of range raises an error.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the spawn was asked for.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"AI skaters are left out of sessions: the other players would never see them"`, `"at most 16 AI skaters"` or `"asked more than 4 times in a second"`.</ResponseField>
+
+```lua
+reskate.ai.spawn(4)
+```
+
+<Note>
+Needs the `world.ai` permission. At most 16 AI skaters in the world. Shares the budget of 4 control calls a second with `skater.noclip`, `boost`, `freeze`, `camera.follow`, `animation.play`, `board.toss` and `outfit.set`.
+</Note>
+
+### `reskate.ai.clear()`
+
+Removes every AI skater, the player's own included.
+
+<ResponseField name="ok" type="boolean">Always true.</ResponseField>
+
+<Note>Needs the `world.ai` permission.</Note>
+
+### `reskate.ai.count()`
+
+How many AI skaters are in the world now.
+
+<ResponseField name="count" type="integer">0 or more.</ResponseField>
+
+<Note>Needs the `world.ai` permission.</Note>

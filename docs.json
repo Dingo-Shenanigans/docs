@@ -9,12 +9,94 @@
   },
   "favicon": "/favicon.svg",
   "navigation": {
-    "pages": [
+    "tabs": [
       {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "index",
+              "quickstart"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Plugins",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "plugins/overview",
+              "plugins/quickstart",
+              "plugins/manifest",
+              "plugins/permissions",
+              "plugins/limits",
+              "plugins/events"
+            ]
+          },
+          {
+            "group": "Core API",
+            "pages": [
+              "plugins/api/base",
+              "plugins/api/time",
+              "plugins/api/console",
+              "plugins/api/storage",
+              "plugins/api/package",
+              "plugins/api/json",
+              "plugins/api/libraries",
+              "plugins/api/http",
+              "plugins/api/mods"
+            ]
+          },
+          {
+            "group": "Interface",
+            "pages": [
+              "plugins/api/overlay",
+              "plugins/api/menu",
+              "plugins/api/audio",
+              "plugins/api/input",
+              "plugins/api/camera"
+            ]
+          },
+          {
+            "group": "The skater and the world",
+            "pages": [
+              "plugins/api/skater",
+              "plugins/api/board",
+              "plugins/api/outfit",
+              "plugins/api/animation",
+              "plugins/api/world"
+            ]
+          },
+          {
+            "group": "Multiplayer",
+            "pages": [
+              "plugins/api/session",
+              "plugins/api/chat",
+              "plugins/api/server",
+              "plugins/api/throwdowns"
+            ]
+          },
+          {
+            "group": "Game",
+            "pages": [
+              "plugins/api/music",
+              "plugins/api/progression"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "plugins/guides/game-modes",
+              "plugins/guides/drawing",
+              "plugins/guides/clips",
+              "plugins/guides/flying-camera",
+              "plugins/guides/sounds",
+              "plugins/examples"
+            ]
+          }
         ]
       }
     ],

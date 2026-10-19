@@ -1,0 +1,105 @@
+---
+title: "Libraries and plugin events"
+description: "reskate.expose, require_plugin, emit and on_plugin: functions and events plugins share with each other."
+---
+
+Plugins running on the same game can work together: one offers functions others call (`expose` and `require_plugin`), and one tells the others what happened (`emit` and `on_plugin`). None of these needs a permission.
+
+Everything that goes from one plugin to another is copied as JSON, by the rules of [`reskate.json`](/plugins/api/json): tables, strings, numbers, booleans and `nil` cross, and functions, vectors and buffers never do. A plugin never gets another plugin's tables, only copies of them.
+
+A plugin is named by its mod folder name or by the `name` in its `manifest.json`, without regard to case. Only plugins running on the same side reach each other: a player's copies talk to a player's copies, and the server copies to the server copies.
+
+## Libraries
+
+### `reskate.expose(functions)`
+
+Offers functions to other plugins. Each call replaces what the plugin offered before: pass every function each time.
+
+<ParamField path="functions" type="table" required>Names and the functions they call: `{name = function, ...}`. At most 64, each name at most 48 characters.</ParamField>
+
+```lua
+-- in the plugin "spots"
+local spots = {}
+reskate.expose({
+    count = function() return #spots end,
+    get = function(index) return spots[index] end,
+    add = function(spot) table.insert(spots, spot) return #spots end,
+})
+```
+
+<Note>Raises an error for a key that is not a string, a value that is not a function, more than 64 functions, or a name longer than 48 characters.</Note>
+
+### `reskate.require_plugin(name)`
+
+Gets the functions another running plugin exposes.
+
+<ParamField path="name" type="string" required>The plugin's folder name or `manifest.json` name: 1 to 48 letters, digits, `_`, `.` or `-`.</ParamField>
+
+<ResponseField name="library" type="table or nil">A read-only table with one function for each function the plugin exposed when you asked, or `nil` when it is not running.</ResponseField>
+<ResponseField name="why" type="string">Why not, when `library` is `nil`: "there is no running plugin ...".</ResponseField>
+
+```lua
+local spots, why = reskate.require_plugin("spots")
+if not spots then
+    reskate.log("no spots plugin: " .. why, "warn")
+    return
+end
+local index = spots.add({name = "ledge", x = 12.5, y = 0, z = -40})
+reskate.log("spot " .. index .. " of " .. spots.count())
+```
+
+Calling a function of the library runs the other plugin's function at once, with copies of your arguments, and returns a copy of its first return value. Call it with a dot (`spots.count()`), not a colon.
+
+A call raises an error, in your plugin, named `<plugin>.<function>: <why>`, when:
+
+- the plugin is no longer running;
+- it no longer exposes that function (it called `expose` again without it);
+- it raised an error (its own log says which), or it stopped;
+- it is in a call already: a plugin cannot be called back into while it is calling you;
+- an argument or the result cannot be copied as JSON.
+
+<Note>
+The function runs under the other plugin's limits: 50 ms a call, and its errors count against it, not you. A plugin can get its own library, but calling it raises "a plugin calls its own functions directly".
+</Note>
+
+<Tip>
+`require_plugin` gives the functions exposed at that moment. Ask again later (in the `load` handler of a plugin that loads after yours, or on first use) when the other plugin may not have exposed them yet.
+</Tip>
+
+## Events between plugins
+
+### `reskate.emit(event, data)`
+
+Sends an event to every other running plugin with an `on_plugin` handler for it. It arrives at the next tick, not at once.
+
+<ParamField path="event" type="string" required>The event's name: 1 to 48 letters, digits, `_`, `.` or `-`. Your own names; they are not the game's [events](/plugins/events).</ParamField>
+<ParamField path="data" type="any">A value to send with it, at most 64 KB as JSON. Leave it out to send `nil`.</ParamField>
+
+<ResponseField name="sent" type="boolean">`true` when it was queued; `false` when more than 1024 events from all plugins wait for the next tick.</ResponseField>
+
+```lua
+-- in the plugin "races"
+reskate.emit("race_finished", {winner = "Zee", seconds = 41.2})
+```
+
+<Note>Raises an error for a bad name, data that cannot be turned into JSON or is larger than 64 KB, and more than 64 events from one plugin in one tick. The 64 are counted in the plugin's own ticks, wherever the `emit` runs: a handler, a timer or a console command. A plugin does not hear its own events.</Note>
+
+### `reskate.on_plugin(source, event, handler)`
+
+Adds a handler for events another plugin emits.
+
+<ParamField path="source" type="string" required>The plugin to listen to, by its folder name or `manifest.json` name (1 to 48 letters, digits, `_`, `.` or `-`), or `"*"` for any plugin.</ParamField>
+<ParamField path="event" type="string" required>The event's name.</ParamField>
+<ParamField path="handler" type="function" required>Called with `(source, data)`: the emitting plugin's id ([`reskate.id`](/plugins/api/base): its folder name, or `<folder>@server` for a server copy on a lobby's host), and a copy of its data.</ParamField>
+
+```lua
+reskate.on_plugin("races", "race_finished", function(source, result)
+    reskate.console.print(result.winner .. " won in " .. result.seconds .. " s")
+end)
+
+reskate.on_plugin("*", "race_finished", function(source)
+    reskate.log("a race ended in " .. source)
+end)
+```
+
+<Note>Raises an error for a bad name, a handler that is not a function, and more than 64 `on_plugin` handlers in one plugin. There is no way to take a handler away. Each handler call has 50 ms.</Note>

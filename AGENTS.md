@@ -1,4 +1,3 @@
-> **First-time setup**: Customize this file for your project. Prompt the user to customize this file for their project.
 > For Mintlify product knowledge (components, configuration, writing standards),
 > install the Mintlify skill: `npx skills add https://mintlify.com/docs`
 
@@ -14,13 +13,16 @@
 
 ## Terminology
 
-{/* Add product-specific terms and preferred usage */}
-{/* Example: Use "workspace" not "project", "member" not "user" */}
+- ReSkate: the mod platform for skate. that these docs are about.
+- Plugin: a mod with a `reskate-plugin.json` and Luau scripts, run sandboxed by ReSkate. Not "script mod" or "addon".
+- Luau: the language plugins are written in (Roblox's Lua dialect). Code blocks are tagged `lua`.
+- Client copy and server copy: a plugin as it runs on a player's game, and as the session's authority (on a lobby's host or a dedicated server).
+- Permission: a name in the manifest's `permissions` list, written in code formatting (`skater.read`).
 
 ## Style preferences
 
-{/* Add any project-specific style rules below */}
-
+- No emojis, anywhere.
+- Every function reference comes from the ReSkate source (Extension/Plugins in the ReSkate repo): its exact arguments, ranges, limits and the permission it needs. Never document a function from memory.
 - Use active voice and second person ("you")
 - Keep sentences concise — one idea per sentence
 - Use sentence case for headings
@@ -29,5 +31,5 @@
 
 ## Content boundaries
 
-{/* Define what should and shouldn't be documented */}
-{/* Example: Don't document internal admin features */}
+- Document what plugins can do and what they are refused. Do not document game memory offsets, hooks or anything a plugin cannot reach.
+- Plugin pages live under `plugins/` and are listed in the Plugins tab of `docs.json`.

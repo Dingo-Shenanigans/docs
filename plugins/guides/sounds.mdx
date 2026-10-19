@@ -1,0 +1,208 @@
+---
+title: "Playing sounds in the world"
+description: "Play your plugin's own WAV files and the motor synth at places in the level, change them each tick, and stop them."
+---
+
+This guide builds a plugin with two sounds: a motor that circles the skater and revs with its speed, and a radio left playing where you stood. It needs the `audio`, `skater.read` and `console` [permissions](/plugins/permissions). Every function is on the [audio](/plugins/api/audio) page.
+
+<Note>
+`reskate.audio.play` is for sounds in the level. The game's own menu sounds (`select`, `cancel`, `navigate`, `toggle`, `tab`) are `reskate.audio.play_ui`, with the `audio.ui` permission.
+</Note>
+
+## How plugin sounds play
+
+A plugin's sounds play through the game's positioned voice sound, as Board Break's and the drones' do, so the level's mix, echo and walls apply to them. Each sound is at a place in the world, or at the local skater, and is heard from the camera: it gets quieter with distance and is silent at its `range`.
+
+Sounds play in a level only. Out of one, `play` returns `false` and `"it plays 8 sounds already, or there is no level"`, and leaving a level ends every sound playing. They play on this player's game only: nothing is sent to other players.
+
+## 1. The package
+
+```text
+Hum/
+  manifest.json
+  reskate-plugin.json
+  sounds/
+    ding.wav
+    radio.wav
+  plugin/
+    main.lua
+```
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "permissions": ["audio", "skater.read", "console"]
+}
+```
+
+A sound file is a WAV of 8, 16, 24 or 32-bit PCM or 32-bit float, 4000 to 192000 Hz, with 1 to 8 channels, at most 30 seconds long and 8 MB. The game mixes it to one channel at 16 kHz, so keep high notes in mind.
+
+## 2. Play a WAV
+
+`reskate.audio.play(path, options)` starts one of the package's WAV files and returns its id, a number. It returns `false` and why when it cannot start one: the plugin plays 8 sounds already (or all plugins together play 48), or it started more than 20 in the last second.
+
+```lua
+local id, why = reskate.audio.play("sounds/ding.wav", {volume = 0.8})
+```
+
+With no `position`, the sound plays at the local skater and follows it. A file that is not there, is not a WAV, or is too long raises an error, as does a path outside the package.
+
+The options, all optional:
+
+| Option | Range | Default | What it does |
+| --- | --- | --- | --- |
+| `volume` | 0 to 1 | 1 | How loud it is. |
+| `pitch` | 0.25 to 4 | 1 | Faster and higher above 1, slower and lower below. For the motor, its note. |
+| `range` | 1 to 500 | 40 | Metres from the camera to silence. |
+| `position` | A vector, or `"skater"` | `"skater"` | Where it plays. |
+| `loop` | `true` or `false` | `false` | A WAV plays over and over until stopped. |
+| `throttle` | 0 to 1 | 0 | The motor's throttle. |
+| `speed` | 0 to 200 | 0 | The motor's air speed, in metres a second. |
+
+A value outside its range raises an error. Up close a sound plays at its `volume`, and it falls off with the square of the distance: at a distance `d`, it plays at `volume` times `(1 - d / range)` squared.
+
+## 3. Leave a sound somewhere
+
+Give a sound a `position` and it stays there while the skater moves away. A looping radio, left where the skater stands:
+
+```lua
+local radio = nil
+
+reskate.console.command("hum radio", "Leaves a radio playing here, or takes it away", function()
+    if radio then
+        reskate.audio.stop(radio)
+        radio = nil
+        return reskate.console.print("hum radio: off")
+    end
+    local s = reskate.skater.get()
+    if not s then return reskate.console.print("hum radio: there is no skater") end
+    local id, why = reskate.audio.play("sounds/radio.wav", {loop = true, position = s.position, range = 25, volume = 0.7})
+    if not id then return reskate.console.print("hum radio: " .. tostring(why)) end
+    radio = id
+    reskate.console.print("hum radio: playing")
+end)
+```
+
+## 4. The motor synth
+
+Pass `"motor"` in place of a path and the sound is a synthesised motor: four rotors and a rush of wind, as the drone's. `throttle` sets how fast it spins (its pitch rises with it, spinning up and down over about 80 ms), `speed` adds the wind (full at 60 m/s), and `pitch` scales its note. The motor plays until it is stopped: `loop` makes no difference to it.
+
+```lua
+local id, why = reskate.audio.play("motor", {volume = 0.9, throttle = 0.2, range = 60, position = where})
+```
+
+## 5. Change it each tick
+
+`reskate.audio.set(id, options)` changes a sound while it plays: any of `volume`, `pitch`, `range`, `throttle`, `speed` and `position` (`loop` is set only when it starts). It returns `true`, or `false` once the sound has ended. Set it from the `tick` handler to move it and change it smoothly.
+
+Here the motor circles the skater 3 m out and 1.5 m up, and revs with the skater's speed:
+
+```lua
+local motor = nil
+local angle = 0
+
+reskate.on("tick", function(dt)
+    if not motor then return end
+    local s = reskate.skater.get()
+    if not s then return stop_motor() end
+    angle += (dt / 1000) * 1.5
+    local at = s.position + vector.create(math.sin(angle) * 3, 1.5, math.cos(angle) * 3)
+    local throttle = math.clamp(s.speed / 12, 0.1, 1)
+    if not reskate.audio.set(motor, {position = at, throttle = throttle, speed = s.speed}) then
+        motor = nil -- it ended: the level went
+    end
+end)
+```
+
+`position = "skater"` in `set` puts a sound back on the skater.
+
+## 6. Stop it
+
+`reskate.audio.stop(id)` stops a sound, and an id that is not playing is ignored. `reskate.audio.playing(id)` says whether it still plays: a WAV that is not looped ends on its own.
+
+Stop your sounds when what they belong to ends. Sounds end by themselves out of a level, and every sound a plugin plays stops when it stops or unloads, but keep your own state in step:
+
+```lua
+local function stop_motor()
+    if motor then
+        reskate.audio.stop(motor)
+        motor = nil
+    end
+end
+
+reskate.on("level_unloading", function()
+    stop_motor()
+    radio = nil -- it ends with the level
+end)
+```
+
+<Note>
+A plugin plays at most 8 sounds at once (48 for all plugins together), starts at most 20 a second, and plays at most 32 different files. See [limits](/plugins/limits).
+</Note>
+
+## The whole plugin
+
+```lua
+-- plugin/main.lua: a motor circling the skater, and a radio left playing
+local motor, radio = nil, nil
+local angle = 0
+
+local function stop_motor()
+    if motor then
+        reskate.audio.stop(motor)
+        motor = nil
+    end
+end
+
+local function start_motor()
+    local s = reskate.skater.get()
+    if not s then return reskate.console.print("hum: there is no skater") end
+    reskate.audio.play("sounds/ding.wav", {volume = 0.8})
+    local id, why = reskate.audio.play("motor", {volume = 0.9, throttle = 0.1, range = 60,
+        position = s.position + vector.create(0, 1.5, 3)})
+    if not id then return reskate.console.print("hum: " .. tostring(why)) end
+    motor, angle = id, 0
+end
+
+reskate.console.command("hum", "Starts or stops a motor circling the skater", function()
+    if motor then stop_motor() else start_motor() end
+end)
+
+reskate.console.command("hum radio", "Leaves a radio playing here, or takes it away", function()
+    if radio then
+        reskate.audio.stop(radio)
+        radio = nil
+        return reskate.console.print("hum radio: off")
+    end
+    local s = reskate.skater.get()
+    if not s then return reskate.console.print("hum radio: there is no skater") end
+    local id, why = reskate.audio.play("sounds/radio.wav", {loop = true, position = s.position, range = 25, volume = 0.7})
+    if not id then return reskate.console.print("hum radio: " .. tostring(why)) end
+    radio = id
+    reskate.console.print("hum radio: playing")
+end)
+
+reskate.on("tick", function(dt)
+    if not motor then return end
+    local s = reskate.skater.get()
+    if not s then return stop_motor() end
+    angle += (dt / 1000) * 1.5
+    local at = s.position + vector.create(math.sin(angle) * 3, 1.5, math.cos(angle) * 3)
+    local throttle = math.clamp(s.speed / 12, 0.1, 1)
+    if not reskate.audio.set(motor, {position = at, throttle = throttle, speed = s.speed}) then
+        motor = nil
+    end
+end)
+
+reskate.on("level_unloading", function()
+    stop_motor()
+    radio = nil
+end)
+```
+
+## Where to go next
+
+- [Audio](/plugins/api/audio): `play`, `set`, `stop`, `playing` and `play_ui`.
+- [Music](/plugins/api/music): the game's soundtrack and an outside player.
+- [Examples](/plugins/examples): `ptest sound` in reskate-test plays a beep and revs a motor.

@@ -1,0 +1,197 @@
+---
+title: "Animation"
+description: "reskate.animation: play clips on the local skater's body, replace the game's tricks with your own, and record the skater's pose."
+---
+
+`reskate.animation` plays clips on the local skater's body. A clip is an Animation Studio clip file in your plugin's package, or a recording the plugin made with `record`. Every function needs the `skater.animation` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+
+<Warning>
+Other players see what is drawn: a clip on your skater shows on their games too.
+</Warning>
+
+## How clips play
+
+- A clip replaces the skater's body, from the hips down every joint below them, blended in and out. The joints the game moves the skater with are never written: a clip plays in place, wherever the skater is.
+- The board follows a clip only when the clip recorded one.
+- One plugin plays a clip at a time.
+- Nothing plays while a throwdown or a game of S.K.A.T.E. runs: `play` is refused, and trick replacements wait until it ends.
+- When the plugin stops, its clip stops and its replacements go.
+
+## Naming a clip
+
+Every function that takes a clip takes its name:
+
+- A path in your plugin's package, such as `"clips/spin.fas"` (with `/` between folders, no `..`). The file is read once, the first time you name it, and kept under that name.
+- `"rec:1"`, `"rec:2"`... for a recording, as `recorded()` named it.
+
+A file that cannot be read, is not a clip, has more joints than the skater or has no frames raises an error, as does a recording name that is not one.
+
+<Note>
+A plugin's clips hold at most 48 MB of poses together, counted as 40 bytes a joint a frame. A clip file is at most 8 MB. Each `record` needs room for 10 seconds of poses (about 9.5 MB) before it starts. `forget` gives a clip's room back.
+</Note>
+
+### `reskate.animation.play(clip, options)`
+
+Plays a clip on the skater's body from now.
+
+<ParamField path="clip" type="string" required>The clip's name (a package path or `"rec:<n>"`), at most 200 characters.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="speed" type="number" default="1">0.1 to 4: how many times as fast.</ParamField>
+<ParamField path="blend" type="number" default="0.15">0 to 2: the seconds it blends in and out over.</ParamField>
+<ParamField path="loop" type="boolean" default="false">True to play it over and over until `stop`.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the clip plays.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"not while a throwdown runs"`, `"<plugin> is playing a clip"` or `"asked more than 4 times in a second"`.</ResponseField>
+
+```lua
+local ok, why = reskate.animation.play("clips/wave.fas", {speed = 1.2, blend = 0.2})
+if not ok then reskate.log("no wave: " .. why) end
+```
+
+An option out of its range raises an error.
+
+<Note>
+Needs the `skater.animation` permission. Shares the budget of 4 control calls a second with `skater.noclip`, `boost`, `freeze`, `camera.follow`, `ai.spawn`, `board.toss` and `outfit.set`.
+</Note>
+
+### `reskate.animation.stop()`
+
+Stops this plugin's clip; the game's own animation takes over again. Stopping when the plugin plays nothing does nothing.
+
+Returns nothing.
+
+<Note>Needs the `skater.animation` permission.</Note>
+
+### `reskate.animation.playing()`
+
+Whether this plugin's clip is still playing.
+
+<ResponseField name="playing" type="boolean">False once a clip that does not loop has finished, after `stop`, or when another plugin plays.</ResponseField>
+
+<Note>Needs the `skater.animation` permission.</Note>
+
+### `reskate.animation.replace(trick, clip, options)`
+
+Makes one of the game's own tricks play as your clip. When the game does that trick, the clip plays from the trick's takeoff, its air (from the clip's takeoff to its landing) stretched to the trick's. Pass `nil` as the clip to give the trick back.
+
+<ParamField path="trick" type="string" required>The game's name for the trick, such as `"kickflip"` or `"ollie"`, at most 48 characters: letters, digits, space, `_` and `-`, any case. `reskate.animation.trick()` tells you the names.</ParamField>
+<ParamField path="clip" type="string or nil" required>The clip's name, or `nil` to take this replacement away.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="pop" type="string" default="any pop">`"low"`, `"mid"` or `"high"`: the replacement plays only for that pop. A trick can have one of each, and one for any pop.</ParamField>
+<ParamField path="speed" type="number" default="1">0.1 to 4.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the replacement is set (or taken away).</ResponseField>
+<ResponseField name="why" type="string">Why not: `"<plugin> replaces that trick already"` or `"a plugin replaces at most 32 tricks"`.</ResponseField>
+
+```lua
+reskate.animation.replace("kickflip", "clips/my_kickflip.fas")
+reskate.animation.replace("kickflip", "clips/my_big_kickflip.fas", {pop = "high"})
+-- later
+reskate.animation.replace("kickflip", nil)
+```
+
+A trick name with other characters, a pop that is not one of the three, or a speed out of range raises an error.
+
+<Note>
+Needs the `skater.animation` permission. A plugin replaces at most 32 tricks (each trick and pop counts once). A trick and pop replaced by one plugin is refused to the others. Replacements are taken while a throwdown runs but do not play until it ends.
+</Note>
+
+### `reskate.animation.record(seconds)`
+
+Records the skater's pose for so many seconds, from now. Ask `recorded()` for the clip once it is done.
+
+<ParamField path="seconds" type="number" required>0.2 to 10. Out of range raises an error.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the recording started.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"its clips hold too much already (each recording can be 10 s of poses)"`, `"<plugin> is recording"` or `"a recording is going on"`.</ResponseField>
+
+```lua
+local ok = reskate.animation.record(3)
+if ok then
+    reskate.time.after(3500, function()
+        local clip = reskate.animation.recorded()
+        if clip then reskate.animation.play(clip, {loop = true}) end
+    end)
+end
+```
+
+<Note>Needs the `skater.animation` permission. One recording runs at a time, across all plugins.</Note>
+
+### `reskate.animation.recorded()`
+
+The plugin's last recording, once it is done, as a clip's name to pass to `play` or `replace`. Each recording is handed back once.
+
+<ResponseField name="clip" type="string or nil">`"rec:1"`, `"rec:2"`... or `nil` while it is still recording, or when there is nothing new.</ResponseField>
+
+<Note>Needs the `skater.animation` permission. A recording holds memory until you `forget` it.</Note>
+
+### `reskate.animation.forget(clip)`
+
+Lets a clip go, and the memory its poses held. A clip still playing (or set as a replacement) plays on. Naming the file again reads it again.
+
+<ParamField path="clip" type="string" required>The clip's name, at most 200 characters. A name the plugin does not hold is ignored.</ParamField>
+
+Returns nothing.
+
+```lua
+reskate.animation.forget("rec:1")
+```
+
+<Note>Needs the `skater.animation` permission.</Note>
+
+### `reskate.animation.trick()`
+
+The game's name for the trick the skater is doing now. Use it to find the names `replace` takes.
+
+<ResponseField name="trick" type="string or nil">Such as `"kickflip"`, or `nil` when the skater is doing none.</ResponseField>
+
+```lua
+reskate.on("tick", function()
+    local trick = reskate.animation.trick()
+    if trick then reskate.log("doing " .. trick) end
+end)
+```
+
+<Note>Needs the `skater.animation` permission.</Note>
+
+## The clip file format
+
+Clip files are what Animation Studio writes. Three versions read, each named by the file's first four bytes: `FAS1` (no board), `FAS2` (with the board) and `FAS3` (with or without the board, joints that never move stored once). All numbers are little-endian; a float is 4 bytes.
+
+Every version starts the same way:
+
+| Field | Size | What it is |
+| --- | --- | --- |
+| magic | 4 | `FAS1`, `FAS2` or `FAS3`. |
+| joints | 4 (uint32) | Joints a frame: 1 to 395 for a plugin (the skater's skeleton has 395). |
+| frames | 4 (uint32) | Frames, at most 20000. |
+| takeoff | 4 (float) | Seconds into the clip the trick takes off, or -1. |
+| landing | 4 (float) | Seconds into the clip it lands, or -1. |
+
+Then `FAS1` and `FAS2` hold:
+
+| Field | Size | What it is |
+| --- | --- | --- |
+| times | 4 a frame (float) | Each frame's time in seconds, from 0, never going back. |
+| poses | 40 a joint a frame | Frame by frame, every joint in joint order. |
+| board | 40 a frame | `FAS2` only: the board, frame by frame. |
+
+And `FAS3` holds:
+
+| Field | Size | What it is |
+| --- | --- | --- |
+| has board | 1 (uint8) | 1 when each frame carries the board. |
+| times | 4 a frame (float) | Each frame's time in seconds, from 0, never going back. |
+| moves | 1 a joint (uint8) | 1 for a joint that moves in the clip, 0 for one that does not. |
+| still joints | 40 each | Each joint that does not move, once, in joint order. |
+| frames | 40 a joint a frame | Frame by frame: each joint that moves, in joint order, then the board when there is one. |
+
+A joint is 40 bytes: its scale (3 floats), its rotation as a quaternion `x, y, z, w` (4 floats) and its position (3 floats), in its parent's frame. Joints are numbered as the skater's animation skeleton numbers them (the hips are 7, the spine 42, the head 103); joint 1 carries the skater's placement in the world, and a clip never writes it. The board, when there is one, is the board's mount relative to joint 1.
+
+A file of the wrong size, with times out of order, or with any number that is not finite is refused (an error).
