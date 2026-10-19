@@ -62,13 +62,13 @@ The VM may hold 64 MB. An allocation past that fails, and the plugin stops, even
 
 ### Time for one call
 
-Every call ReSkate makes into a plugin has 50 ms: running the entry file, each event handler, each timer, each console command, each panel or screen build, each exposed function another plugin calls, and each web request's callback. `<what>` names the call, such as `the tick handler` or `the command speedo`.
+Every call ReSkate makes into a plugin has 50 ms: running the entry file, each event handler, each timer, each console command, each page, panel or screen build, each exposed function another plugin calls, and each web request's callback. `<what>` names the call, such as `the tick handler` or `the command speedo`.
 
 When a plugin unloads (its mod switched off, its files changed, `plugin off` or `plugin reload`), its `unload` handlers have 20 ms between them. Once they are spent, the rest are skipped.
 
 ### Time a tick
 
-Everything a plugin runs counts towards its tick: its timers, its tick handlers, its events, its draw handlers and its panels. ReSkate averages that time over each second. A plugin that averages more than 2 ms a tick for 3 seconds in a row is stopped. `plugin list` shows each plugin's last average:
+Everything a plugin runs counts towards its tick: its timers, its tick handlers, its events, its draw handlers and its page and panels. ReSkate averages that time over each second. A plugin that averages more than 2 ms a tick for 3 seconds in a row is stopped. `plugin list` shows each plugin's last average:
 
 ```
 speedo: running, 0.3 MB, 0.021 ms a tick, 1 command
@@ -117,8 +117,9 @@ These raise a Lua error. The plugin runs on.
 | Pictures | 32 different files | `a plugin draws at most 32 different pictures` |
 | Animation clips | 48 MB of poses | `a plugin's clips hold at most 48 MB of poses` |
 | Sounds | 32 different files | `a plugin plays at most 32 different sounds` |
+| Menu pages | 1 | `a plugin has one page` |
 | Menu panels | 8 | `more than 8 panels` |
-| Widgets | 64 a panel | `a panel has at most 64 widgets` |
+| Widgets | 160 in one build of a page, 64 a panel | `a page has at most 160 widgets`, `a panel has at most 64 widgets` |
 | Screens | 4 | `at most 4 screens` |
 | Binds | 16 actions | `at most 16 actions` |
 | Exposed functions | 64, names up to 48 characters | `at most 64 functions, each name 48 characters` |

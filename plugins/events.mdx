@@ -32,7 +32,7 @@ A handler stays registered until the plugin unloads; there is no way to remove o
 
 ### Order in a tick
 
-On a player's game, each tick hands out the trick events first, then the session's players, messages, events from other plugins, web answers, and the game's events (skater, bails, physics steps, grind exits, chat, music, throwdowns, binds). After them come each plugin's timers and `tick` handlers, then its `draw` handlers, then its screen and menu panels. Level events come as the game notices a level change.
+On a player's game, each tick hands out the trick events first, then the session's players, messages, events from other plugins, web answers, and the game's events (skater, bails, physics steps, grind exits, chat, music, throwdowns, binds). After them come each plugin's timers and `tick` handlers, then its `draw` handlers, then its screen and its menu page and panels. Level events come as the game notices a level change.
 
 ### Client and server copies
 

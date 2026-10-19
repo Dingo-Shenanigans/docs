@@ -1,57 +1,111 @@
 ---
-title: "Menu panels and screens"
-description: "reskate.menu.panel and reskate.ui.screen: settings panels on the PLUGINS tab, and full-screen screens, built from widgets."
+title: "Menu pages and screens"
+description: "reskate.menu.page, reskate.menu.panel and reskate.ui.screen: your plugin's own page in the menu's PLUGINS section, and full-screen screens, built from widgets."
 ---
 
-A plugin shows controls to the player in two places: panels on the **PLUGINS** tab of ReSkate's **ADDONS** page (`reskate.menu.panel`, which needs the `menu` [permission](/plugins/permissions)), and full-screen screens it opens itself (`reskate.ui.screen`, which needs `ui.screen`). Both are built from the same widgets. For short notices, see [`reskate.ui.toast`](/plugins/api/overlay#toasts).
+A plugin shows controls to the player in two places: its own page in the **PLUGINS** section of ReSkate's menu (`reskate.menu.page` and `reskate.menu.panel`, which need the `menu` [permission](/plugins/permissions)), and full-screen screens it opens itself (`reskate.ui.screen`, which needs `ui.screen`). Both are built from the same widgets. For short notices, see [`reskate.ui.toast`](/plugins/api/overlay#toasts).
 
 A plugin's server copy shows neither.
 
-## How panels work
+## The PLUGINS section
 
-You give a panel a function that builds it. ReSkate calls that function ten times a second while the panel can be seen, with a builder, `ui`, and your function calls `ui`'s widget functions in order, top to bottom. Nothing is kept from one build to the next: build the whole panel each time, from your plugin's own variables.
+Each plugin with a page gets its own place in the menu, under its page's title. In a window, the menu's side rail has a **PLUGINS** group with one row per plugin. Full screen, a **PLUGINS** tab at the top has a tab per plugin. Both list the plugins by name. The section only shows while some plugin has a page.
+
+A plugin's page is what `reskate.menu.page` builds, with the plugin's panels (`reskate.menu.panel`) as cards under it. A plugin with panels and no page gets a page named after its id, holding just the panels.
+
+## How pages work
+
+You give a page a function that builds it. ReSkate calls that function ten times a second while the menu shows your page, with a builder, `ui`, and your function calls `ui`'s widget functions in order, top to bottom. Nothing is kept from one build to the next: build the whole page each time, from your plugin's own variables. While the menu shows another plugin's page, or is closed, yours is not built at all.
 
 When the player uses a widget, what they did comes back in the next build: the widget's function returns the new value instead of the one you passed. Keep it in your variable, and pass it the next time.
 
 ```lua
 local hud_on, size, colour = true, 5, 1
 
-reskate.menu.panel("My HUD", function(ui)
-    ui:heading("Display")
-    hud_on = ui:toggle("hud", "Show the HUD", hud_on)
-    size = ui:slider("size", "Text size", size, 1, 10)
+reskate.menu.page("My HUD", function(ui)
+    ui:card("DISPLAY", "What the HUD shows")
+    hud_on = ui:toggle("hud", "Show the HUD", hud_on, "Draws the line's score at the bottom of the screen.")
+    size = ui:slider("size", "Text size", size, 1, 10, "%d")
     colour = ui:dropdown("colour", "Colour", {"Blue", "Yellow", "Red"}, colour)
-    ui:separator()
-    if ui:button("reset", "Reset") then
+    if ui:button("reset", "Reset", true) then
         hud_on, size, colour = true, 5, 1
     end
 end)
 ```
 
+### `reskate.menu.page(title, build)`
+
+Gives your plugin its page in the PLUGINS section.
+
+<ParamField path="title" type="string" required>1 to 24 characters. It is the page's name in the section, and a widget's actions are matched to the page by it.</ParamField>
+<ParamField path="build" type="function" required>Called with `ui` each time the page is built.</ParamField>
+
+<Note>Needs `menu`. A plugin has one page: a second call raises an error. So do an empty or too long title, a title one of your panels has, and a `build` that is not a function. A page holds at most 160 widgets in one build. Each build has 50 ms, like any handler.</Note>
+
 ### `reskate.menu.panel(title, build)`
 
-Adds a panel to the PLUGINS tab. It is shown as a card with your title, and your plugin's id under it. Panels are built only while the PLUGINS tab is open.
+Adds a panel to your plugin's page: a card titled with your title, under what the page builds. Panels are built with the page, only while the menu shows it.
 
-<ParamField path="title" type="string" required>1 to 40 characters, different from your plugin's other panels. A widget's actions are matched to its panel by this title.</ParamField>
+<ParamField path="title" type="string" required>1 to 40 characters, different from your plugin's other panels and from its page's title. A widget's actions are matched to its panel by this title.</ParamField>
 <ParamField path="build" type="function" required>Called with `ui` each time the panel is built.</ParamField>
 
-<Note>Needs `menu`. Raises an error for an empty or too long title, a title this plugin used already, a `build` that is not a function, and more than 8 panels. Each build has 50 ms, like any handler.</Note>
+```lua
+reskate.menu.panel("Saved spots", function(ui)
+    ui:info("Spots", tostring(#spots))
+    if ui:button("clear", "Clear saved spots") then spots = {} end
+end)
+```
 
-## Widgets
+<Note>Needs `menu`. Raises an error for an empty or too long title, a title this plugin used already for a panel or its page, a `build` that is not a function, and more than 8 panels. A panel holds at most 64 widgets.</Note>
 
-Every widget function is called on `ui` with a colon, only inside a panel's or a screen's build function: called anywhere else, it raises an error. A panel has at most 64 widgets.
+## Layout
 
-Widgets the player can use (`button`, `toggle`, `slider`, `dropdown`) take an `id`: 1 to 32 characters, different from the other widgets' ids in the same panel. The id is how the player's action finds its widget, so keep it the same from one build to the next.
+Every widget function is called on `ui` with a colon, only inside a page's, a panel's or a screen's build function: called anywhere else, it raises an error.
+
+### `ui:card(title, subtitle)`
+
+A titled tile, the kind the menu's own pages are built from. The widgets after it go in it, until the next card or the end of the build. Widgets before the first card sit on the page itself. A panel is a card already; a card inside it starts a new one.
+
+<ParamField path="title" type="string" required>At most 60 characters.</ParamField>
+<ParamField path="subtitle" type="string">A line under the title, at most 120 characters.</ParamField>
+
+```lua
+ui:card("GRIND EXITS", "Choose the side you pop out of a grind using LT/RT")
+```
+
+### `ui:tabs(id, names, chosen)`
+
+A row of tabs on the page. Build the chosen tab's widgets after it: a page builds only the tab shown, so its 160 widgets are counted for that tab alone.
+
+<ParamField path="id" type="string" required>1 to 32 characters, as other widgets' ids.</ParamField>
+<ParamField path="names" type="table" required>A list of 1 to 8 names, each at most 24 characters.</ParamField>
+<ParamField path="chosen" type="integer" default="1">The number of the tab shown, from 1.</ParamField>
+
+<ResponseField name="chosen" type="integer">The tab the player picked, when they picked one since the last build; otherwise `chosen`. Always 1 to the number of names.</ResponseField>
+
+```lua
+local tab = 1
+reskate.menu.page("FPV Drone", function(ui)
+    tab = ui:tabs("tabs", {"FLY", "FLIGHT", "RATES", "DISPLAY", "CONTROLLER"}, tab)
+    if tab == 1 then
+        ui:card("FLY")
+        -- the FLY tab's widgets
+    elseif tab == 2 then
+        ui:card("FLIGHT MODE")
+        -- and so on for each tab
+    end
+end)
+```
 
 ### `ui:heading(text)`
 
-A section heading.
+A section heading inside a card.
 
 <ParamField path="text" type="string" required>At most 300 characters.</ParamField>
 
 ### `ui:label(text)`
 
-A line of text, wrapped to the panel's width.
+A line of text, wrapped to the card's width.
 
 <ParamField path="text" type="string" required>At most 300 characters.</ParamField>
 
@@ -59,16 +113,52 @@ A line of text, wrapped to the panel's width.
 ui:label(string.format("Best line: %d", best))
 ```
 
+### `ui:note(text)`
+
+Muted help text, for what the setting above it does.
+
+<ParamField path="text" type="string" required>At most 300 characters.</ParamField>
+
+```lua
+ui:note("How far to the side a trigger exit pops. 100% is the full exit; lower it for rails next to a wall.")
+```
+
+### `ui:warn(text)`
+
+A warning, for something the player has to fix or know.
+
+<ParamField path="text" type="string" required>At most 300 characters.</ParamField>
+
+```lua
+if stance == "" then ui:warn("Pick your stance. Until then LT / RT are left / right of travel.") end
+```
+
+### `ui:info(label, value)`
+
+A status line: a muted label, and its value beside it.
+
+<ParamField path="label" type="string" required>At most 60 characters.</ParamField>
+<ParamField path="value" type="string" required>At most 200 characters.</ParamField>
+
+```lua
+ui:info("Seen", string.format("%d out of grinds, %d sides set", pops, applied))
+```
+
 ### `ui:separator()`
 
 A horizontal line between widgets.
 
-### `ui:button(id, text)`
+## Controls
+
+Widgets the player can use (`tabs`, `button`, `toggle`, `slider`, `dropdown`) take an `id`: 1 to 32 characters, different from the other widgets' ids in the same build of the page or panel. The id is how the player's action finds its widget, so keep it the same from one build to the next.
+
+### `ui:button(id, text, primary)`
 
 A button.
 
 <ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
 <ParamField path="text" type="string" required>Its label, at most 60 characters.</ParamField>
+<ParamField path="primary" type="boolean" default="false">True draws it as the card's main action.</ParamField>
 
 <ResponseField name="pressed" type="boolean">`true` in the build after the player pressed it, otherwise `false`.</ResponseField>
 
@@ -76,23 +166,26 @@ A button.
 if ui:button("clear", "Clear saved spots") then
     reskate.storage.set("spots", nil)
 end
+if ui:button("start", "Start the run", true) then start_run() end
 ```
 
-### `ui:toggle(id, text, on)`
+### `ui:toggle(id, text, on, help)`
 
 A switch, on or off.
 
 <ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
 <ParamField path="text" type="string" required>Its label, at most 60 characters.</ParamField>
 <ParamField path="on" type="boolean" default="false">Whether it shows on.</ParamField>
+<ParamField path="help" type="string">What it does, at most 300 characters, shown with it.</ParamField>
 
 <ResponseField name="on" type="boolean">What the player set it to, when they changed it since the last build; otherwise `on`.</ResponseField>
 
 ```lua
-enabled = ui:toggle("enabled", "Enabled", enabled)
+enabled = ui:toggle("enabled", "Grind exit triggers", enabled,
+    "Press LT or RT while grinding to pick the side you pop out to.")
 ```
 
-### `ui:slider(id, text, value, minimum, maximum)`
+### `ui:slider(id, text, value, minimum, maximum, format)`
 
 A slider between two numbers.
 
@@ -101,14 +194,18 @@ A slider between two numbers.
 <ParamField path="value" type="number" required>Its value now.</ParamField>
 <ParamField path="minimum" type="number" required>The left end.</ParamField>
 <ParamField path="maximum" type="number" required>The right end, above `minimum`.</ParamField>
+<ParamField path="format" type="string" default='"%.2f"'>How the value shows on the slider, at most 24 characters: exactly one `%f` (or `%.Nf`, N a single digit) or `%d`, among plain text, with `%%` for a percent sign. For example `"%d%%"`, `"%.1f m"` or `"x%.2f"`. Anything else raises an error.</ParamField>
 
 <ResponseField name="value" type="number">What the player set, when they moved it since the last build; otherwise `value`. Always between `minimum` and `maximum`.</ResponseField>
 
 ```lua
 volume = ui:slider("volume", "Volume", volume, 0, 1)
+strength = math.floor(ui:slider("strength", "Pop-out strength", strength, 10, 100, "%d%%") + 0.5)
 ```
 
-### `ui:dropdown(id, text, choices, chosen)`
+`%d` shows the value rounded, but the value that comes back is not: round it yourself, as above, when you want whole numbers.
+
+### `ui:dropdown(id, text, choices, chosen, help)`
 
 A list to pick one from.
 
@@ -116,12 +213,13 @@ A list to pick one from.
 <ParamField path="text" type="string" required>Its label, at most 60 characters.</ParamField>
 <ParamField path="choices" type="table" required>A list of 1 to 32 strings, each at most 60 characters.</ParamField>
 <ParamField path="chosen" type="integer" default="1">The number of the choice shown, from 1.</ParamField>
+<ParamField path="help" type="string">What it does, at most 300 characters, shown with it.</ParamField>
 
 <ResponseField name="chosen" type="integer">The number of the choice the player picked, when they picked one since the last build; otherwise `chosen`. Always 1 to the number of choices.</ResponseField>
 
 ```lua
 local modes = {"Score", "Time", "Combo"}
-mode = ui:dropdown("mode", "Mode", modes, mode)
+mode = ui:dropdown("mode", "Mode", modes, mode, "What the run is scored on.")
 ui:label("Playing " .. modes[mode])
 ```
 
@@ -139,12 +237,35 @@ ui:bar(string.format("%d / %d goals", done, total), done, 0, total)
 ```
 
 <Note>
-A widget raises an error outside a build function, past 64 widgets, for an id that is empty, longer than 32 characters or used twice in the panel, for text over its length, for a `maximum` that is not above `minimum`, for a number that is not finite (or is beyond a million either way), and for a dropdown with no choices or more than 32.
+A widget raises an error outside a build function, past 160 widgets in a page's build or 64 in a panel's, for an id that is empty, longer than 32 characters or used twice in the build, for text over its length, for a `maximum` that is not above `minimum`, for a number that is not finite (or is beyond a million either way), for a dropdown with no choices or more than 32, for tabs with no names or more than 8, and for a slider format that is not exactly one number.
 </Note>
+
+## A whole page
+
+The grind-exits plugin (`contrib/plugins/grind-exits/plugin/main.lua` in the ReSkate repository) builds its page from cards, help text, a slider format, a warning and status lines. Shortened:
+
+```lua
+reskate.menu.page("Grind Exits", function(ui)
+    ui:card("GRIND EXITS", "Choose the side you pop out of a grind using LT/RT")
+    settings.on = ui:toggle("on", "Grind exit triggers", settings.on,
+        "Press LT or RT while grinding to pick the side you pop out to. Keep it held until you land.")
+    settings.stance = ui:dropdown("stance", "Your stance", {"Not set", "Regular", "Goofy"}, settings.stance,
+        "Your skater's stance in the game's settings.")
+    if settings.stance == 1 then ui:warn("Pick your stance. Until then LT / RT are left / right of travel.") end
+    settings.strength = math.floor(ui:slider("strength", "Pop-out strength", settings.strength, 10, 100, "%d%%") + 0.5)
+    ui:note("How far to the side a trigger exit pops. 100% is the full exit; lower it for rails next to a wall.")
+
+    ui:card("POPS")
+    ui:info("Seen", string.format("%d out of grinds, %d sides set", pops, applied))
+    ui:info("Last", last_pop)
+end)
+```
+
+The fpv-drone plugin (`contrib/plugins/fpv-drone/plugin/page.lua`) puts five tabs on its page, each with cards of its own.
 
 ## Full-screen screens
 
-A screen is a panel that covers the whole game window, over everything, with your title at the top and the input while it shows. The player closes it with Esc. Use one for a mode's lobby, a results table, or anything the player should look at before playing on.
+A screen covers the whole game window, over everything, with your title at the top and the input while it shows. The player closes it with Esc. Use one for a mode's lobby, a results table, or anything the player should look at before playing on.
 
 ```lua
 local results = {}
@@ -172,7 +293,7 @@ reskate.ui.open("Results")
 Adds a screen. It is built ten times a second while it is open, whether or not a menu is.
 
 <ParamField path="title" type="string" required>1 to 40 characters, different from your plugin's other screens. It is shown at the top, with your plugin's id and "Esc closes it" under it.</ParamField>
-<ParamField path="build" type="function" required>Called with `ui` each time the screen is built. It takes the same widgets as a panel.</ParamField>
+<ParamField path="build" type="function" required>Called with `ui` each time the screen is built. It takes the same widgets as a page, drawn plainly: a card is a heading with its subtitle under it, and tabs are a row of names to pick from.</ParamField>
 
 <Note>Needs `ui.screen`. Raises an error for a title that is empty or longer than 40 characters, a title this plugin used already, a `build` that is not a function, and more than 4 screens.</Note>
 

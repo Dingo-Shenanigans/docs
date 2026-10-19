@@ -26,7 +26,7 @@ end)
 What a plugin may touch depends on the permissions its manifest lists. With none, it gets the base set: logging, events such as `tick` and `level_loaded`, timers, its own files, JSON, and functions and events shared with other plugins. Each permission then unlocks one area, for example:
 
 - reading the skater, its tricks, its bails and its physics steps (`skater.read`, `events.tricks`, `events.skater`, `events.physics`),
-- drawing on the screen and in the world, menu panels and full-screen screens (`overlay`, `menu`, `ui.screen`),
+- drawing on the screen and in the world, a page of its own in the menu, and full-screen screens (`overlay`, `menu`, `ui.screen`),
 - moving the skater, the camera and the board, and playing animation clips (`skater.teleport`, `skater.control`, `camera`, `board`, `skater.animation`),
 - talking to the same plugin on other players' games, and web requests to hosts it names (`net.session`, `net.http`),
 - running a session as its authority: kicking, announcing and moving players (`server`).

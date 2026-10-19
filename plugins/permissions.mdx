@@ -48,7 +48,7 @@ Every plugin has these without asking:
 | --- | --- | --- |
 | `console` | [`reskate.console.command`, `reskate.console.print`](/plugins/api/console) | Nothing. |
 | `overlay` | The `draw` event and its drawing object (`d:text`, `d:rect`, `d:line`, `d:circle`, `d:poly`, `d:gradient`, `d:world_text`, `d:world_line`, `d:world_circle`, `d:image`, `d:world_image`, `d:game_image`, `d:skeleton`, `d:size`, `d:world_to_screen`) ([overlay](/plugins/api/overlay)); [`reskate.ui.toast`](/plugins/api/menu); [`reskate.skater.xray`](/plugins/api/skater) | Nothing: it draws on your screen only. |
-| `menu` | [`reskate.menu.panel`](/plugins/api/menu) and its widgets (`ui:heading`, `ui:label`, `ui:separator`, `ui:bar`, `ui:button`, `ui:toggle`, `ui:slider`, `ui:dropdown`), on the **ADDONS** page's **PLUGINS** tab | Nothing. |
+| `menu` | [`reskate.menu.page`, `reskate.menu.panel`](/plugins/api/menu) and their widgets (`ui:card`, `ui:tabs`, `ui:heading`, `ui:label`, `ui:note`, `ui:warn`, `ui:info`, `ui:separator`, `ui:bar`, `ui:button`, `ui:toggle`, `ui:slider`, `ui:dropdown`), on the plugin's own page in the menu's **PLUGINS** section | Nothing. |
 | `ui.screen` | [`reskate.ui.screen`, `reskate.ui.open`, `reskate.ui.close`](/plugins/api/menu); the `screen_closed` event | Nothing. |
 | `input` | [`reskate.input.bind`, `flight`, `gamepad`, `joystick`, `capture`, `hide`](/plugins/api/input); the `action` event | Nothing. Your binds show on your **Binds** page. |
 | `hud` | [`reskate.hud.hide`, `reskate.hud.corner`](/plugins/api/skater) | Nothing: it hides your HUD only. |

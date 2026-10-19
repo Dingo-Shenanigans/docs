@@ -74,7 +74,7 @@ end
 | `skater` | `skater.get` and its single readers, `world.raycast` under and over the skater, bad positions and long rays refused. | `ptest tp` |
 | `tricks` | `score.current` and the trick events. | `ptest trick` |
 | `overlay` | Draw handlers run each tick, the draw object is refused outside its handler, toasts. | `ptest hud` |
-| `menu` | A panel on the PLUGINS tab with every widget; widgets refused outside it. | The panel itself |
+| `menu` | A panel on its page in the menu's PLUGINS section with every widget; widgets refused outside it. | The panel itself |
 | `audio` | `play_ui`, and a sound there is not refused. | |
 | `mods` | `mods.list` and `mods.installed` find this plugin. | |
 | `session` | `session.active`, `is_dedicated`, `me` and `players`; bad messages refused. | `ptest ping` |
@@ -143,7 +143,7 @@ Any line it prints starting with `ESCAPED` is a hole in the sandbox. Its manifes
 | `recursion` | Endless recursion. | An error, not a crash; it keeps running. |
 | `slow-unload` | An unload handler that never ends. | Cut off at 20 ms when it is switched off (`plugin off reskate-hostile`). |
 | `trick-loop` | A `trick_landed` handler that never returns. | Stopped at the next trick landed. |
-| `panel-loop` | A menu panel whose function never returns. | Stopped the next time the PLUGINS tab shows it. |
+| `panel-loop` | A menu panel whose function never returns. | Stopped the next time the menu shows its page. |
 | `screen-loop` | A full-screen screen whose function never returns. | Stopped as the screen is built. |
 
 ### Rates and amounts
@@ -184,7 +184,7 @@ Each of these keeps running and must be refused.
 
 ## Ports
 
-Five features that were built into ReSkate are mods now, plugins in `contrib/plugins` that use only the API on these pages. ReSkate keeps no copy of them: their console commands, settings and menu panels are the plugins' own. Each has its own checks (`<command> test`), which the plugin tests run too, and its switches on its panel in the PLUGINS tab. They are larger than reskate-test's checks, and show how the APIs go together in a whole feature.
+Five features that were built into ReSkate are mods now, plugins in `contrib/plugins` that use only the API on these pages. ReSkate keeps no copy of them: their console commands, settings and menu panels are the plugins' own. Each has its own checks (`<command> test`), which the plugin tests run too, and its switches on its own page in the menu's PLUGINS section. They are larger than reskate-test's checks, and show how the APIs go together in a whole feature.
 
 | Plugin | What it does | What to read it for |
 | --- | --- | --- |
