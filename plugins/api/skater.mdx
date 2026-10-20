@@ -587,6 +587,7 @@ Keyed by joint, as `reskate.skater.joint` takes one (a number from 2 to 394, or 
 <ParamField path="rotation" type="table">A turn in the joint's own frame, `{x, y, z, w}`, scaled to a length of 1.</ParamField>
 <ParamField path="angles" type="vector">The same as degrees about the joint's own X, then Y, then Z. Used instead of `rotation` when both are given.</ParamField>
 <ParamField path="scale" type="number" default="1">0 to 10: the joint's size, its children's with it. 0 hides it.</ParamField>
+<ParamField path="offset" type="vector">Metres added to the joint's position in its parent's frame, at most 2 on each axis: the hips moved, say.</ParamField>
 </Expandable>
 `nil` (or `{}`) ends your pose.
 </ParamField>
@@ -603,7 +604,7 @@ end)
 ```
 
 <Note>
-Needs the `skater.animation` permission. A pose lasts 300 ms: call it every tick to keep it. One plugin poses at a time; `nil` from another plugin does nothing. Joints 0 and 1 place the skater in the world and cannot be posed. At most 64 joints at once, each once. A joint that is not one of those, a `rotation` that is not 4 finite numbers with a length, `angles` that are not a finite vector, a `scale` outside 0 to 10, or a `weight` outside 0 to 1 raises an error. It also works while a throwdown runs. When the plugin stops, its pose ends.
+Needs the `skater.animation` permission. A pose lasts 300 ms: call it every tick to keep it. One plugin poses at a time; `nil` from another plugin does nothing. Joints 0 and 1 place the skater in the world and cannot be posed. At most 64 joints at once, each once. A joint that is not one of those, a `rotation` that is not 4 finite numbers with a length, `angles` that are not a finite vector, a `scale` outside 0 to 10, an `offset` over 2 m, or a `weight` outside 0 to 1 raises an error. It also works while a throwdown runs. When the plugin stops, its pose ends.
 </Note>
 
 ### `reskate.skater.joint(joint)`
@@ -618,6 +619,7 @@ Where one of your skater's joints is in the world, as the pose was last worked o
 <ResponseField name="position" type="vector">The joint's position.</ResponseField>
 <ResponseField name="rotation" type="table">Its rotation, `{x, y, z, w}`.</ResponseField>
 <ResponseField name="scale" type="number">Its scale.</ResponseField>
+<ResponseField name="parent" type="integer">Its parent in the skeleton, for turning the joint about its parent's frame; none for the root.</ResponseField>
 </Expandable>
 </ResponseField>
 

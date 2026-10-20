@@ -42,13 +42,14 @@ Most functions take a last, optional style table. Every field is optional.
 | Field | Type | Default | What it does |
 | --- | --- | --- | --- |
 | `colour` (or `color`) | string or number | white | `"#RRGGBB"`, `"#RRGGBBAA"`, or a number `0xRRGGBBAA`. |
-| `size` | number | `18` | Text height, 4 to 200, in pixels at 1080 lines. |
+| `size` | number | `18` | Text height, 4 to 400, in pixels at 1080 lines. |
 | `thickness` | number | `2` | Line and outline thickness, 0.5 to 40, in pixels at 1080 lines. |
 | `fill` | boolean | `false` | Fills rectangles, circles and polygons instead of outlining them. |
 | `rounding` | number | `0` | Corner radius of rectangles and screen pictures, 0 to 200, in pixels at 1080 lines. |
 | `align` | string | `"left"` | Text: `"left"`, `"centre"` (or `"center"`) or `"right"` of its point. |
 | `shadow` | boolean | `true` | Text: a dark shadow under it. |
-| `font` | string | `"bold"` | Text: one of the ReSkate menus' fonts, `"bold"`, `"body"`, `"heading"` or `"title"`. |
+| `font` | string | `"bold"` | Text: one of the ReSkate menus' fonts, `"bold"`, `"body"`, `"heading"`, `"title"` or `"title_large"` (the brushed page titles' face, made for large sizes). |
+| `wrap` | number | `0` | Text: wrapped onto more lines at this width, 0 to 10000, in pixels at 1080 lines, from its point as the top left. 0 keeps it on one line. |
 | `uv` | table | `{0, 0, 1, 1}` | Pictures: the part of the picture drawn, `{u0, v0, u1, v1}`, each 0 to 1. |
 
 A `size`, `thickness` or `rounding` out of its range is brought into it. A colour in another form, an `align` or `font` that is not one of its names, a `uv` corner outside 0 to 1, or a number that is not finite raises an error.
@@ -159,10 +160,10 @@ A picture is loaded the first time you draw it, and shows a few frames later. A 
 
 One of skate.'s own pictures, by name: its scoring icons, the THRASHER wordmark, and the brush strokes and tiles its menus are built from. ReSkate reads them from the installed game, so your package ships none of them.
 
-<ParamField path="name" type="string" required>One of the 13 names below. Any other name raises an error that lists them.</ParamField>
+<ParamField path="name" type="string" required>One of the 14 names below. Any other name raises an error that lists them.</ParamField>
 <ParamField path="top_left" type="vector" required>Pixels.</ParamField>
 <ParamField path="bottom_right" type="vector" required>Pixels.</ParamField>
-<ParamField path="style" type="table">`colour` tints it: the pictures are white or grey, so the colour you give is the colour they show. `fit` and `edge` (below) say how it goes onto the box. `rounding` and `uv` do nothing here.</ParamField>
+<ParamField path="style" type="table">`colour` tints it: the pictures are white or grey, so the colour you give is the colour they show (`loading_board` keeps its own colours, and `colour` fades it). `fit` and `edge` (below) say how it goes onto the box; `frame` picks a flipbook's picture. `rounding` and `uv` do nothing here.</ParamField>
 
 | `fit` | How the picture goes onto the box |
 | --- | --- |
@@ -171,6 +172,8 @@ One of skate.'s own pictures, by name: its scoring icons, the THRASHER wordmark,
 | `"panel"` | Nine-sliced: its corners kept square, `edge` pixels on a side, its edges stretched along the box and its middle across the rest. For `rough_tile`. A box smaller than two edges shrinks them to half of it. |
 
 `edge` is 0 to 400, in pixels at 1080 lines (default 0). A `fit` that is not one of the three raises an error.
+
+`frame` is for `loading_board` only, a flipbook of 27 pictures shown at 30 a second: a whole number from 0 to 26 (default 0), fitted into the box. A `frame` on another picture, or out of range, raises an error.
 
 | Name | The picture |
 | --- | --- |
@@ -187,6 +190,7 @@ One of skate.'s own pictures, by name: its scoring icons, the THRASHER wordmark,
 | `rough_tile` | A tile with rough, hand-cut edges, for `fit = "panel"`. |
 | `scratches` | A film's scratches and dust, light marks drawn by their brightness: lay it over a panel. |
 | `streak` | A long brush streak, thick on the left and tapering to the right. |
+| `loading_board` | The board doing kickflips beside skate.'s own "Loading...", in its own colours: 27 frames (`frame`), 30 a second. |
 
 The scoring icons and the stopwatch are about 64 pixels in the game, so they look best drawn small; the others are larger.
 
@@ -286,7 +290,73 @@ end)
 
 A key that is not a body part's name, a colour in another form, or an `alpha` out of range raises an error. The skeleton counts as one shape.
 
+## skate.'s drawn details
+
+The touches skate.'s menus are drawn with, as the ReSkate menus draw them: no picture files.
+
+### `d:rough_rect(top_left, bottom_right, style)`
+
+A filled tile with skate.'s slightly rough, hand-cut edges.
+
+<ParamField path="top_left" type="vector" required>Pixels.</ParamField>
+<ParamField path="bottom_right" type="vector" required>Pixels.</ParamField>
+<ParamField path="style" type="table">`colour`; `seed`, a whole number from 0 that picks its edge (the same seed, the same edge, so it does not shimmer; default 1); and `scale`, how rough, 0.1 to 10 (default 1, at 1080 lines).</ParamField>
+
+```lua
+d:rough_rect(vector.create(60, 200, 0), vector.create(560, 250, 0), {colour = "#0183ff", seed = 7})
+```
+
+### `d:halftone(top_left, columns, rows, style)`
+
+A screen-print of small dots, 7 pixels apart, every other row offset: the spray skate. puts in a tile's corner.
+
+<ParamField path="top_left" type="vector" required>Pixels.</ParamField>
+<ParamField path="columns" type="integer" required>1 to 64.</ParamField>
+<ParamField path="rows" type="integer" required>1 to 64.</ParamField>
+<ParamField path="style" type="table">`colour`.</ParamField>
+
+### `d:scribble(top_left, bottom_right, style)`
+
+The dry-brush scribble skate. draws over a tile: three dark strokes across the box.
+
+<ParamField path="top_left" type="vector" required>Pixels.</ParamField>
+<ParamField path="bottom_right" type="vector" required>Pixels.</ParamField>
+<ParamField path="style" type="table">`seed` and `scale`, as `rough_rect` takes them.</ParamField>
+
+### `d:clip(top_left, bottom_right)`
+
+What the handler draws after it shows only inside the box, as in a list that scrolls. `d:clip()` with nothing ends the last one; clips nest, up to 16, and every one still open ends with the frame.
+
+<ParamField path="top_left" type="vector">Pixels. Leave both out to end a clip.</ParamField>
+<ParamField path="bottom_right" type="vector">Pixels.</ParamField>
+
+```lua
+d:clip(vector.create(60, 200, 0), vector.create(560, 600, 0))
+for i, row in rows do
+    d:text(vector.create(80, 200 + i * 40 - scroll, 0), row)
+end
+d:clip()
+```
+
 ## Measuring
+
+### `d:measure(text, style)`
+
+How wide and tall a text is drawn, for laying out boxes and columns.
+
+<ParamField path="text" type="string" required>At most 500 characters.</ParamField>
+<ParamField path="style" type="table">`size`, `font` and `wrap`, as `d:text` takes them.</ParamField>
+
+<ResponseField name="size" type="vector">`x` its width and `y` its height, in the window's pixels (the size scaled to the window, as it is drawn); `z` is 0. A wrapped text is as tall as its lines.</ResponseField>
+
+```lua
+local style = {font = "heading", size = 25}
+local w = d:measure("TRICKS", style)
+d:rough_rect(vector.create(60, 140, 0), vector.create(60 + w.x + 20, 176, 0), {colour = "#1a1a1c"})
+d:text(vector.create(70, 145, 0), "TRICKS", style)
+```
+
+<Note>Before the overlay has drawn its first frame its fonts are not known, and the size is a guess.</Note>
 
 ### `d:size()`
 
@@ -317,7 +387,7 @@ end
 ## Limits
 
 <Note>
-Needs `overlay`, for the `draw` event and every `d` function. In one tick a plugin draws at most 4000 shapes and 64 KB of text; the rest are left out, and a warning is logged at most once every 10 s, saying which of the two limits was hit. A plugin draws at most 32 different pictures from its package in all its life (each path counts once; the game's own pictures do not count); the next raises an error. A wrong argument raises an error: a position that is not a vector, text over 500 characters, a negative radius, a polygon of fewer than 3 or more than 64 points, a picture that is not a `.png` or `.jpg` file in the package, a game picture's name that is not one of the 13, a gradient without four colours.
+Needs `overlay`, for the `draw` event and every `d` function. In one tick a plugin draws at most 4000 shapes and 64 KB of text; the rest are left out, and a warning is logged at most once every 10 s, saying which of the two limits was hit. A plugin draws at most 32 different pictures from its package in all its life (each path counts once; the game's own pictures do not count); the next raises an error. A wrong argument raises an error: a position that is not a vector, text over 500 characters, a negative radius, a polygon of fewer than 3 or more than 64 points, a picture that is not a `.png` or `.jpg` file in the package, a game picture's name that is not one of the 14, a gradient without four colours, a halftone outside 1 to 64 dots each way, a `seed` that is not a whole number from 0.
 </Note>
 
 ## Screen look

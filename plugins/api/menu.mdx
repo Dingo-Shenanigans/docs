@@ -298,10 +298,11 @@ Adds a screen. It is built ten times a second while it is open, whether or not a
 <Expandable title="fields">
 <ParamField path="dock" type="string">`"left"` or `"right"`: a panel down that side of the window, the game showing beside it, for a tool that works on what the player sees. While it is open, the game gets no input, and [`reskate.input.cursor`](/plugins/api/input) reads the mouse over the game.</ParamField>
 <ParamField path="width" type="number" default="0.3">A docked screen's share of the window's width, 0.2 to 0.6.</ParamField>
+<ParamField path="panel" type="boolean" default="true">`false`: a screen with no panel at all. It takes the input as any screen does (the game gets none, Esc closes it), and draws nothing: your plugin draws the whole screen in its `draw` handler, and reads the mouse with [`reskate.input.cursor`](/plugins/api/input), the keys with `reskate.input.key` and the pad with `reskate.input.gamepad`. Its `build` is still called, and its widgets are not drawn. It takes no `dock`.</ParamField>
 </Expandable>
 </ParamField>
 
-<Note>Needs `ui.screen`. Raises an error for a title that is empty or longer than 40 characters, a title this plugin used already, a `build` that is not a function, more than 4 screens, a `dock` that is not `"left"` or `"right"`, and a `width` out of range.</Note>
+<Note>Needs `ui.screen`. Raises an error for a title that is empty or longer than 40 characters, a title this plugin used already, a `build` that is not a function, more than 4 screens, a `dock` that is not `"left"` or `"right"`, a `width` out of range, and `panel = false` with a `dock`.</Note>
 
 ### `reskate.ui.open(title)`
 
