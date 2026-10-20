@@ -1,47 +1,92 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Getting started"
+description: "Install ReSkate, let the launcher set up the game, and start playing, on Windows, Linux or macOS."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+ReSkate runs from a folder of its own, with its own copy of the game: Steam updating skate. cannot break it. You need your own copy of skate. on Steam, and about 14 GB of free space.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+ReSkate supports one game build at a time: Steam build `25414733`. The launcher installs exactly that build for you.
 
-## Prerequisites
+## Install
 
-Before you begin, you must have:
+<Tabs>
+  <Tab title="Windows">
+    <Steps>
+      <Step title="Download">
+        Download the latest `ReSkate-<version>.zip` from [Releases](https://github.com/Dingo-Shenanigans/ReSkate/releases).
+      </Step>
+      <Step title="Extract">
+        Extract `ReSkateLauncher.exe` and `ReSkate.dll` into a new, empty folder of their own, for example `C:\Games\ReSkate`.
 
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
+        <Warning>Do not put them in Steam's skate. folder. ReSkate keeps its own copy of the game in its folder.</Warning>
+      </Step>
+      <Step title="Run the launcher">
+        Run `ReSkateLauncher.exe`. It checks for ReSkate updates, then installs the supported build of the game into that folder.
 
-## Get started
+        Sign in to Steam when asked, with the account that owns skate.: scan a QR code with the Steam app, or use your username and password with Steam Guard. On later runs the launcher checks the game files and downloads only what is missing.
+      </Step>
+      <Step title="Play">
+        Press **PLAY**.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Linux (Proton)">
+    <Steps>
+      <Step title="Install skate.">
+        Install skate. with Steam. Put `ReSkateLauncher.exe` and `ReSkate.dll` in a new, empty folder of their own, for example `~/Games/ReSkate`, not Steam's skate. folder: the launcher refuses to run from there.
+      </Step>
+      <Step title="Set the launch option">
+        In Steam, open **skate. > Properties > Launch Options** and enter this, with your own folder's path:
 
-<Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+        ```bash
+        bash -c 'exec "${@/*EAAntiCheat.GameServiceLauncher.exe//home/you/Games/ReSkate/ReSkateLauncher.exe}"' -- %command%
+        ```
+      </Step>
+      <Step title="Play">
+        Press **Play** on skate. in your Steam library. The launcher installs its own copy of the game into that folder the first time.
+      </Step>
+    </Steps>
 
-    ```bash
-    npm install your-package
-    ```
-  </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+    Steam starts EA's anti-cheat launcher, not `Skate.exe`, and the anti-cheat refuses to run under Proton. The launch option swaps it for ReSkate's launcher, which starts the game itself. Launching from the game's own Steam entry, rather than adding the launcher as a non-Steam game, keeps skate.'s app ID and its Proton prefix.
 
-    ```bash
-    your-cli init
-    ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+    <Note>The launcher in a folder of its own has not been tested on Proton yet. Steam Deck should work the same way, but is untested.</Note>
+  </Tab>
+  <Tab title="macOS">
+    Steam for Mac with a Wine-based compatibility tool (NotProton or CrossOver) works much the same way as Linux. [MACOS-SETUP.md](https://github.com/Dingo-Shenanigans/ReSkate/blob/main/MACOS-SETUP.md) has its launch option.
+  </Tab>
+</Tabs>
 
-    ```bash
-    your-cli start
-    ```
-  </Step>
-</Steps>
+## Controls
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+| Key | Opens |
+| --- | --- |
+| **Insert** | The ReSkate menu |
+| **~** (grave or tilde) | The command console. `help` lists the commands. |
+| **T** | Chat, in multiplayer |
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+You can change the menu and console keys in the launcher's **Settings**.
+
+## Mods
+
+- Install mods on the launcher's **MODS** page: browse [Thunderstore](https://thunderstore.io/c/reskate/), or drag a `.zip` or a folder onto the window.
+- **PROFILES** on that page saves which mods are on, and in what order, under a name. Profiles share as codes or `.r2z` files, the same ones r2modman uses.
+- In game, the **MODS** tab of the ReSkate menu turns mods on and off and applies the changes. Most changes apply without a restart.
+- Mods are checked against the game build they were made for. An outdated mod, or one that cannot be merged cleanly, is left out with a message naming it, and the rest still load.
+
+<Warning>Only install mods you trust. Mods change game data.</Warning>
+
+Mods with code are plugins. To make one, start with the [plugin overview](/plugins/overview).
+
+## Where things are
+
+| What | Where |
+| --- | --- |
+| Mods | `Mods\<mod name>\` beside `Skate.exe`, ordered by `Mods\mods.json` |
+| Logs | `logs\ReSkate.log` beside `Skate.exe` |
+| Profile (skater, progress, parks) | `%LOCALAPPDATA%\ReSkate\profiles\offline\` |
+| The game's own settings and saves | `%LOCALAPPDATA%\ReSkate\Game\`, kept apart from the normal game |
+| Launcher settings | `ReSkateLauncher.settings.json` beside the launcher |
+
+## Dedicated servers
+
+`ReSkateServer.exe` is a headless lobby that needs neither the game nor Steam installed. Each release has it in `ReSkateServer-<version>.zip` for Windows and `ReSkateServer-Linux-<version>.zip` for Linux. [Server/README.txt](https://github.com/Dingo-Shenanigans/ReSkate/blob/main/Server/README.txt) and [Server/README-linux.md](https://github.com/Dingo-Shenanigans/ReSkate/blob/main/Server/README-linux.md) cover setup, admin commands, votes and the anti-cheat checks. A server runs plugins too, from the `Plugins` folder beside it: see [server copies](/plugins/api/server).
