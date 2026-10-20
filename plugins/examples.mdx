@@ -196,6 +196,10 @@ Five features that were built into ReSkate are mods now, plugins in `contrib/plu
 
 Copy a plugin's folder into the game's `Mods` folder to try it, as with reskate-test. board-break and road-rash go inside their packs' folders: copy `reskate-plugin.json` and `plugin/` beside the pack's `layout.toc`.
 
+## Settings for a companion program
+
+**dual-stick** puts the settings of GoalTrains' Dual Stick Controls companion (a program that translates Skate's controls across two sticks) on its own page: presets, five custom slots shared with the companion's menu, stance, stick layout and every other setting. It edits the companion's `session_controls.ini` in its own [data folder](/plugins/api/files), keeping every line it does not change, and never creates the file. `dualstick status`, `dualstick preset xl`. Read it for [`reskate.files`](/plugins/api/files), a whole settings page made of dropdowns ([menu](/plugins/api/menu)), and a file shared with a program outside the game.
+
 ## Throwdown modes
 
 Throwdown modes made with the [throwdown kit](/plugins/api/throwdowns): the plugin registers its modes and publishes what the player should see, and ReSkate shows it with skate.'s own Throwdowns page, setup page, flag, HUD and match panel.
