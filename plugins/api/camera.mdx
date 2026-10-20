@@ -1,9 +1,9 @@
 ---
 title: "Camera"
-description: "reskate.camera: show the view from a pose of your own, follow another player with Spectate, and give the game its camera back."
+description: "reskate.camera: show the view from a pose of your own, follow another player with Spectate, turn on the free camera and fly it from the pad, and give the game its camera back."
 ---
 
-`reskate.camera` takes the game's camera and shows the view your plugin chooses, follows a session player with Spectate's camera, and reads the camera as it is now. Every function needs the `camera` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+`reskate.camera` takes the game's camera and shows the view your plugin chooses, follows a session player with Spectate's camera, turns on the game's free camera, and reads the camera as it is now. Every function needs the `camera` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
 
 ## How the camera is shared
 
@@ -128,7 +128,10 @@ The camera as it is now: the game's own, Spectate's, or a plugin's view.
 <Expandable title="fields">
 <ResponseField name="position" type="vector">Where the camera is.</ResponseField>
 <ResponseField name="forward" type="vector">The way it looks, length 1.</ResponseField>
+<ResponseField name="right" type="vector">The view's right, in the world.</ResponseField>
+<ResponseField name="up" type="vector">The view's up, in the world.</ResponseField>
 <ResponseField name="fov" type="number">Its vertical field of view, in degrees.</ResponseField>
+<ResponseField name="free" type="boolean">True when the view shown is the free camera's (see `free` below), not only asked for.</ResponseField>
 </Expandable>
 </ResponseField>
 
@@ -141,6 +144,53 @@ end
 ```
 
 <Note>Needs the `camera` permission.</Note>
+
+## The free camera
+
+The game's free camera is ReSkate's Freecam: the player flies it with the flight keys and the mouse, or with the pad. A plugin turns it on for something the player does from the air, such as placing things. It is not a view of your plugin's own: `look`, `set` and `held` do not take part.
+
+### `reskate.camera.free(on)`
+
+Turns the free camera on or off, as ReSkate's own Freecam does.
+
+<ParamField path="on" type="boolean" required>True to turn it on, false (or nothing) to turn it off.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the change was asked for. It takes a moment: `get().free` says when the free camera is shown.</ResponseField>
+<ResponseField name="why" type="string">`"unavailable here"` on a server copy.</ResponseField>
+
+```lua
+-- On while placing, off after.
+local function set_placing(on)
+    reskate.camera.free(on)
+    reskate.camera.pad_flight(on)
+end
+```
+
+<Note>
+Needs the `camera` permission. The plugin that last turned the free camera on owns it: another plugin's `free(false)` does nothing (and returns `true`). When the plugin stops, a free camera it owns is turned off.
+</Note>
+
+### `reskate.camera.pad_flight(on)`
+
+Lets the player fly the free camera from the pad: the controller flies it, the bumpers (or Q and E) move it up and down, and the triggers are left for your plugin. It flies only while the free camera is on. Meanwhile the game does not read the controller, and ReSkate's own controller binds do not fire.
+
+<ParamField path="on" type="boolean" required>True to fly from the pad, false (or nothing) to stop.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the plugin flies the camera from the pad (or has stopped).</ResponseField>
+<ResponseField name="why" type="string">Why not: `"<plugin> flies the camera from the pad"` (another plugin has it), or `"unavailable here"` on a server copy.</ResponseField>
+
+```lua
+local ok, why = reskate.camera.pad_flight(true)
+if not ok then reskate.log(why, "warn") end
+
+-- The triggers are the plugin's meanwhile (pad_bits needs input).
+local bits = reskate.input.pad_bits() or 0
+local drop = bit32.band(bits, 0x20000) ~= 0
+```
+
+<Note>
+Needs the `camera` permission. One plugin flies from the pad at a time, until it stops: another plugin's `pad_flight(false)` does nothing. When the plugin stops, its pad flight ends.
+</Note>
 
 <Tip>
 For a camera the player flies with the keyboard, mouse or a gamepad, see [input](/plugins/api/input) and the [flying camera guide](/plugins/guides/flying-camera).

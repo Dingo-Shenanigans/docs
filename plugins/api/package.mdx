@@ -1,9 +1,13 @@
 ---
 title: "Package"
-description: "reskate.package: read the files your plugin ships, and list its folders."
+description: "reskate.package: read the files your plugin ships, list its folders, and choose which of its mod's variants is in the game."
 ---
 
-`reskate.package` reads files from your plugin's own package: its mod folder, the folder that holds `reskate-plugin.json`. It cannot reach anything outside it, and it cannot write. It needs no permission.
+`reskate.package` reads files from your plugin's own package: its mod folder, the folder that holds `reskate-plugin.json`. It cannot reach anything outside it, and it cannot write. Reading needs no permission.
+
+It also reads and chooses your mod's [variants](#variants): `variants` needs no permission, and `choose` needs the `variants` [permission](/plugins/permissions).
+
+To keep files you write, use [`reskate.files`](/plugins/api/files).
 
 ## Paths
 
@@ -73,3 +77,60 @@ end
 <Tip>
 Pictures ([`d:image`](/plugins/api/overlay)), sounds ([`reskate.audio.play`](/plugins/api/audio)) and modules ([`require`](/plugins/api/base)) also come from the package. `require` looks beside the entry; the others take a path from the package's root.
 </Tip>
+
+## Variants
+
+A mod can hold several takes on the same game data, such as several deck models for the one deck every board has. Each is a variant, and one is in the game at a time. Your manifest declares them with [`variants`](/plugins/manifest#variants). These two functions say which variants there are and put one in the game.
+
+### `reskate.package.variants()`
+
+Your mod's variants, and which is in the game.
+
+<ResponseField name="variants" type="table or nil">
+`nil` when your manifest declares no variants, when its `variants` could not be read, and on a dedicated server.
+<Expandable title="fields">
+<ResponseField name="list" type="table">The names of the variants in your mod's variants folder: those in the manifest's `order` first, in that order, then the rest by name. Names are in lower case. An empty list when the folder has none.</ResponseField>
+<ResponseField name="chosen" type="string or nil">The variant the player last chose for your mod, or `nil` when none was chosen.</ResponseField>
+<ResponseField name="in_play" type="string or nil">The variant in the game now, or `nil` when none of yours is (its variants folder has none, for one).</ResponseField>
+</Expandable>
+</ResponseField>
+
+ReSkate reads your mod's variants folder again at most every 2 seconds, so a variant added to it shows in `list` within 2 seconds. You can call `variants` every frame, as a menu page does.
+
+```lua
+local state = reskate.package.variants()
+if state then
+    for i, name in state.list do
+        local mark = if name == state.in_play then " (in the game)" else ""
+        reskate.log(string.format("%d. %s%s", i, name, mark))
+    end
+end
+```
+
+<Note>Needs no permission. `chosen` can differ from `in_play`: a choice is in the game once the mods are applied and the level has loaded again, and a chosen variant that is no longer installed falls back to another.</Note>
+
+### `reskate.package.choose(name)`
+
+Puts one of your mod's variants in the game. The choice is kept for your mod, and it is the one the game loads from then on, also at the next launch.
+
+<ParamField path="name" type="string" required>A name from `variants().list`. Case does not matter.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the choice is saved.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"its mod declares no variants"`, `"its mod has no variant <name>"`, `"the mods are being applied"` or `"the choice could not be saved"`.</ResponseField>
+
+When the variant you choose is not the one in the game, ReSkate applies the mods again at once, and the level being played loads again with it once that is done. `in_play` names it from then on. Choosing the variant already in the game only saves the choice.
+
+```lua
+reskate.menu.page("Decks", function(ui)
+    local state = reskate.package.variants()
+    if not state then return end
+    for _, name in state.list do
+        if name ~= state.in_play and ui:button("deck_" .. name, "Use " .. name) then
+            local ok, why = reskate.package.choose(name)
+            if not ok then reskate.log("not now: " .. why) end
+        end
+    end
+end)
+```
+
+<Note>Needs the `variants` permission (and `menu` for the example's page). On a dedicated server, `choose` returns `false, "unavailable here"`.</Note>

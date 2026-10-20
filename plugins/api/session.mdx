@@ -1,9 +1,9 @@
 ---
 title: "Session and messages"
-description: "reskate.session, reskate.voice and reskate.net: who is in the multiplayer session, their skaters and voices, and messages between copies of your plugin."
+description: "reskate.session, reskate.voice and reskate.net: who is in the multiplayer session, their skaters and voices, spectating them, the session's world, and messages between copies of your plugin."
 ---
 
-This page covers the multiplayer session: who is in it (`reskate.session`, which needs `session.read`), other players' skaters (`session.skaters`), tags beside their nametags (`session.nametags`), their voice volume (`voice.control`), and messages between the copies of your plugin on every player's game (`reskate.net.send` and the `message` event, which need `net.session`). See [permissions](/plugins/permissions).
+This page covers the multiplayer session: who is in it, spectating a player and the session's world (`reskate.session`, which needs `session.read`), other players' skaters (`session.skaters`), tags beside their nametags (`session.nametags`), their voice volume (`voice.control`), and messages between the copies of your plugin on every player's game (`reskate.net.send` and the `message` event, which need `net.session`). See [permissions](/plugins/permissions).
 
 ## Players
 
@@ -59,6 +59,51 @@ end
 <Note>`active`, `is_dedicated`, `players`, `me` and `host` need `session.read`.</Note>
 
 On a plugin's server copy on a dedicated server, `active` and `is_dedicated` are `true`, `players` lists the players on the server, and `me` and `host` are `nil`: the server is none of them.
+
+## Spectating and the world
+
+### `reskate.session.spectate(player)`
+
+Watches a session player's skater with the game's Spectate camera, as the party menu's Spectate does, or stops watching.
+
+<ParamField path="player" type="string">A player's id (`"7656..."`). `nil`, nothing or `"0"` stops a Spectate started this way.</ParamField>
+
+Returns nothing. A player whose skater cannot be watched now is ignored, and so is the player Spectate already watches.
+
+```lua
+-- Watch whoever's turn it is; back to your own skater on yours.
+local function watch(turn)
+    if turn.me then reskate.session.spectate(nil) else reskate.session.spectate(turn.id) end
+end
+```
+
+A `player` that is not a string of digits (or a number) raises an error. Pass the id as a string: a Lua number cannot hold a SteamID64 exactly. Unlike `reskate.camera.follow`, it does not take a player table.
+
+<Note>
+Needs `session.read`. Spectate takes the camera from a plugin's view while it runs (see [camera](/plugins/api/camera)). A Spectate started with `spectate` or `camera.follow` is the same one: stopping either way ends it. It does not end when your plugin stops: stop it in an `unload` handler.
+</Note>
+
+### `reskate.session.world()`
+
+The world the local player is in, for a game mode that matches players in the same world.
+
+<ResponseField name="world" type="table">
+<Expandable title="fields">
+<ResponseField name="world" type="string">The world's id, as a string. In a session it is the session's world; outside one, the world the game generated for the level. It changes whenever the map or the session changes. `"0"` when there is none.</ResponseField>
+<ResponseField name="barred" type="boolean">True in a session when the local player's game is barred from games with others: the dedicated server flagged their game speed, or the host or server found their mods change scoring or physics.</ResponseField>
+<ResponseField name="map" type="string">The loaded map's name. Empty when none is loaded.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local here = reskate.session.world()
+if here.barred then
+    reskate.log("your mods keep you out of scored games here", "warn")
+end
+reskate.net.send("all", reskate.json.encode({world = here.world})) -- net.send needs net.session
+```
+
+<Note>Needs `session.read`. On a server copy, `world` is `"0"`, `barred` is false and `map` is empty.</Note>
 
 ## Other players' skaters
 

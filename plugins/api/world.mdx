@@ -1,6 +1,6 @@
 ---
 title: "World"
-description: "reskate.world, reskate.objects, reskate.travel and reskate.ai: raycasts, time of day and world controls, park editor objects, travel and AI skaters."
+description: "reskate.world, reskate.objects, reskate.entities, reskate.travel and reskate.ai: raycasts, time of day and world controls, park editor objects, your own world objects, travel and AI skaters."
 ---
 
 These tables read and change the world the local skater is in. Each function needs a permission, named in its section:
@@ -8,6 +8,7 @@ These tables read and change the world the local skater is in. Each function nee
 - `world.raycast`: `reskate.world.raycast`.
 - `world.environment`: `reskate.world.set_time`, `set_control` and `set_park`.
 - `world.objects`: `reskate.objects.*`.
+- `world.entities`: `reskate.entities.*`.
 - `travel`: `reskate.travel.*`.
 - `world.ai`: `reskate.ai.*`.
 
@@ -217,6 +218,124 @@ Removes an object.
 <ResponseField name="why" type="string">Why not, such as `"The selected object no longer exists."` or any of `place`'s reasons.</ResponseField>
 
 <Note>Needs the `world.objects` permission.</Note>
+
+## Your own world objects
+
+`reskate.entities` puts world objects of your plugin's own into the map: an entity of any world object blueprint the game has loaded, such as a prop, a gate's arch or a traffic cone, at a full transform. They are not park editor objects: they are not saved with the park, and the editor does not list them.
+
+You give each object a number of your own, its id, and say what it is and where. ReSkate makes the object, moves it and takes it away for you over the next frames. Calling `set` again with the same id moves the object in place (at most every 16 ms), or makes it again when the blueprint is a different one.
+
+<Warning>
+Only your game shows these objects. Another player sees them only when their copy of your plugin places them too. A dedicated server has none: `set` returns `false, "unavailable here"` there.
+</Warning>
+
+### When objects exist
+
+- Objects are made only while a level is loaded, from the moment the local skater's world is ready. Until then they wait.
+- A blueprint is looked for in every loaded part of the game, at most once a second for each name. A blueprint that is not loaded on this map stays `"missing"`, and ReSkate keeps looking.
+- When a blueprint's data streams out, its objects go with it, and come back when it is found again.
+- A level change takes every object away, and ReSkate forgets them: `status` gives `nil` for each id. Place yours again in the next level (the [`level_loaded`](/plugins/events) event is a good time).
+- When your plugin stops, its objects go.
+
+### Transforms
+
+A transform is a table in one of three forms:
+
+| Form | Fields |
+| --- | --- |
+| Angles | `position` (vector), and optionally `yaw`, `pitch` and `roll` in degrees (default 0) and `scale`, a number or a vector (default 1). Yaw turns about world up, then pitch about the object's right, then roll about its forward. At zero pitch, a yaw's forward is `(sin(yaw), 0, cos(yaw))`. |
+| Axes | `position`, `right`, `up` and `forward`, all vectors. Each axis carries its scale in its length. |
+| Matrix | `matrix`: a list of 16 numbers, four rows of four: right, up, forward, then position. |
+
+`position` is checked as every position on this page: finite and within 100 km, or the call raises an error. The game checks the whole transform too: every number finite, the position within 100 km, and each axis at most 200 long. A transform that breaks those rules is refused.
+
+<Note>
+`yaw` here is in degrees. Headings elsewhere, such as the [skater's](/plugins/api/skater#positions-and-headings), are radians: convert with `math.deg`.
+</Note>
+
+### `reskate.entities.set(id, blueprint, transform, hidden)`
+
+Makes, moves or changes one of your objects.
+
+<ParamField path="id" type="integer" required>Your number for the object: a whole number from 1 to 2147483647. Each plugin has its own ids.</ParamField>
+<ParamField path="blueprint" type="string" required>The world object blueprint's name, as the game's data names it, such as `"World/Props/Common/Construction/CMN_PRP_TrafficCone_01/CMN_PRP_TrafficCone_01"`. At most 200 characters.</ParamField>
+<ParamField path="transform" type="table" required>Where the object goes, in one of the forms above.</ParamField>
+<ParamField path="hidden" type="boolean" default="false">`true` keeps the object under its id but out of the world: it is taken away, and made again when you set it without `hidden`.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when ReSkate keeps the object. It is made over the next frames: use `status` to know when it is there.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"an object's blueprint is a name of 1 to 200 characters"`, `"an object's transform must be finite, within 100 km, each axis at most 200 long"`, `"at most 512 objects"` or `"the world holds as many objects as ReSkate keeps"`.</ResponseField>
+
+```lua
+-- A cone 4 m ahead of the skater, turned as the skater is.
+local cone = "World/Props/Common/Construction/CMN_PRP_TrafficCone_01/CMN_PRP_TrafficCone_01"
+local s = reskate.skater.get()
+if s then
+    local ahead = s.position + vector.create(math.sin(s.heading), 0, math.cos(s.heading)) * 4
+    local ok, why = reskate.entities.set(1, cone, {position = ahead, yaw = math.deg(s.heading)})
+    if not ok then reskate.log("no cone: " .. why) end
+end
+```
+
+<Note>
+Needs the `world.entities` permission. An id that is not a whole number from 1, a blueprint longer than 200 characters, a `transform` that is not a table, a `matrix` that is not 16 numbers, a `scale` that is neither a number nor a vector, an axis that is not a vector, or an angle that is not finite raises an error. A plugin keeps at most 512 objects, and ReSkate keeps at most 1024 for all plugins together. Moving or changing an object you already have does not count again.
+</Note>
+
+### `reskate.entities.remove(id)`
+
+Takes one of your objects away and forgets its id.
+
+<ParamField path="id" type="integer" required>The object's id, 1 to 2147483647.</ParamField>
+
+Returns nothing. Removing an id you did not set does nothing.
+
+<Note>Needs the `world.entities` permission.</Note>
+
+### `reskate.entities.clear()`
+
+Takes every one of your objects away.
+
+Returns nothing.
+
+<Note>Needs the `world.entities` permission.</Note>
+
+### `reskate.entities.status(id)`
+
+Where one of your objects is.
+
+<ParamField path="id" type="integer" required>The object's id, 1 to 2147483647.</ParamField>
+
+<ResponseField name="status" type="string or nil">
+- `"waiting"`: its blueprint has not been looked for yet, or the world is not ready.
+- `"loading"`: its blueprint was found, and the object is being made.
+- `"missing"`: its blueprint was looked for and is not loaded. ReSkate looks again every second.
+- `"ready"`: the object is in the world.
+- `"hidden"`: you set it with `hidden`.
+- `nil`: you did not set this id, you removed it, or a level change took it.
+</ResponseField>
+
+```lua
+if reskate.entities.status(1) == "missing" then
+    reskate.log("this map has no traffic cone loaded")
+end
+```
+
+<Note>Needs the `world.entities` permission.</Note>
+
+### `reskate.entities.ready()`
+
+Whether all your objects are in the world.
+
+<ResponseField name="ready" type="boolean">True when every object you set without `hidden` is in the world, with the blueprint you last gave it. True when you have none. Always false on a dedicated server.</ResponseField>
+
+```lua
+reskate.time.every(250, function()
+    if reskate.entities.ready() then
+        -- every gate is up: the race can start
+    end
+end)
+```
+
+<Note>Needs the `world.entities` permission.</Note>
 
 ## Travel
 

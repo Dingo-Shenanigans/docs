@@ -169,6 +169,42 @@ reskate.on("line_broken", function(e)
 end)
 ```
 
+### `trick_notes`
+
+**Permission:** `events.tricks`.
+
+Fires once a tick while the trick feed is on and skate.'s score HUD wrote to its trick list since the last tick. Any plugin turns the feed on with [`reskate.tricks.feed(true)`](/plugins/api/skater); every plugin with `events.tricks` and a handler hears it.
+
+<ResponseField name="e.notes" type="table">
+A list of notes, oldest first. At most 256 wait between two ticks; more are dropped.
+<Expandable title="each note">
+<ResponseField name="entry" type="string">The trick list entry the note belongs to. The notes of one trick share it.</ResponseField>
+<ResponseField name="kind" type="string">One letter: what the note says (see below).</ResponseField>
+<ResponseField name="text" type="string">What the HUD wrote.</ResponseField>
+</Expandable>
+</ResponseField>
+
+| `kind` | What it is | `text` |
+| --- | --- | --- |
+| `"n"` | The trick's name | Such as `"Kickflip"`. A name skate. gives as a code reads `"Trick #"` and the code in hex. |
+| `"s"` | Its side | A text id starting `ID_TRICK_` |
+| `"l"` | Its landing | A text id starting `ID_TRICK_LANDING` |
+| `"b"` | The body's spin | Digits, such as `"180"` |
+| `"r"` | The board's spin | Such as `"360"`, or how many times it flipped: `"Double"`, `"Triple"` |
+| `"k"` | The stance | A text id starting `ID_STANCE_` |
+| `"m"` | A modifier | `"Late"`, `"Darkflip"` or `"Dark Catch"` |
+
+The HUD can write a field again for the same entry: keep the latest.
+
+```lua
+local names = {}
+reskate.on("trick_notes", function(e)
+    for _, note in e.notes do
+        if note.kind == "n" then names[note.entry] = note.text end
+    end
+end)
+```
+
 ## The skater
 
 ### `skater_state`
@@ -427,6 +463,24 @@ reskate.on("throwdown", function(e)
     reskate.log("throwdown " .. e.phase)
 end)
 ```
+
+### `throwdown_ui`
+
+**Permission:** `throwdowns`.
+
+Fires for what you do in the native throwdowns UI with one of the plugin's modes (registered with `reskate.throwdowns.mode`): its card, setup page, start flag, waiting card and match panel. It also brings the answers of the plugin's [`reskate.ui.dialog`](/plugins/api/menu#dialogs) dialogs. At most 64 events wait for each plugin; past that, the oldest go.
+
+<ResponseField name="e.action" type="string">What happened, such as `"open"`, `"setup_row"`, `"flag_placed"`, `"start"`, `"quit"`, `"join"`, `"panel_command"` or `"dialog"`.</ResponseField>
+<ResponseField name="e.mode" type="string">The mode's own `id`. Empty for `dialog`, and may be empty for `quit`.</ResponseField>
+<ResponseField name="e.args" type="table">A list of at most 16 strings.</ResponseField>
+
+```lua
+reskate.on("throwdown_ui", function(e)
+    reskate.log(e.mode .. ": " .. e.action .. " (" .. table.concat(e.args, ", ") .. ")")
+end)
+```
+
+See [the `throwdown_ui` event](/plugins/api/throwdowns#the-throwdown_ui-event) for every action and its args.
 
 ## Input and screens
 

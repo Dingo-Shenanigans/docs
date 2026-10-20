@@ -1,6 +1,6 @@
 ---
 title: "Board"
-description: "reskate.board: read the skateboard's motion and bones, and move, hide, park or toss its parts as they are drawn."
+description: "reskate.board: read the skateboard's motion and bones, move, hide, park or toss its parts as they are drawn, and fit every board to a deck model of your own."
 ---
 
 `reskate.board` reads the local skateboard and changes what is drawn of it. `reskate.board.motion` needs the `skater.read` permission; every other function needs the `board` permission. Calling a function without its permission raises an error. See [permissions](/plugins/permissions).
@@ -8,7 +8,7 @@ description: "reskate.board: read the skateboard's motion and bones, and move, h
 A plugin changes only what is drawn. The next animation update writes the whole pose again, and what the plugin asked for is written over it every frame, as the pose goes to the renderer. The board itself, its physics and the skater riding it do not change.
 
 <Warning>
-`reskate.board` sends nothing to other players. `set`, `hide` and `toss` change your own board as your game draws it. `park` changes every board your game draws, other players' boards included, but only on your game.
+`reskate.board` sends nothing to other players. `set`, `hide` and `toss` change your own board as your game draws it. `park` and `fit` change every board your game draws, other players' boards included, but only on your game.
 </Warning>
 
 ## The rig
@@ -23,10 +23,12 @@ The board is a rig of 16 bones, numbered 0 to 15. Each bone sits in its parent's
 | 3 | The deck. |
 | 4, 8 | The trucks. |
 | 6, 7, 10, 11 | The wheels. |
-| 12 to 15 | A breakable deck's four stretches. They are only in the deck model of a mod that has them (as Board Break's mods do). |
-| 5, 9 | Not named. |
+| 5, 9 | Each truck's baseplate. [`fit`](#fitting-every-board) can hold them on the deck. |
+| 12 to 15 | A breakable deck's four stretches. They are only in a deck model made with them, such as the Board Break deck pack's. |
 
 The functions that change bones take 2 to 15. Any other bone number raises an error.
+
+ReSkate knows no particular deck. It does nothing with bones 12 to 15 itself, and it does not fit the trucks to a deck. A plugin that ships a deck model of its own does both: it parks the stretches with `park` and fits every board with [`fit`](#fitting-every-board). The Board Break plugin, which comes inside its deck pack, does this (`contrib/plugins/board-break/plugin/main.lua` and `breaker.lua` in the ReSkate repository).
 
 ### Local and world space
 
@@ -141,7 +143,7 @@ reskate.board.clear()
 
 ### `reskate.board.park(bones)`
 
-Keeps these bones out of sight on every board your game draws, other players' too. It is meant for a breakable deck's stretches (12 to 15): the game draws a deck's layers so that stretches left inside the deck would show through as cracks.
+Keeps these bones out of sight on every board your game draws, other players' too. It is meant for a breakable deck's stretches (12 to 15): the game draws a deck's layers so that stretches left inside the deck would show through as cracks. ReSkate does not park them for you: a plugin that ships such a deck parks them as it starts, as Board Break does.
 
 <ParamField path="bones" type="table" required>A list of 0 to 16 bone numbers, each 2 to 15. It replaces this plugin's list; an empty list `{}` parks nothing.</ParamField>
 
@@ -182,4 +184,39 @@ A plugin has one piece at a time: a new toss replaces the last. `clear()` withou
 
 <Note>
 Needs the `board` permission (and `world.raycast` for the example's raycast). Shares the budget of 4 control calls a second with `skater.noclip`, `boost`, `freeze`, `camera.follow`, `ai.spawn`, `animation.play` and `outfit.set`.
+</Note>
+
+## Fitting every board
+
+### `reskate.board.fit(fit)`
+
+Fits every board your game draws, other players' included, to a deck model that is not the game's own: its trucks' baseplates held on the deck as the trucks steer, and its wheels as far apart as the deck's trucks have them. Use it when your mod replaces the game's deck model.
+
+<ParamField path="fit" type="table or nil" required>
+`nil` ends your fit, and the boards are drawn as the game has them.
+<Expandable title="fields">
+<ParamField path="plates" type="boolean" default="false">`true` holds each truck's baseplate (bones 5 and 9) on the deck. A truck a plugin has moved off its place is left alone.</ParamField>
+<ParamField path="axle" type="number" default="1">How far apart the wheels sit on their trucks: 1 is the game's own, 0.8 to 1.6.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the boards are fitted, or your fit has ended.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"a board's axle spread is 0.8 to 1.6 (1: the game's own)"`, or `"<plugin> fits the boards"` while another plugin's fit holds.</ResponseField>
+
+One plugin fits the boards at a time. The first `fit` takes them; another plugin's is refused until the holder calls `fit(nil)` or stops. Calling `fit` again replaces your own fit. A fit of `{}` (no plates, axle 1) changes nothing, but still holds the boards. `fit` does not take the board: it works while another plugin holds the local board with `set`, `hide` or `toss`, and `clear()` does not end it.
+
+```lua
+-- Fit the boards while one of your mod's decks is in the game.
+local function fit_boards()
+    local decks = reskate.package.variants()
+    local deck = decks and decks.in_play
+    local ok, why = reskate.board.fit(if deck then {plates = true, axle = 1.25} else nil)
+    if not ok then reskate.log("the boards are not fitted: " .. why) end
+end
+fit_boards()
+reskate.time.every(2000, fit_boards)
+```
+
+<Note>
+Needs the `board` permission. An `axle` that is not a number raises an error. When the plugin stops, its fit ends.
 </Note>

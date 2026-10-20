@@ -134,6 +134,8 @@ These raise a Lua error. The plugin runs on.
 | Web request URL | 2048 characters | `a web request's url is longer than 2048 characters` |
 | Server calls | 20 a second, all `reskate.server` functions together | `more than 20 server calls in a second` |
 | Turning a value into JSON | nested at most 32 deep | `tables nested deeper than 32 cannot be turned into JSON` |
+| Data files (`reskate.files`) | 64 calls a second | `more than 64 file calls in a second` |
+| Dialogs (`reskate.ui.dialog`) | 120 calls a second | `more than 120 dialog calls in a second` |
 
 ## Limits that refuse a call with false
 
@@ -148,6 +150,8 @@ These return `false` and a reason, and raise nothing. Check the result.
 | `reskate.world.set_time`, `set_control`, `set_park` | 4 a second | `more than 4 changes in a second` |
 | `reskate.travel.go`, `reskate.travel.load` | 1 every 5 s | `one trip every 5 s` |
 | `reskate.voice.set_volume` | 10 a second | `more than 10 changes in a second` |
+| `reskate.files.write` | 1 MB a file, 1000 files in the data folder | `a file is at most 1 MB`, `the data folder holds 1000 files already` |
+| `reskate.entities.set` | 512 objects a plugin, 1024 in the world | `at most 512 objects`, `the world holds as many objects as ReSkate keeps` |
 | `reskate.chat.send` | 1 every 3 s | `one line every 3 s` |
 | `reskate.chat.notice` | 5 a second | `more than 5 lines in a second` |
 | `reskate.server.say` | 1 a second | `one line a second` |

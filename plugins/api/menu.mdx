@@ -1,9 +1,9 @@
 ---
-title: "Menu pages and screens"
-description: "reskate.menu.page, reskate.menu.panel and reskate.ui.screen: your plugin's own page in the menu's PLUGINS section, and full-screen screens, built from widgets."
+title: "Menu pages, screens and dialogs"
+description: "reskate.menu.page, reskate.menu.panel, reskate.ui.screen and reskate.ui.dialog: your plugin's own page in the menu's PLUGINS section, full-screen screens built from widgets, and dialogs."
 ---
 
-A plugin shows controls to the player in two places: its own page in the **PLUGINS** section of ReSkate's menu (`reskate.menu.page` and `reskate.menu.panel`, which need the `menu` [permission](/plugins/permissions)), and full-screen screens it opens itself (`reskate.ui.screen`, which needs `ui.screen`). Both are built from the same widgets. For short notices, see [`reskate.ui.toast`](/plugins/api/overlay#toasts).
+A plugin shows controls to the player in two places: its own page in the **PLUGINS** section of ReSkate's menu (`reskate.menu.page` and `reskate.menu.panel`, which need the `menu` [permission](/plugins/permissions)), and full-screen screens it opens itself (`reskate.ui.screen`, which needs `ui.screen`). Both are built from the same widgets. To ask the player for a name, a pick from a list or a file, open a [dialog](#dialogs) (`reskate.ui.dialog`). For short notices, see [`reskate.ui.toast`](/plugins/api/overlay#toasts).
 
 A plugin's server copy shows neither.
 
@@ -322,3 +322,129 @@ Fires when the player closes your screen with Esc, with the screen's title. It n
 <Warning>
 While your screen is open, it has the player's input: the game behind it does not get the keys. Close it when you are done with it, and let Esc close it.
 </Warning>
+
+## Dialogs
+
+A dialog is a box in the middle of the screen, over the game, that asks the player something: a name to save under, a row to pick from a list, a file to load. It can have a title, a message, a text field, a list of rows with buttons of their own, a row of buttons and a file button: each only if you give it. While it is open it has the player's input.
+
+`reskate.ui.dialog` needs both `ui.screen` and `throwdowns`: what the player does comes to your plugin as `throwdown_ui` events. Open dialogs from your client copy: a dedicated server has none, and `dialog` returns `false, "unavailable here"` there.
+
+One dialog is open at a time, over the whole game. While one plugin's dialog is open, another plugin's is refused.
+
+```lua
+local routes = {}
+
+local function show_routes()
+    local rows = {}
+    for _, name in routes do
+        table.insert(rows, {text = name, buttons = {"delete"}})
+    end
+    reskate.ui.dialog("routes", {
+        title = "ROUTES",
+        field = {text = "My route", max = 32},
+        list = {rows = rows, empty = "No routes yet"},
+        buttons = {{id = "save", label = "Save"}, "Close"},
+        file = {label = "Load a .json", filter = "*.json"},
+    })
+end
+
+reskate.on("throwdown_ui", function(e)
+    if e.action ~= "dialog" or e.args[1] ~= "routes" then return end
+    local button, text, row, file_text = e.args[2], e.args[3], tonumber(e.args[4]), e.args[5]
+    if button == "save" and text ~= "" then
+        table.insert(routes, text)
+        show_routes() -- the same id: the dialog is updated, not opened again
+    elseif button == "delete" then
+        table.remove(routes, row)
+        show_routes()
+    elseif button == "file" then
+        reskate.log(string.format("loaded %d bytes", #file_text))
+    elseif button == "Close" then
+        reskate.ui.close_dialog("routes")
+    end
+end)
+
+show_routes()
+```
+
+### `reskate.ui.dialog(id, dialog)`
+
+Opens a dialog, or updates your open one when the id is the same.
+
+<ParamField path="id" type="string" required>1 to 32 characters. Every answer carries it.</ParamField>
+<ParamField path="dialog" type="table" required>
+Every field is optional.
+<Expandable title="fields">
+<ParamField path="title" type="string">At most 64 characters, at the top.</ParamField>
+<ParamField path="message" type="string">At most 1024 characters, wrapped, under the title.</ParamField>
+<ParamField path="field" type="table">
+A one-line text field.
+<Expandable title="fields">
+<ParamField path="text" type="string" default='""'>The text in it to start with. At most `max` characters.</ParamField>
+<ParamField path="max" type="number" default="64">How many characters the player can type: 1 to 256.</ParamField>
+</Expandable>
+</ParamField>
+<ParamField path="list" type="table">
+A list of rows the player picks from.
+<Expandable title="fields">
+<ParamField path="rows" type="table">At most 64 rows. Each row is a table: `text` (at most 128 characters); `sub`, a second line under it (at most 128 characters); and `buttons`, a list of at most 4 names of 1 to 24 characters, drawn at the row's end.</ParamField>
+<ParamField path="empty" type="string">At most 256 characters, shown when there are no rows.</ParamField>
+</Expandable>
+</ParamField>
+<ParamField path="buttons" type="table">At most 4 buttons along the bottom. Each is a label of 1 to 32 characters, whose id is its first 24 characters; or a table `{id = ..., label = ...}` with a `label` of 1 to 32 characters and an `id` of at most 24 (default: the label's first 24).</ParamField>
+<ParamField path="file" type="table">
+A button that opens the Windows file picker.
+<Expandable title="fields">
+<ParamField path="label" type="string" default='"Open a file"'>At most 32 characters.</ParamField>
+<ParamField path="filter" type="string" default='"*.*"'>The files the picker shows, as patterns split by `;`, such as `"*.json;*.txt"`. At most 64 characters, of letters, digits, `*`, `.`, `;`, `_` and `-`. The picker offers all files too.</ParamField>
+</Expandable>
+</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the dialog is open.</ResponseField>
+<ResponseField name="why" type="string">`"<plugin>'s dialog is open"` while another plugin's dialog is open.</ResponseField>
+
+Calling `dialog` again with the id of your open dialog updates it in place. It keeps what the player typed, unless you pass a different `field.text` than last time. It keeps the row they picked, unless the list no longer has it. A different id replaces your open dialog with a new one.
+
+<Note>
+Needs the `ui.screen` and `throwdowns` permissions. At most 120 calls a second; past that, a call raises an error. An id that is empty or longer than 32 characters, text over its length, a `max` out of 1 to 256, more than 64 rows, more than 4 buttons on a row or along the bottom, a button with no label, or a filter with other characters raises an error.
+</Note>
+
+### `reskate.ui.close_dialog(id)`
+
+Closes your dialog. It sends no answer.
+
+<ParamField path="id" type="string" default="any of yours">Close it only when it is the dialog with this id. At most 32 characters.</ParamField>
+
+Returns nothing. When your dialog is not open, it does nothing.
+
+<Note>Needs the `ui.screen` permission. When your plugin stops, its dialog closes.</Note>
+
+### Answers
+
+Each time the player does something in the dialog, your plugin gets a `throwdown_ui` event with `action` `"dialog"`, `mode` `""` and five strings in `args`:
+
+| `args` | What it holds |
+| --- | --- |
+| `[1]` | The dialog's id. |
+| `[2]` | What the player did (below). |
+| `[3]` | The field's text as the player typed it, or `""` without a field. For `"file_error"`, why the file was not read. |
+| `[4]` | The row, as a number in a string: the row the player picked last, from `"1"`, or `"0"` for none. |
+| `[5]` | For `"file"`, the picked file's whole contents. Otherwise `""`. |
+
+What the player did, in `[2]`:
+
+- A bottom button's `id`: they pressed it. Pressing Enter in the field answers as the first bottom button, when there is one.
+- `"row"`: they picked a row.
+- One of a row's button names: they pressed it on that row.
+- `"file"`: they picked a file with the file button, at most 64 KB. When they close the picker without picking one, no answer comes.
+- `"file_error"`: the file they picked was not read: `[3]` is `"the file is larger than 64 KB"` or `"the file cannot be read"`.
+- `"cancel"`: they pressed Esc, or B on a gamepad. This closes the dialog.
+
+Only `"cancel"` closes the dialog. After any other answer it stays open until you update it, replace it or close it.
+
+```lua
+reskate.on("throwdown_ui", function(e) -- e = {action = "dialog", mode = "", args = {id, button, text, row, file_text}}
+end)
+```

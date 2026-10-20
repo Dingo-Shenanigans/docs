@@ -1,9 +1,13 @@
 ---
-title: "A game mode with a server copy"
-description: "Build a small trick race whose rules run on the session's authority, not on the players' games."
+title: "Game modes"
+description: "Build a trick race whose rules run on the session's authority, and a throwdown mode on the game's Throwdowns page with the throwdown kit."
 ---
 
-This guide builds a trick race: every player's landed tricks add to their score, and the first to 20 000 points wins. The players' games report their tricks, and one copy of the plugin, the server copy, keeps the scores and decides who wins. It needs the `events.tricks`, `overlay`, `session.read`, `net.session`, `server` and `console` [permissions](/plugins/permissions).
+This guide builds two game modes.
+
+The first is a trick race: every player's landed tricks add to their score, and the first to 20 000 points wins. The players' games report their tricks, and one copy of the plugin, the server copy, keeps the scores and decides who wins. It needs the `events.tricks`, `overlay`, `session.read`, `net.session`, `server` and `console` [permissions](/plugins/permissions).
+
+The second, in [A throwdown mode with the kit](#a-throwdown-mode-with-the-kit), puts a mode on the game's **Throwdowns** page. skate.'s own setup page, start flag, waiting card and HUD show it, and your plugin runs its rules.
 
 ## How a game mode is split
 
@@ -447,8 +451,328 @@ Type these in the server's console:
 
 A plugin's own command, such as `trickrace reset`, runs from the server's console only for a line the server does not know, so a plugin can never hide one of the server's commands. The server answers `Ran by a plugin.` when one ran.
 
+## A throwdown mode with the kit
+
+The [throwdown kit](/plugins/api/throwdowns#the-throwdown-kit) makes a throwdown mode a plugin. Your plugin registers a mode, publishes documents that say what the player should see, and hears what the player does as `throwdown_ui` events. ReSkate draws the documents with skate.'s own widgets. It knows nothing of your mode's rules: you run them.
+
+This part builds Trick Count: the player lands as many tricks as they can before the clock runs out. It runs on the player's own game, for one player. It needs the `throwdowns` and `events.tricks` permissions.
+
+### 1. The package
+
+```text
+Trick_Count/
+  manifest.json
+  reskate-plugin.json
+  plugin/
+    main.lua
+```
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "permissions": ["throwdowns", "events.tricks"]
+}
+```
+
+`manifest.json` is as for the trick race, with this mod's `name`. See [the manifest](/plugins/manifest).
+
+### 2. Register the mode
+
+`reskate.throwdowns.mode` puts a card on the **Throwdowns** page. `card = "spot"` draws it like Spot Battle's card, and its setup page is Spot Battle's, relabelled from your `setup` document.
+
+```lua
+local MODE = "count"
+local COUNTS = {"Tricks", "Points"}
+
+local ok, why = reskate.throwdowns.mode{
+    id = MODE,
+    name = "Trick Count",
+    description = "Land as many tricks as you can before the clock runs out.",
+    card = "spot",
+    players = {min = 1, max = 1, default = 1},
+}
+if not ok then reskate.log("Trick Count is not on the page: " .. why) end
+```
+
+### 3. Keep the match's state
+
+The plugin keeps one match at a time. Its `phase` decides which documents it publishes.
+
+```lua
+local match = nil -- {game, phase, seconds, count, score, since, until_ms}
+local callouts, banners = 0, 0 -- serials: a new one shows the callout or the banner again
+
+local function stop()
+    reskate.throwdowns.flag.leave()
+    match = nil
+end
+
+local function finish()
+    if not match or match.phase == "results" then return end
+    reskate.throwdowns.flag.leave()
+    match.phase = "results"
+    match.until_ms = reskate.time.now() + 5000
+    banners += 1
+end
+```
+
+`reskate.throwdowns.flag.leave()` lets the native flag go once the match is over. Call it whenever your match ends, or is refused or cancelled.
+
+### 4. Hear the player
+
+Clicking the card begins the native flag and opens the setup page; then you hear `open` with the game's number. The rest follow as the player goes on.
+
+```lua
+reskate.on("throwdown_ui", function(e)
+    local args = e.args
+    if e.action == "open" and e.mode == MODE then
+        match = {game = tonumber(args[1]), phase = "setup", seconds = 60, count = 1, score = 0}
+        return
+    end
+    if not match then return end
+    if e.action == "setup_row" then
+        local value = tonumber(args[2])
+        if args[1] == "timer" then
+            match.seconds = value
+        elseif args[1] == "count" then
+            match.count = value + 1 -- the event counts a choice from 0, the document from 1
+        end
+    elseif e.action == "setup_confirm" then
+        match.seconds = tonumber(args[2]) -- {players, seconds}, as the page left them
+    elseif e.action == "flag_placed" then
+        match.phase = "waiting"
+    elseif e.action == "start" then
+        match.phase = "countdown"
+        match.since = reskate.time.now()
+    elseif e.action == "panel_command" and args[1] == "give_up" then
+        finish()
+    elseif e.action == "quit" then
+        stop()
+    elseif e.action == "setup_back" or e.action == "leave" or e.action == "flag_left" then
+        match = nil -- the flag is gone already
+    end
+end)
+```
+
+`quit` comes from the match panel's Quit, and from the pause menu's Quit Match while your `match` document asks for `markers`. Its `mode` may be empty, so it is handled for any match. See [the `throwdown_ui` event](/plugins/api/throwdowns#the-throwdown_ui-event) for every action.
+
+### 5. Count the tricks
+
+```lua
+reskate.on("trick_landed", function(trick)
+    if not match or match.phase ~= "playing" then return end
+    match.score += match.count == 1 and 1 or math.floor(trick.points)
+    callouts += 1
+end)
+```
+
+### 6. Publish the documents
+
+Each tick builds the documents for the phase and publishes them. Publishing every tick is fine: an unchanged document costs only a comparison. Whatever you leave out shows nothing.
+
+- **Setup:** the `setup` document relabels the page. Its `timer` is the stock Timer row, and `rows` adds a choice.
+- **Waiting:** once the flag is placed, the `waiting` card shows. Publish it within 15 seconds of `flag_placed`, or the flag goes.
+- **Countdown and playing:** after Start, drop the waiting card and publish the `hud`. The flag in the world goes, and the match is yours. `match.input_lock` holds the skater during the countdown; `match.markers` makes Quit Match yours.
+- **Results:** a banner for 5 seconds, then nothing.
+
+```lua
+local function documents()
+    if not match then return {} end
+    local phase = match.phase
+    if phase == "setup" then
+        return {setup = {
+            mode = MODE, title = "TRICK COUNT", description = "Land as many tricks as you can before the clock runs out.",
+            players = {caption = "Players", min = 1, max = 1, step = 1, value = 1},
+            timer = {caption = "Time", min = 30, max = 180, step = 30, value = match.seconds},
+            rows = {{id = "count", kind = "choice", caption = "Count", options = COUNTS, value = match.count}},
+        }}
+    elseif phase == "waiting" then
+        return {waiting = {mode = MODE, title = "TRICK COUNT", status = "Press Start when you are ready",
+                           enrolled = 1, capacity = 1, can_start = true}}
+    end
+    -- The callout is in every HUD document, so its serial never goes back to 0.
+    local hud = {theme = "count", callout = {text = "NICE", style = "clean", serial = callouts, ms = 1200}}
+    local doc = {hud = hud}
+    if phase == "countdown" then
+        hud.countdown = {remaining_ms = 3000, total_ms = 3000, sampled_ms = match.since}
+        doc.match = {markers = true, input_lock = true}
+    elseif phase == "playing" then
+        local time = match.seconds * 1000
+        hud.clock = {remaining_ms = time, total_ms = time, sampled_ms = match.since}
+        hud.card = {caption = string.upper(COUNTS[match.count]), title = tostring(match.score)}
+        doc.match = {markers = true}
+        doc.panel = {
+            title = "TRICK COUNT", description = "LAND TRICKS\nEvery trick counts until the clock runs out.",
+            settings = {{icon = "timer", caption = "Time", value = match.seconds .. "s"},
+                        {icon = "rounds", caption = "Count", value = COUNTS[match.count]}},
+            prompts = {{input = "UI_DpadDown", caption = "Give up", command = "give_up"}},
+        }
+    else -- results
+        hud.banner = {title = "TIME", subtitle = match.score .. " " .. string.upper(COUNTS[match.count]), serial = banners, ms = 5000}
+    end
+    return doc
+end
+```
+
+The clocks tick on their own between documents. `sampled_ms` says when their numbers were true, as `reskate.time.now()`: here, when the countdown or the match began. See [clocks](/plugins/api/throwdowns#clocks).
+
+### 7. Move the match on
+
+```lua
+reskate.on("tick", function()
+    local now = reskate.time.now()
+    if match and match.phase == "countdown" and now - match.since >= 3000 then
+        match.phase = "playing"
+        match.since = now
+    elseif match and match.phase == "playing" and now - match.since >= match.seconds * 1000 then
+        finish()
+    elseif match and match.phase == "results" and now >= match.until_ms then
+        match = nil
+    end
+    local ok, why = reskate.throwdowns.ui(documents())
+    if not ok then reskate.log("documents refused: " .. why) end
+end)
+```
+
+The `throwdown_ui` events of a tick arrive before its `tick` handlers, so the documents follow what the player did that tick.
+
+### The whole mode
+
+```lua
+-- plugin/main.lua: Trick Count, a throwdown mode
+local MODE = "count"
+local COUNTS = {"Tricks", "Points"}
+
+local ok, why = reskate.throwdowns.mode{
+    id = MODE,
+    name = "Trick Count",
+    description = "Land as many tricks as you can before the clock runs out.",
+    card = "spot",
+    players = {min = 1, max = 1, default = 1},
+}
+if not ok then reskate.log("Trick Count is not on the page: " .. why) end
+
+local match = nil -- {game, phase, seconds, count, score, since, until_ms}
+local callouts, banners = 0, 0
+
+local function stop()
+    reskate.throwdowns.flag.leave()
+    match = nil
+end
+
+local function finish()
+    if not match or match.phase == "results" then return end
+    reskate.throwdowns.flag.leave()
+    match.phase = "results"
+    match.until_ms = reskate.time.now() + 5000
+    banners += 1
+end
+
+reskate.on("throwdown_ui", function(e)
+    local args = e.args
+    if e.action == "open" and e.mode == MODE then
+        match = {game = tonumber(args[1]), phase = "setup", seconds = 60, count = 1, score = 0}
+        return
+    end
+    if not match then return end
+    if e.action == "setup_row" then
+        local value = tonumber(args[2])
+        if args[1] == "timer" then
+            match.seconds = value
+        elseif args[1] == "count" then
+            match.count = value + 1
+        end
+    elseif e.action == "setup_confirm" then
+        match.seconds = tonumber(args[2])
+    elseif e.action == "flag_placed" then
+        match.phase = "waiting"
+    elseif e.action == "start" then
+        match.phase = "countdown"
+        match.since = reskate.time.now()
+    elseif e.action == "panel_command" and args[1] == "give_up" then
+        finish()
+    elseif e.action == "quit" then
+        stop()
+    elseif e.action == "setup_back" or e.action == "leave" or e.action == "flag_left" then
+        match = nil
+    end
+end)
+
+reskate.on("trick_landed", function(trick)
+    if not match or match.phase ~= "playing" then return end
+    match.score += match.count == 1 and 1 or math.floor(trick.points)
+    callouts += 1
+end)
+
+local function documents()
+    if not match then return {} end
+    local phase = match.phase
+    if phase == "setup" then
+        return {setup = {
+            mode = MODE, title = "TRICK COUNT", description = "Land as many tricks as you can before the clock runs out.",
+            players = {caption = "Players", min = 1, max = 1, step = 1, value = 1},
+            timer = {caption = "Time", min = 30, max = 180, step = 30, value = match.seconds},
+            rows = {{id = "count", kind = "choice", caption = "Count", options = COUNTS, value = match.count}},
+        }}
+    elseif phase == "waiting" then
+        return {waiting = {mode = MODE, title = "TRICK COUNT", status = "Press Start when you are ready",
+                           enrolled = 1, capacity = 1, can_start = true}}
+    end
+    local hud = {theme = "count", callout = {text = "NICE", style = "clean", serial = callouts, ms = 1200}}
+    local doc = {hud = hud}
+    if phase == "countdown" then
+        hud.countdown = {remaining_ms = 3000, total_ms = 3000, sampled_ms = match.since}
+        doc.match = {markers = true, input_lock = true}
+    elseif phase == "playing" then
+        local time = match.seconds * 1000
+        hud.clock = {remaining_ms = time, total_ms = time, sampled_ms = match.since}
+        hud.card = {caption = string.upper(COUNTS[match.count]), title = tostring(match.score)}
+        doc.match = {markers = true}
+        doc.panel = {
+            title = "TRICK COUNT", description = "LAND TRICKS\nEvery trick counts until the clock runs out.",
+            settings = {{icon = "timer", caption = "Time", value = match.seconds .. "s"},
+                        {icon = "rounds", caption = "Count", value = COUNTS[match.count]}},
+            prompts = {{input = "UI_DpadDown", caption = "Give up", command = "give_up"}},
+        }
+    else
+        hud.banner = {title = "TIME", subtitle = match.score .. " " .. string.upper(COUNTS[match.count]), serial = banners, ms = 5000}
+    end
+    return doc
+end
+
+reskate.on("tick", function()
+    local now = reskate.time.now()
+    if match and match.phase == "countdown" and now - match.since >= 3000 then
+        match.phase = "playing"
+        match.since = now
+    elseif match and match.phase == "playing" and now - match.since >= match.seconds * 1000 then
+        finish()
+    elseif match and match.phase == "results" and now >= match.until_ms then
+        match = nil
+    end
+    local ok, why = reskate.throwdowns.ui(documents())
+    if not ok then reskate.log("documents refused: " .. why) end
+end)
+```
+
+### Try it
+
+Put the mod in your `Mods` folder and load a level. Open **Throwdowns**: Trick Count's card is after the stock ones. Click it, pick a time and a count, Confirm, and place the start flag. Press Start on the waiting card. After the 3-2-1, land tricks until the clock runs out, or press D-pad Down (**Give up**) beside the **Throwdown Panel** prompt.
+
+<Note>
+The HUD above uses only slots drawn with skate.'s stock widgets: the countdown, the clock, the card, the callout and the banner. The header, counters, board, results, position, timers, list, warning, intro, blackout and editor draw with a widget family your mod's data brings, named by `theme`. A slot whose widget is not loaded is left out. See [the HUD](/plugins/api/throwdowns#the-hud).
+</Note>
+
+### Going further
+
+- **More players.** Publish a [`flags`](/plugins/api/throwdowns#flags-for-other-players) document with your placed flag: the session's other players with your plugin see it and join it with the game's Join, and hear `join`. Share the scores with `reskate.net.send`, as the trick race does, and show them on a `board`.
+- **A refused card.** Call `reskate.throwdowns.flag.leave()` on `open` when the mode cannot start, and the setup page closes.
+- **A start flag placed again.** `reskate.throwdowns.flag.begin(mode, game, {setup_page = false})` while the waiting card is up takes the old flag down and opens placement again.
+
 ## Where to go next
 
+- [Throwdowns](/plugins/api/throwdowns): the throwdown kit's documents and events in full.
 - [Session and messages](/plugins/api/session): `reskate.session` and `reskate.net.send` in full.
 - [Server](/plugins/api/server): `kick`, `say`, `tell` and `move`.
 - [Limits](/plugins/limits): message sizes and rates.

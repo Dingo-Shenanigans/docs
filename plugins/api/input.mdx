@@ -1,9 +1,9 @@
 ---
 title: "Input"
-description: "reskate.input: named actions on keys and pad combos, flight keys and mouse look, gamepads, joysticks, and keeping the controller, or parts of it, from the game."
+description: "reskate.input: named actions on keys and pad combos, flight keys and mouse look, gamepads, joysticks, raw pad bits, keys and the mouse wheel, keeping the controller or some of its buttons from the game, and whether the game has the input."
 ---
 
-`reskate.input` gives your plugin actions the player can press, and reads the keyboard, mouse, gamepad and joystick for a plugin that flies something. Every function, and the `action` event, needs the `input` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+`reskate.input` gives your plugin actions the player can press, and reads the keyboard, mouse, gamepad and joystick for a plugin that flies something or runs a game of its own. Every function, and the `action` event, needs the `input` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
 
 ## Actions
 
@@ -214,6 +214,151 @@ end)
 <Note>
 Needs the `input` permission. Unlike `capture`, it needs no camera of your own and lasts until you change it. A control stays hidden while any plugin hides it. Your plugin reads the pad once a tick, so the game may see a trigger for a frame before you hide it. When the plugin stops, everything it hid is given back.
 </Note>
+
+## Raw input
+
+These read the pad and the keyboard as they are, for a plugin with a game layer of its own: menus it draws, buttons it gives a job, things it places.
+
+### `reskate.input.pad_bits(menu)`
+
+The gamepad's buttons as one number of bits, XInput's own, with the triggers added.
+
+<ParamField path="menu" type="boolean" default="false">True to read the pad while ReSkate's menu, console or a dialog is open too.</ParamField>
+
+<ResponseField name="bits" type="number or nil">The buttons held now. `nil` when no pad is connected, the game window does not have the focus, or (without `menu`) ReSkate's menu is open.</ResponseField>
+
+| Bit | Button |
+| --- | --- |
+| `0x0001`, `0x0002`, `0x0004`, `0x0008` | The d-pad: up, down, left, right |
+| `0x0010`, `0x0020` | Start, Back |
+| `0x0040`, `0x0080` | Left and right stick clicks |
+| `0x0100`, `0x0200` | Left and right bumpers |
+| `0x1000`, `0x2000`, `0x4000`, `0x8000` | A, B, X, Y |
+| `0x10000`, `0x20000` | Left and right triggers, pulled past XInput's threshold |
+
+```lua
+local was = 0
+reskate.on("tick", function()
+    local bits = reskate.input.pad_bits() or 0
+    local pressed = bit32.band(bits, bit32.bnot(was))
+    was = bits
+    if bit32.band(pressed, 0x1000) ~= 0 then reskate.log("A pressed") end
+end)
+```
+
+<Note>Needs the `input` permission.</Note>
+
+### `reskate.input.key(key)`
+
+Whether a key or a mouse button is held down now. It reads past a pause or a capture that keeps the input from the game.
+
+<ParamField path="key" type="string or number" required>
+A key's name, or a Windows virtual key code from 1 to 254. The names (case matters):
+
+- `"A"` to `"Z"` and `"0"` to `"9"`
+- `"Enter"`, `"Backspace"`, `"Escape"`, `"Tab"`, `"Space"`
+- `"Shift"`, `"Ctrl"`, `"Alt"`
+- `"Home"`, `"End"`, `"PageUp"`, `"PageDown"`
+- `"Left"`, `"Up"`, `"Right"`, `"Down"`
+- `"["`, `"]"`
+- `"LeftMouse"`, `"RightMouse"`, `"MiddleMouse"`
+</ParamField>
+
+<ResponseField name="down" type="boolean">True while it is held.</ResponseField>
+
+```lua
+if reskate.input.key("Enter") or reskate.input.key("LeftMouse") then
+    -- drop the thing being placed
+end
+```
+
+Another name, a lower-case letter, or a number out of range raises an error.
+
+<Note>
+Needs the `input` permission. It does not check that the game window has the focus or that ReSkate's menu is shut: read `focus` (below) for that, so a key pressed in another window or typed into the chat does nothing.
+</Note>
+
+### `reskate.input.wheel()`
+
+The mouse wheel's notches since the last call. They are gathered only while game input is paused by `game_buttons` (see below).
+
+<ResponseField name="notches" type="number">Whole notches: above 0 rolled away from the player, below 0 towards. 0 when none, or when game input is not paused.</ResponseField>
+
+```lua
+local size = 5
+reskate.on("tick", function()
+    reskate.input.game_buttons(0, 0, true) -- pause game input while sizing
+    size = math.clamp(size + reskate.input.wheel(), 1, 20)
+end)
+```
+
+<Note>Needs the `input` permission. The notches are used up as they are read, for every plugin together.</Note>
+
+### `reskate.input.game_buttons(hidden, held, pause)`
+
+Keeps pad buttons from the game, for a plugin that gives them a job, and pauses all game input for a moment. Your plugin still reads every button with `pad_bits` and `gamepad`.
+
+<ParamField path="hidden" type="number" default="0">A mask of the button bits above, `0` to `0xFFFF`: these read to the game as let go. The triggers are not in it: hide them with `hide`.</ParamField>
+<ParamField path="held" type="number" default="0">A mask, `0` to `0xFFFF`, of the buttons the player still holds. While a button is in both `hidden` and `held`, the game reads no input at all, as during a pause: the game does not see a button you took until it is let go.</ParamField>
+<ParamField path="pause" type="boolean" default="false">True to pause all of the game's input for 500 ms from now. Call it every tick for as long as you want it. False does not end a pause early.</ParamField>
+
+Returns nothing. Each call replaces both masks.
+
+```lua
+-- While placing, the d-pad is the plugin's; the game never sees it.
+reskate.on("tick", function()
+    if placing then
+        local dpad = 0x000F
+        local bits = reskate.input.pad_bits() or 0
+        reskate.input.game_buttons(dpad, bit32.band(bits, dpad), false)
+    else
+        reskate.input.game_buttons(0, 0, false)
+    end
+end)
+```
+
+A mask that is not a number from 0 to 0xFFFF raises an error.
+
+<Note>
+Needs the `input` permission. One set of masks is kept for every plugin: the latest call wins. The masks last until you change them; when the plugin that called last stops, they are cleared. Unlike `capture`, it needs no camera of your own.
+</Note>
+
+## Who has the input
+
+### `reskate.input.allowed()`
+
+Whether the game has the input now: its window has the focus, ReSkate's menu, console and dialogs are shut, and the game lets gameplay input through.
+
+<ResponseField name="allowed" type="boolean">True when all three hold. It is `focus().focused and not focus().interface_open and focus().gameplay`.</ResponseField>
+
+```lua
+if reskate.input.allowed() and reskate.input.key("F") then
+    -- finish placing
+end
+```
+
+<Note>Needs the `input` permission.</Note>
+
+### `reskate.input.focus()`
+
+The three checks behind `allowed`, one by one.
+
+<ResponseField name="focus" type="table">
+<Expandable title="fields">
+<ResponseField name="focused" type="boolean">True while the game window has the focus.</ResponseField>
+<ResponseField name="interface_open" type="boolean">True while ReSkate's menu, console or a dialog has the input.</ResponseField>
+<ResponseField name="gameplay" type="boolean">True while the game lets gameplay input through: false during a load, in the game's own menus, and while the native throwdown match panel is open.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local f = reskate.input.focus()
+if f.focused and not f.interface_open then
+    -- read keys for the plugin's own screen
+end
+```
+
+<Note>Needs the `input` permission.</Note>
 
 <Tip>
 The [flying camera guide](/plugins/guides/flying-camera) puts `camera.set`, `input.flight`, `input.gamepad` and `input.capture` together.

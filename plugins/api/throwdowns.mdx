@@ -1,9 +1,11 @@
 ---
 title: "Throwdowns"
-description: "reskate.throwdowns: read the throwdown going on, and host a drop for chosen players of the session."
+description: "reskate.throwdowns: read the throwdown going on, host a drop, and make throwdown modes of your own with the throwdown kit."
 ---
 
-`reskate.throwdowns` reads the throwdown the local player is in, and hosts drops: a throwdown queue where the skater stands, for players of the session your plugin chooses. Every function, and the `throwdown` event, needs the `throwdowns` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+`reskate.throwdowns` reads the throwdown the local player is in, hosts drops for chosen players of the session, and holds the throwdown kit: the functions that make a throwdown mode a plugin. Every function, the `throwdown` event and the `throwdown_ui` event need the `throwdowns` permission; calling a function without it raises an error. See [permissions](/plugins/permissions).
+
+## Reading and hosting drops
 
 ### `reskate.throwdowns.state()`
 
@@ -98,6 +100,734 @@ Takes this plugin's drop away, if it has not started yet. A drop that started ru
 Returns nothing.
 
 <Note>Needs the `throwdowns` permission. When the plugin stops, its drop is cancelled the same way.</Note>
+
+## The throwdown kit
+
+The throwdown kit makes a throwdown mode a plugin. ReSkate knows no particular mode. Your plugin:
+
+1. Registers its modes with `reskate.throwdowns.mode`. Each gets a card on the game's **Throwdowns** page.
+2. Publishes documents with `reskate.throwdowns.ui`: what the player should see. ReSkate draws them with skate.'s own widgets: the setup page, the start flag, the waiting card, the in-game HUD and the match panel.
+3. Hears what the player does as [`throwdown_ui` events](#the-throwdown_ui-event), and runs the rules itself.
+
+A mode goes through these steps:
+
+1. The player clicks your card. ReSkate begins the [native flag](#the-native-flag) for the mode and opens Spot Battle's setup page, relabelled from your `setup` document. You hear `open`.
+2. The player changes rows (`setup_row`, `setup_button`) and presses Confirm (`setup_confirm`), or backs out (`setup_back`).
+3. The player places the start flag with the game's own placement (`flag_placed`). Your `waiting` document becomes the waiting card.
+4. The host presses Start (`start`). You drop the `waiting` document and publish your `hud`. The flag in the world goes; the match is yours to run.
+5. The match ends. You stop publishing the HUD and call `reskate.throwdowns.flag.leave()`.
+
+A plugin's documents only drive its own modes, and its events only reach it. When the plugin stops, its modes, its documents and its native flag go. For a walkthrough, see [game modes](/plugins/guides/game-modes#a-throwdown-mode-with-the-kit).
+
+## Registering a mode
+
+### `reskate.throwdowns.mode(mode)`
+
+Puts a mode on the **Throwdowns** page, or updates it: calling it again with the same `id` changes that mode. The page shows the stock S.K.A.T.E., Spot Battle and Skate Jam cards (less any a mode replaces), then every plugin's modes by `order`.
+
+<ParamField path="mode" type="table" required>
+<Expandable title="fields">
+<ParamField path="id" type="string" required>1 to 32 characters, without `/`. Unique in your plugin. Documents and events name the mode by it.</ParamField>
+<ParamField path="name" type="string" required>The card's name, 1 to 32 characters.</ParamField>
+<ParamField path="description" type="string">The card's text, at most 240 characters.</ParamField>
+<ParamField path="art" type="string" default="the stock card's art">The card's logo: the path of a texture or image asset your mod adds, at most 256 characters.</ParamField>
+<ParamField path="color" type="number" default="one picked from the id">The card's tint, as `0xAABBGGRR` (0 to 4294967295). `0` picks one from the id.</ParamField>
+<ParamField path="card" type="string" default="spot">The stock card it is drawn like: `"skate"`, `"spot"` or `"jam"` (`"spot_battle"` works for `"spot"`).</ParamField>
+<ParamField path="replaces" type="string">A stock card whose place it takes: `"skate"`, `"spot"` or `"jam"`. Left out, the mode comes after the stock cards. When two modes replace the same card, the first by `order` takes its place and the other comes after the stock cards.</ParamField>
+<ParamField path="order" type="integer" default="0">Its place among the plugin modes, lowest first.</ParamField>
+<ParamField path="flag" type="string" default="Spot Battle's">The placement preview its start flag shows: an asset path of your mod, at most 256 characters of letters, digits, `_`, `-`, `.` and `/`.</ParamField>
+<ParamField path="cursor_height" type="number" default="0">0 to 100000 metres. Above 0, the flag's placement cursor may rise this far onto things; 0 keeps the game's own ceiling.</ParamField>
+<ParamField path="players" type="table">
+<Expandable title="fields">
+<ParamField path="min" type="integer" default="1">At least 1.</ParamField>
+<ParamField path="max" type="integer" default="6">At most 10, and no less than `min`.</ParamField>
+<ParamField path="default" type="integer" default="4, or max when that is less">The players the card's flag begins with. Kept between `min` and `max`.</ParamField>
+</Expandable>
+Left out, the mode has 1 to 6 players, 4 by default.
+</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the mode is on the page.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"a mode needs an id of 1 to 32 characters, without /"`, `"a mode needs a name of 1 to 32 characters"`, `"a description is at most 240 characters"`, `"players are 1 to 10, min no more than max"` or `"32 modes are registered already"` (by all plugins together).</ResponseField>
+
+```lua
+local ok, why = reskate.throwdowns.mode{
+    id = "duel",
+    name = "Duel",
+    description = "Beat the last total. Three misses and you're out.",
+    card = "spot",
+    color = 0xff3434ff,
+    order = 10,
+    players = {min = 1, max = 6, default = 2},
+}
+if not ok then reskate.log("no Duel: " .. why) end
+```
+
+A `card` or `replaces` that is not a stock card, a `color` or `cursor_height` out of range, an `art` or `flag` over 256 characters, a `flag` with other characters, or a field of the wrong type raises an error.
+
+<Note>Needs the `throwdowns` permission. The mode's setup page comes from your `setup` document, not from this table.</Note>
+
+### `reskate.throwdowns.remove_mode(id)`
+
+Takes one of your modes off the page.
+
+<ParamField path="id" type="string" required>The mode's `id`. An id you never registered does nothing.</ParamField>
+
+Returns nothing.
+
+```lua
+reskate.throwdowns.remove_mode("duel")
+```
+
+<Note>Needs the `throwdowns` permission. When the plugin stops, all its modes go.</Note>
+
+## Documents
+
+### `reskate.throwdowns.ui(doc)`
+
+Publishes your plugin's documents: what the native UI shows for your modes. Each call replaces everything you published before, so a part you leave out shows nothing. Publish whenever something changes; every tick is fine, since an unchanged document costs only a comparison.
+
+<ParamField path="doc" type="table" required>
+<Expandable title="fields">
+<ParamField path="setup" type="table">[The setup page](#the-setup-page).</ParamField>
+<ParamField path="waiting" type="table">[The waiting card](#the-waiting-card).</ParamField>
+<ParamField path="hud" type="table">[The in-game HUD](#the-hud).</ParamField>
+<ParamField path="panel" type="table">[The match panel](#the-match-panel).</ParamField>
+<ParamField path="flags" type="table">[Your flags, for other players](#flags-for-other-players).</ParamField>
+<ParamField path="match" type="table">[What a running match asks of the game](#what-a-match-asks-of-the-game).</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the documents are taken.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"a throwdown document is at most 512 KB as JSON"`.</ResponseField>
+
+```lua
+reskate.on("tick", function()
+    local ok, why = reskate.throwdowns.ui({waiting = {mode = "duel", title = "DUEL", enrolled = 1, capacity = 2, can_start = true}})
+    if not ok then reskate.log("documents refused: " .. why) end
+end)
+```
+
+A table that cannot become JSON raises an error: one with keys that are neither a list (1 to n) nor strings, a NaN or infinite number, or tables nested deeper than 32.
+
+The documents are read leniently:
+
+- A field that is missing, or of the wrong type, takes its default. A typo blanks a label, not the whole HUD.
+- A text past its limit is cut. Unless a field says otherwise, a text is at most 256 characters. A text may be a number or a boolean; it is shown as Lua prints it.
+- A list past its limit keeps its first items. Some widgets show fewer than a list may hold; each field says so.
+- `mode` is your mode's own `id` (`"duel"`).
+- Colours are `0xAABBGGRR`. Times are milliseconds.
+- Positions are world metres: a vector, a list `{x, y, z}` or a table `{x = .., y = .., z = ..}`. A component that is not finite, or past 1 000 000, is 0.
+- Steam IDs are strings (`"7656..."`): a Lua number cannot hold every one exactly.
+
+<Note>Needs the `throwdowns` permission. When the plugin stops, its documents go.</Note>
+
+### The setup page
+
+`setup` relabels Spot Battle's own setup page while the player is on it for one of your modes. Moving a slider or a choice sends `setup_row`; pressing a button row sends `setup_button`; Confirm goes on to the start flag.
+
+<ParamField path="setup" type="table">
+<Expandable title="fields">
+<ParamField path="mode" type="string">The mode this page is for.</ParamField>
+<ParamField path="title" type="string">The page's title, at most 64 characters.</ParamField>
+<ParamField path="art" type="string">The badge beside the title: a texture path.</ParamField>
+<ParamField path="description" type="string">The page's notice, at most 1024 characters.</ParamField>
+<ParamField path="back" type="string" default="BACK">The Back button's label, at most 32 characters.</ParamField>
+<ParamField path="players" type="table">The stock Players slider, as a [slider](#sliders).</ParamField>
+<ParamField path="timer" type="table">The stock Timer slider, as a [slider](#sliders). Left out, the page has no timer row.</ParamField>
+<ParamField path="rows" type="table">
+At most 12 rows of your own, after the stock ones. A row without an `id`, of an unknown `kind`, or a choice without options is left out.
+<Expandable title="each row">
+<ParamField path="id" type="string" required>Its id in `setup_row` and `setup_button` events, at most 64 characters.</ParamField>
+<ParamField path="kind" type="string" default="slider">`"slider"`, `"choice"` (left and right through its options), `"button"` or `"info"` (a caption and a text).</ParamField>
+<ParamField path="caption" type="string">The row's caption, at most 64 characters.</ParamField>
+<ParamField path="label" type="string">A button's or an info row's text, at most 64 characters.</ParamField>
+<ParamField path="min" type="number" default="0">A slider's least value.</ParamField>
+<ParamField path="max" type="number" default="min">A slider's greatest value.</ParamField>
+<ParamField path="step" type="number" default="1">A slider's step.</ParamField>
+<ParamField path="value" type="number">A slider's value (default `min`). A choice's option, **counted from 1** (default 1, kept within the options).</ParamField>
+<ParamField path="options" type="table">A choice's options: at most 16 texts.</ParamField>
+</Expandable>
+</ParamField>
+<ParamField path="hide_native" type="table" default='{"rounds"}'>The stock rows taken off the page: at most 8 of `"players"`, `"timer"` and `"rounds"`.</ParamField>
+</Expandable>
+</ParamField>
+
+#### Sliders
+
+`players`, `timer` and a `"slider"` row take the same fields.
+
+<ParamField path="slider" type="table">
+<Expandable title="fields">
+<ParamField path="caption" type="string">Its caption, at most 64 characters.</ParamField>
+<ParamField path="min" type="number" default="0">Its least value.</ParamField>
+<ParamField path="max" type="number" default="min">Its greatest value.</ParamField>
+<ParamField path="step" type="number" default="1">Its step.</ParamField>
+<ParamField path="value" type="number" default="min">Its value, kept between `min` and `max`.</ParamField>
+</Expandable>
+</ParamField>
+
+The page shows whole numbers: `min`, `max` and `value` are rounded, and a step is at least 1. When your document's `value` changes, the slider moves to it. The players slider is 1 to 10 players; keep the timer's value at 1 second or more.
+
+```lua
+reskate.throwdowns.ui({setup = {
+    mode = "gates", title = "GATES", description = "Skate through the gates. First to the finish wins.",
+    players = {caption = "Players", min = 1, max = 8, step = 1, value = 4},
+    timer = {caption = "Finish deadline", min = 30, max = 600, step = 30, value = 180},
+    rows = {
+        {id = "laps", kind = "choice", caption = "Laps", options = {"1", "2", "3"}, value = 1},
+        {id = "boost", kind = "slider", caption = "Boost", min = 0, max = 5, step = 1, value = 2},
+        {id = "route", kind = "button", caption = "Route", label = "Place gates"},
+        {id = "note", kind = "info", caption = "Area", label = "Anywhere"},
+    },
+}})
+```
+
+<Warning>A choice's `value` in the document counts from 1, but its `setup_row` event counts from 0. With the options above, picking `"2"` sends `setup_row` with `{"laps", "1"}`.</Warning>
+
+### The waiting card
+
+`waiting` is the card shown while the start flag is down and the match has not started. Its Start sends `start` and its Leave sends `leave`.
+
+<ParamField path="waiting" type="table">
+<Expandable title="fields">
+<ParamField path="mode" type="string">The mode it is for.</ParamField>
+<ParamField path="title" type="string" default="the mode's name">At most 64 characters.</ParamField>
+<ParamField path="art" type="string" default="the mode's art">A texture path.</ParamField>
+<ParamField path="status" type="string">The card's line, such as `"Enrolled skaters  |  Host starts"`.</ParamField>
+<ParamField path="enrolled" type="integer" default="1">The skaters enrolled. At least 1 is shown.</ParamField>
+<ParamField path="capacity" type="integer" default="the mode's max players">How many may enrol.</ParamField>
+<ParamField path="can_start" type="boolean" default="false">True shows Start.</ParamField>
+<ParamField path="countdown" type="table">
+A countdown on the card, in whole seconds rounded up. It shows the numbers you give: publish it again as it runs.
+<Expandable title="fields">
+<ParamField path="remaining_ms" type="number">The time left.</ParamField>
+<ParamField path="total_ms" type="number">The whole time.</ParamField>
+</Expandable>
+</ParamField>
+</Expandable>
+</ParamField>
+
+```lua
+reskate.throwdowns.ui({waiting = {
+    mode = "duel", title = "DUEL", status = "Enrolled skaters  |  Host starts",
+    enrolled = 1, capacity = 6, can_start = true,
+}})
+```
+
+<Note>Once the flag is placed, the flag lives while you publish this mode's `waiting` card or an active `hud`. Publish one within 15 seconds of `flag_placed`, or the flag goes and you hear `flag_left`.</Note>
+
+### The HUD
+
+`hud` is the in-game HUD of a running match, built from slots of skate.'s native HUD. Every slot is optional. Only one plugin's HUD shows at a time.
+
+Many slots draw with a widget family named by `theme`: the widgets `UI/ReSkate/Throwdowns/HUD_<theme>_<part>_Widget` that your mod's data brings (`Title_<width>`, `Score`, `Rank`, `Name_<width>`, `Value_<width>`, `Elapsed`, `Position_<Medal>`, `Warning`, `Logo`, `Results_<width>` and so on). Fields ending in `_art` name another family for one slot. A slot whose widget is not loaded is left out; the others still draw. The clock, the countdown, the banner, the callout, the card and the markers use skate.'s stock widgets.
+
+What shows together:
+
+- While `results` is there, it replaces the header, counters, clock, board and every other slot. The intro, countdown and blackout still show.
+- While `editor` is there, the counters, clock, board, position, timers, card and list are hidden.
+- While `blackout` is there, the markers are hidden.
+
+<ParamField path="hud" type="table">
+<Expandable title="the top fields">
+<ParamField path="active" type="boolean" default="true">False shows no HUD. A `hud` table without `active` is active.</ParamField>
+<ParamField path="theme" type="string">The widget family, at most 32 characters.</ParamField>
+<ParamField path="layout" type="string" default="side">Where the board sits: `"side"` (the right edge) or `"bottom"` (bottom right).</ParamField>
+</Expandable>
+</ParamField>
+
+The other fields are grouped below.
+
+#### Header
+
+<ParamField path="header" type="table">
+The title frame, top left. It shows only with a `title`.
+<Expandable title="fields">
+<ParamField path="title" type="string">At most 64 characters.</ParamField>
+<ParamField path="art" type="string">The mode's logo in the frame: a texture path. The banner and the intro use it too.</ParamField>
+<ParamField path="status" type="string">A line under the title.</ParamField>
+<ParamField path="offset" type="table">`{x, y}`: pixels to move the frame by, each within 10 000.</ParamField>
+<ParamField path="icon_size" type="integer" default="0">The logo's size in pixels, at most 512. 0: the theme's 64.</ParamField>
+<ParamField path="frame_width" type="integer" default="0">The frame's width in pixels, at most 2048. 0: fitted to the title.</ParamField>
+</Expandable>
+</ParamField>
+
+#### Counters
+
+<ParamField path="counters" type="table">At most 8 texts (or tables with a `text`); 4 are shown. A block above the board, or a column under the position medal when `position` is there.</ParamField>
+<ParamField path="score_width" type="number" default="480">The counters' width in pixels, 0 to 4096. Beside a position medal it is 480.</ParamField>
+<ParamField path="score_art" type="string">The counters' widget family, at most 64 characters. Empty: `HUD_<theme>_Score`.</ParamField>
+
+#### Board and results
+
+<ParamField path="board" type="table">
+The leaderboard.
+<Expandable title="fields">
+<ParamField path="title" type="string">Its heading, at most 64 characters.</ParamField>
+<ParamField path="columns" type="table">The column captions: at most 8 texts, of which the first 3 are used. A caption missing from a short list is `POS`, `NAME` or `SCORE`. Left out, the board has no caption row.</ParamField>
+<ParamField path="rows" type="table">At most 32 [board rows](#board-rows); 6 are shown.</ParamField>
+<ParamField path="variant" type="string">`"stamps"`: each row is a name and a stamp per mark, with no caption row. Empty: rank, name and value cells.</ParamField>
+<ParamField path="style" type="string">`"outlined"`: outlined cells, with a red glow on tinted values. `"plain"`: without.</ParamField>
+<ParamField path="heading" type="string">`"list"`: one list of a small label row, the counters and the rows (the counters then sit inside the board). `"shared"` or empty: the board's own heading.</ParamField>
+<ParamField path="rank_art" type="string">The rank cells' family, at most 64 characters. Empty: `HUD_<theme>_Rank`.</ParamField>
+<ParamField path="name_art" type="string">The name cells' family, at most 64 characters. Empty: `HUD_<theme>_Name`.</ParamField>
+<ParamField path="out_art" type="string">The name cells' family for a row that is out, at most 64 characters.</ParamField>
+<ParamField path="value_art" type="string">The value cells' family, at most 64 characters. Empty: `HUD_<theme>_Value`.</ParamField>
+<ParamField path="value_width" type="number" default="0">The value column's least width in pixels, 0 to 2048. 0: 224.</ParamField>
+<ParamField path="reserve" type="string">A text your values may carry before a clock, such as `"DNF  "`, at most 16 characters. The value column keeps room for it.</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField path="results" type="table">
+The results panel, in place of the rest of the HUD. Its rows use the board's cell families (`board.rank_art`, `name_art`, `value_art` and the rest) and its first two column captions.
+<Expandable title="fields">
+<ParamField path="title" type="string">At most 64 characters.</ParamField>
+<ParamField path="notice" type="string">A line under the title, such as `"MATCH COMPLETE"`.</ParamField>
+<ParamField path="caption" type="string">The value column's caption.</ParamField>
+<ParamField path="rows" type="table">At most 32 [board rows](#board-rows); 6 are shown.</ParamField>
+<ParamField path="style" type="string">`"outlined"` or `"plain"`, as the board's.</ParamField>
+<ParamField path="heading_art" type="string">The heading's widget family, at most 64 characters. Empty: `ResultsHeading`.</ParamField>
+<ParamField path="title_width" type="number" default="0">The title's width in pixels, 0 to 2048. 0: fitted.</ParamField>
+</Expandable>
+</ParamField>
+
+#### Board rows
+
+`board.rows` and `results.rows` hold board rows.
+
+<ParamField path="row" type="table">
+<Expandable title="fields">
+<ParamField path="rank" type="string">The rank cell, at most 16 characters.</ParamField>
+<ParamField path="name" type="string">The name cell, at most 64 characters.</ParamField>
+<ParamField path="value" type="string">The value cell, at most 64 characters. With a `clock`, it is a text before the clock.</ParamField>
+<ParamField path="color" type="number" default="0xffffffff">The value's tint, `0xAABBGGRR`.</ParamField>
+<ParamField path="self" type="boolean" default="false">True marks the local player's row.</ParamField>
+<ParamField path="out" type="boolean" default="false">True marks a player who is out; the name cell takes the board's `out_art`, when it has one.</ParamField>
+<ParamField path="marks" type="table">At most 8 marks, each `{text = "S", on = true}` (`text` at most 16 characters). The value cell spells the marks that are on, spaced; none on shows `-`. With the `"stamps"` variant, each mark is a stamp.</ParamField>
+<ParamField path="clock" type="table">A [clock](#clocks): the value cell shows `value` then this clock as `mm:ss.mmm`, ticked by the HUD.</ParamField>
+</Expandable>
+</ParamField>
+
+#### Clocks
+
+`clock`, `countdown`, a row's `clock` and a timer's `text` or `clock` take a clock. The HUD ticks a clock itself between your documents, from the moment its numbers were true. A clock comes in two forms.
+
+A countdown, or a time counting up to a cap:
+
+<ParamField path="clock" type="table">
+<Expandable title="fields">
+<ParamField path="remaining_ms" type="number">The time on the clock at `sampled_ms`.</ParamField>
+<ParamField path="total_ms" type="number">The whole time. Counting up, the cap (0: none).</ParamField>
+<ParamField path="sampled_ms" type="number">`reskate.time.now()` when `remaining_ms` was true. Without it the clock does not move.</ParamField>
+<ParamField path="ticking" type="boolean" default="true">False holds the clock still.</ParamField>
+<ParamField path="up" type="boolean" default="false">True counts up from `remaining_ms` to `total_ms`. Counting down, the clock stops at zero.</ParamField>
+</Expandable>
+</ParamField>
+
+A stopwatch, an elapsed time counting up. A table with `base_ms` is one:
+
+<ParamField path="stopwatch" type="table">
+<Expandable title="fields">
+<ParamField path="base_ms" type="number" required>The time elapsed at `sampled_ms`.</ParamField>
+<ParamField path="sampled_ms" type="number">`reskate.time.now()` when `base_ms` was true.</ParamField>
+<ParamField path="running" type="boolean" default="false">True runs it.</ParamField>
+<ParamField path="cap_ms" type="number" default="0">It never passes this. 0: no cap.</ParamField>
+</Expandable>
+</ParamField>
+
+```lua
+local now = reskate.time.now()
+local hud = {
+    theme = "duel",
+    clock = {remaining_ms = 60000, total_ms = 60000, sampled_ms = now}, -- a minute, counting down
+    timers = {{caption = "LAP", text = {base_ms = 0, sampled_ms = now, running = true, cap_ms = 600000}}}, -- a stopwatch
+}
+```
+
+#### The match clock and the start
+
+<ParamField path="clock" type="table">The match clock, bottom centre: a [clock](#clocks) on skate.'s countdown widget.</ParamField>
+<ParamField path="countdown" type="table">The 3-2-1 before the start: a [clock](#clocks), shown while it has time left and the intro is not shown. When it reaches zero, `GO!` shows for 0.9 seconds.</ParamField>
+<ParamField path="intro" type="table">
+The native throwdown intro, in the middle of the screen. While it shows, the countdown waits.
+<Expandable title="fields">
+<ParamField path="title" type="string">At most 64 characters, beside the header's logo.</ParamField>
+<ParamField path="rules" type="string">The rules under it, at most 1024 characters.</ParamField>
+<ParamField path="art_key" type="string" default="the theme">Its panel: the widget `IntroPanel_<art_key>`.</ParamField>
+<ParamField path="until_ms" type="number" default="0">It shows until `reskate.time.now()` reaches this. 0: while the document has it.</ParamField>
+</Expandable>
+</ParamField>
+
+#### Banner, callout and warning
+
+<ParamField path="banner" type="table">
+The native throwdown banner across the screen.
+<Expandable title="fields">
+<ParamField path="title" type="string">Its title. `text` works too. With no `subtitle`, a line break in the title starts the subtitle.</ParamField>
+<ParamField path="subtitle" type="string">The line under it.</ParamField>
+<ParamField path="art" type="string" default="the header's art">A texture path.</ParamField>
+<ParamField path="serial" type="number">A new serial shows the banner again.</ParamField>
+<ParamField path="ms" type="number" default="3000">How long it shows after a new serial.</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField path="callout" type="table">
+A short word top centre, such as `"TRICK SET!"`.
+<Expandable title="fields">
+<ParamField path="text" type="string">Its text. `title` works too.</ParamField>
+<ParamField path="style" type="string" default="neon">`"neon"`, `"clean"`, `"glow"` (red) or `"plain"`.</ParamField>
+<ParamField path="serial" type="number">A new serial shows the callout again.</ParamField>
+<ParamField path="ms" type="number" default="2500">How long it shows after a new serial.</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField path="warning" type="table">
+An alert across the screen. It shows while its `text` is not empty.
+<Expandable title="fields">
+<ParamField path="text" type="string">The alert.</ParamField>
+<ParamField path="art" type="string">Its widget family. Empty: `HUD_<theme>_Warning`.</ParamField>
+</Expandable>
+</ParamField>
+
+A banner or callout shows only when its `serial` differs from the last one the HUD saw, and a HUD document without the slot counts as serial 0. Keep one counter for the whole plugin, add 1 each time, and put the slot in every HUD document you publish: a serial that starts again for each match may match the last one and show nothing, and a slot that comes back after a document without it shows once more.
+
+```lua
+local callouts = 0
+reskate.on("trick_landed", function(e)
+    callouts += 1 -- the next document shows the callout for 1.2 s
+end)
+-- in the HUD document:
+-- callout = {text = "NICE", style = "clean", serial = callouts, ms = 1200}
+```
+
+#### Card, list, position and timers
+
+<ParamField path="card" type="table">
+A card on the left, such as the trick to copy.
+<Expandable title="fields">
+<ParamField path="caption" type="string">Its caption, at most 64 characters.</ParamField>
+<ParamField path="title" type="string">The text beside the picture.</ParamField>
+<ParamField path="image" type="string">A texture path. Left out (or not loaded), the card has no picture.</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField path="list" type="table">
+A boxed list top left, such as tricks already done.
+<Expandable title="fields">
+<ParamField path="caption" type="string">Its caption, at most 64 characters.</ParamField>
+<ParamField path="items" type="table">At most 16 texts; the first 5 are shown. A long item is set smaller and cut.</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField path="position" type="table">
+The local player's place, top left.
+<Expandable title="fields">
+<ParamField path="place" type="integer">The place: 1 shows `1ST`. 0 shows `--`.</ParamField>
+<ParamField path="medal" type="string" default="white">`"gold"`, `"silver"`, `"bronze"` or `"white"`.</ParamField>
+<ParamField path="art" type="string">Its widget family, at most 64 characters: the widget is `<art>_<Medal>`. Empty: `HUD_<theme>_Position`.</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField path="timers" type="table">
+At most 6 timers; the first 2 are shown, top left. Each:
+<Expandable title="fields">
+<ParamField path="caption" type="string">At most 64 characters. Only the first of the two timers with a caption shows it.</ParamField>
+<ParamField path="text" type="string or table">A text (at most 64 characters), or a [clock](#clocks) shown as `mm:ss.mmm`.</ParamField>
+<ParamField path="clock" type="table">A [clock](#clocks), in place of `text`.</ParamField>
+</Expandable>
+</ParamField>
+<ParamField path="timer_art" type="string">The timers' widget family, at most 64 characters. Empty: `HUD_<theme>_Elapsed`.</ParamField>
+
+#### Compass, markers and blackout
+
+<ParamField path="compass" type="table">
+A point on the native compass strip: its icon sits by the bearing to `at`, up to 90 degrees either side.
+<Expandable title="fields">
+<ParamField path="at" type="vector">The point.</ParamField>
+<ParamField path="art" type="string">The icon: a texture path.</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField path="markers" type="table">
+At most 32 labels over the world. A label sits 1.5 m above its point, kept on the screen; a point behind the camera has none.
+<Expandable title="each marker">
+<ParamField path="at" type="vector">The point.</ParamField>
+<ParamField path="text" type="string">The label, at most 64 characters.</ParamField>
+<ParamField path="distance" type="boolean" default="false">True adds the metres from the local skater, as `"GATE 3  42 m"`.</ParamField>
+</Expandable>
+</ParamField>
+
+<ParamField path="blackout" type="table">
+A black screen, such as for a seeker while the others hide. Its `text` takes the place of the header's status.
+<Expandable title="fields">
+<ParamField path="text" type="string">The line in the header.</ParamField>
+</Expandable>
+</ParamField>
+
+#### Editor
+
+`editor` is a panel of controls for placing things before a match, such as a route of gates. While a flag waits, an active HUD with an editor keeps the flag alive in place of the waiting card.
+
+<ParamField path="editor" type="table">
+<Expandable title="fields">
+<ParamField path="title" type="string">At most 64 characters.</ParamField>
+<ParamField path="variant" type="string">`"builder"` (a tall panel with an information box) or `"compact"`. Left out: `"builder"` when `info` is there, else `"compact"`.</ParamField>
+<ParamField path="prompts" type="table">At most 12 [prompts](#prompts); a builder shows 11.</ParamField>
+<ParamField path="info" type="table">
+The information box.
+<Expandable title="fields">
+<ParamField path="title" type="string">At most 64 characters.</ParamField>
+<ParamField path="rows" type="table">At most 12 rows of `{caption, value}` (each at most 64 characters); 8 are shown.</ParamField>
+</Expandable>
+</ParamField>
+<ParamField path="toast" type="table">A label that fades: `{text, alpha}`, `alpha` 0 to 1 (default 1).</ParamField>
+<ParamField path="modal" type="table">A question over the panel: `{text, actions}`. `text` is at most 1024 characters; `actions` holds at most 4 [prompts](#prompts), of which 2 are shown.</ParamField>
+</Expandable>
+</ParamField>
+
+#### Prompts
+
+The editor's prompts and its modal's actions are prompts. They show input glyphs and a caption; they do not read the input. Read it with [`reskate.input`](/plugins/api/input).
+
+<ParamField path="prompt" type="table">
+<Expandable title="fields">
+<ParamField path="inputs" type="table">At most 4 of skate.'s UI input names, such as `"UI_DpadLeft"`, `"UI_PrimaryAction"` or `"UI_Back"`. The first two are drawn as a pair.</ParamField>
+<ParamField path="input" type="string">One more input, added after `inputs`.</ParamField>
+<ParamField path="caption" type="string">At most 64 characters.</ParamField>
+<ParamField path="glyph" type="string">The widget family the first input is drawn with, at most 64 characters, such as a hold ring of your mod's.</ParamField>
+<ParamField path="hold" type="number" default="0">0 to 1: a hold button's progress, drawn as a ring (not while a modal shows, nor with a `glyph`).</ParamField>
+</Expandable>
+</ParamField>
+
+### The match panel
+
+`panel` is the native details page the player opens during a match from the **Throwdown Panel** prompt. It shows while your match runs: while your `hud` is active or your `match` asks for something. Opening it sends `panel_open`; its Quit sends `quit`.
+
+<ParamField path="panel" type="table">
+<Expandable title="fields">
+<ParamField path="title" type="string">At most 64 characters.</ParamField>
+<ParamField path="description" type="string">The rules, at most 1024 characters.</ParamField>
+<ParamField path="art" type="string">A texture path.</ParamField>
+<ParamField path="score_caption" type="string">The score column's caption, at most 32 characters.</ParamField>
+<ParamField path="quit" type="string" default="QUIT">The Quit button's label, at most 32 characters.</ParamField>
+<ParamField path="settings" type="table">
+At most 3 settings, each `{icon, caption, value}` (`caption` and `value` at most 64 characters).
+<Expandable title="icon">
+`"players"`, `"timer"`, `"rounds"` or a texture path. Left out: `"players"`, `"timer"` and `"rounds"` for the first, second and third.
+</Expandable>
+</ParamField>
+<ParamField path="prompts" type="table">
+At most 8 prompts; 3 are shown on the HUD above the **Throwdown Panel** prompt, in the game (not in a menu, nor with the panel open). Each:
+<Expandable title="fields">
+<ParamField path="input" type="string">The input it shows (or the first of `inputs`).</ParamField>
+<ParamField path="caption" type="string">At most 64 characters.</ParamField>
+<ParamField path="command" type="string">At most 64 characters. Pressing the input sends `panel_command` with it, when the input is `"UI_DpadUp"`, `"UI_DpadDown"`, `"UI_DpadLeft"`, `"UI_DpadRight"`, `"UI_L3Click"` or `"UI_R3Click"`. A prompt with another input shows, but sends nothing.</ParamField>
+</Expandable>
+</ParamField>
+<ParamField path="players" type="table">
+At most 32 players, in order. Each:
+<Expandable title="fields">
+<ParamField path="id" type="string">The player's Steam ID.</ParamField>
+<ParamField path="name" type="string">At most 64 characters.</ParamField>
+<ParamField path="value" type="string">The score, at most 64 characters.</ParamField>
+<ParamField path="outcome" type="string">A text beside the score, at most 64 characters.</ParamField>
+<ParamField path="rank" type="string" default="the place in the list">At most 16 characters.</ParamField>
+<ParamField path="portrait" type="string">`"steam"`: the player's Steam picture. Or a picture's address on Steam's image servers (`https://avatars.` ... `.steamstatic.com/`).</ParamField>
+<ParamField path="self" type="boolean" default="false">True marks the local player.</ParamField>
+</Expandable>
+</ParamField>
+</Expandable>
+</ParamField>
+
+```lua
+reskate.throwdowns.ui({hud = {theme = "duel"}, panel = {
+    title = "DUEL", description = "BEAT THE LAST TOTAL\nThree misses and you're out.",
+    score_caption = "SCORE",
+    settings = {{icon = "players", caption = "Players", value = "2"}, {icon = "timer", caption = "Turn", value = "20s"}},
+    prompts = {{input = "UI_DpadDown", caption = "Give up", command = "give_up"}},
+    players = {{id = "76561198000000001", name = "You", value = "1200", portrait = "steam", self = true}},
+}})
+```
+
+### Flags for other players
+
+`flags` lists start flags for the session's other players. Each shows on their games as a native flag (a map point, a bubble, a map card and an Enroll card), when they have your plugin and its mode. Their Join reaches your plugin on their game as `join`.
+
+<ParamField path="flags" type="table">
+At most 32 flags. Each:
+<Expandable title="fields">
+<ParamField path="id" type="string">Your id for the flag, at most 64 characters. `join` names it.</ParamField>
+<ParamField path="mode" type="string">The mode.</ParamField>
+<ParamField path="leader" type="string">The leader's Steam ID. Left out, or your own: your flag, which ReSkate sends to the other players. Another player's: their flag, shown on your game.</ParamField>
+<ParamField path="game" type="integer">The game's number, as `open` gave it. A flag without one is not shown.</ParamField>
+<ParamField path="at" type="vector">Where it stands.</ParamField>
+<ParamField path="yaw" type="number" default="0">Its facing, in degrees.</ParamField>
+<ParamField path="players" type="integer" default="1">The players in it.</ParamField>
+<ParamField path="capacity" type="integer" default="6">How many it takes.</ParamField>
+<ParamField path="open" type="boolean" default="true">False hides it from the other players.</ParamField>
+<ParamField path="stats" type="table">At most 3 lines for its map card, each `{title, value}` (each at most 32 characters).</ParamField>
+</Expandable>
+</ParamField>
+
+```lua
+local flag = nil
+reskate.on("throwdown_ui", function(e)
+    if e.action == "flag_placed" then
+        local a = e.args
+        flag = {id = "game-" .. a[1], mode = e.mode, game = tonumber(a[1]),
+                at = vector.create(tonumber(a[2]), tonumber(a[3]), tonumber(a[4])), yaw = tonumber(a[5]),
+                players = 1, capacity = 6, stats = {{title = "Turn", value = "20s"}}}
+    end
+end)
+-- Each tick, beside the waiting card:
+-- reskate.throwdowns.ui({waiting = waiting, flags = {flag}})
+```
+
+### What a match asks of the game
+
+`match` asks the game for what a running match needs. What every plugin asks is merged: one plugin's `true` holds.
+
+<ParamField path="match" type="table">
+<Expandable title="fields">
+<ParamField path="markers" type="boolean" default="false">Session markers and Return are blocked. The pause menu's Quit Match sends your plugin `quit`.</ParamField>
+<ParamField path="input_lock" type="boolean" default="false">No skating input, as for a countdown. The skater is set on its board.</ParamField>
+<ParamField path="offboard" type="boolean" default="false">The skater is kept off its board.</ParamField>
+<ParamField path="hidden" type="table">At most 16 Steam IDs whose skater, nametag, map dot and chat bubble your game hides.</ParamField>
+<ParamField path="teleports" type="boolean" default="false">`reskate.skater.teleport` works even where the host has turned teleporting off.</ParamField>
+<ParamField path="in_activity" type="boolean" default="false">The game treats the player as in an activity.</ParamField>
+</Expandable>
+</ParamField>
+
+```lua
+-- A match counting down from `started` (reskate.time.now() at Start): no skating yet, and Quit Match is the plugin's.
+reskate.throwdowns.ui({
+    hud = {theme = "duel", countdown = {remaining_ms = 3000, total_ms = 3000, sampled_ms = started}},
+    match = {markers = true, input_lock = true},
+})
+```
+
+## The native flag
+
+One native flag registration exists at a time, for one plugin mode. It runs from the setup page through the game's own flag placement to the waiting card, until your plugin starts the match or the owner leaves. Clicking your card begins it with the mode's default players and opens the setup page, then sends `open`: you do not need to call `flag.begin` for that.
+
+### `reskate.throwdowns.flag.begin(mode, game, options)`
+
+Begins the native flag for one of your modes, without the card.
+
+<ParamField path="mode" type="string" required>Your mode's `id`.</ParamField>
+<ParamField path="game" type="number" required>Your number for this game: a whole number from 1 to 4294967295. Events about the flag carry it.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="players" type="number" default="4">1 to 10.</ParamField>
+<ParamField path="seconds" type="number" default="120">The match's time, 1 to 3600. 0 is taken, but `begin` then returns `false`.</ParamField>
+<ParamField path="setup_page" type="boolean" default="true">False goes straight to flag placement.</ParamField>
+<ParamField path="cursor_height" type="number" default="0">0 to 100000 metres, as the mode's `cursor_height`.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="begun" type="boolean">True when the registration began, or waits for the last one to finish going. False while another registration is busy (a flag being placed or down), outside a level, or with options out of range.</ResponseField>
+
+```lua
+-- Place this mode's start flag again, straight to placement.
+local state = reskate.throwdowns.flag.state()
+if state.mine and state.waiting then
+    reskate.throwdowns.flag.begin(state.mode, state.game, {players = 6, seconds = 180, setup_page = false})
+end
+```
+
+With `setup_page = false` while the same mode and game wait on a placed flag, the old flag goes and placement opens again; you do not hear `flag_left` for the old one.
+
+A mode id that is empty, over 32 characters or has `/`, a `game` that is not a whole number in range, or an option out of range raises an error.
+
+<Note>Needs the `throwdowns` permission.</Note>
+
+### `reskate.throwdowns.flag.state()`
+
+The native flag registration, whoever's it is.
+
+<ResponseField name="state" type="table">
+<Expandable title="fields">
+<ResponseField name="busy" type="boolean">True while any registration exists.</ResponseField>
+<ResponseField name="owned" type="boolean">True while it holds the game's flag: being set up, placed, or down with the waiting card. False once its flag has given way to the match.</ResponseField>
+<ResponseField name="placing" type="boolean">True while the flag is being placed.</ResponseField>
+<ResponseField name="waiting" type="boolean">True while the waiting card is up.</ResponseField>
+<ResponseField name="mine" type="boolean">True when it is one of your modes.</ResponseField>
+<ResponseField name="mode" type="string or nil">Your mode's `id`, only when `mine`.</ResponseField>
+<ResponseField name="game" type="number or nil">Its game number, only when `mine`.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local state = reskate.throwdowns.flag.state()
+if state.busy and not state.mine then
+    reskate.log("another mode's flag is out")
+end
+```
+
+<Note>Needs the `throwdowns` permission.</Note>
+
+### `reskate.throwdowns.flag.leave()`
+
+Lets the registration go: you refused it, finished the match or cancelled it. It only acts on a registration of one of your modes. You do not hear `flag_left` for it.
+
+Returns nothing.
+
+```lua
+reskate.on("throwdown_ui", function(e)
+    if e.action == "open" and not ready then
+        reskate.throwdowns.flag.leave() -- refuse: the setup page closes
+    end
+end)
+```
+
+<Note>Needs the `throwdowns` permission. When the plugin stops, its registration goes the same way.</Note>
+
+## The `throwdown_ui` event
+
+Fires for what the player does in the native throwdowns UI with one of your modes, and for the answers of your [dialogs](#dialogs).
+
+```lua
+reskate.on("throwdown_ui", function(e)
+    reskate.log(e.mode .. ": " .. e.action .. " (" .. table.concat(e.args, ", ") .. ")")
+end)
+```
+
+<ResponseField name="e.action" type="string">What happened: see the table.</ResponseField>
+<ResponseField name="e.mode" type="string">Your mode's `id`. Empty for `dialog`, and may be empty for `quit`.</ResponseField>
+<ResponseField name="e.args" type="table">A list of strings. Read numbers with `tonumber`.</ResponseField>
+
+| `action` | When | `args` |
+| --- | --- | --- |
+| `open` | The player clicked your card, and the native flag began. | `{game}` |
+| `setup_row` | A slider or a choice on the setup page changed. | `{row id, value}`. The stock rows' ids are `"players"` and `"timer"`. A slider's value is a whole number; a choice's is its option **counted from 0**. |
+| `setup_button` | A button row on the setup page was pressed. | `{row id}` |
+| `setup_back` | The player backed out of the setup page. The registration has gone. | `{game}` |
+| `setup_confirm` | The player confirmed the setup page; flag placement opens. | `{players, seconds}`, as the page left them. |
+| `flag_placed` | The start flag was placed. Publish the `waiting` card. | `{game, x, y, z, yaw}`: where it stands, and its facing in degrees. |
+| `flag_left` | The registration ended without your `flag.leave()`: placement was cancelled or timed out, the map or session changed, a Leave finished, or nothing was published to keep it. | `{game}` |
+| `start` | The waiting card's Start. | `{game}` |
+| `leave` | The waiting card's Leave. The registration goes; `flag_left` follows unless you call `flag.leave()`. | `{game}` |
+| `quit` | The match panel's Quit, or the pause menu's Quit Match while your `match` asks for `markers`. | `{}` |
+| `join` | The player joined one of your flags with the game's Join. Their game now holds the registration: publish the `waiting` card. | `{flag id, leader, game}` |
+| `panel_open` | The player opened the match panel. | `{}` |
+| `panel_command` | The player pressed a panel prompt's input. | `{command}` |
+| `dialog` | The player answered one of your dialogs. | `{dialog id, button, text, row, file text}` |
+
+Events wait in a queue of 64 for each plugin; past that, the oldest go. An event has at most 16 args.
+
+Registering a handler needs the `throwdowns` permission. See [events](/plugins/events).
+
+### Dialogs
+
+[`reskate.ui.dialog`](/plugins/api/menu#dialogs) (which needs `ui.screen` and `throwdowns`) answers through this event, with `action` `"dialog"` and an empty `mode`:
+
+- `dialog id`: the dialog's id.
+- `button`: the id of the button pressed; `"row"` for a list row clicked; a row button's name; `"file"` for a file opened; `"file_error"` when the file could not be read; `"cancel"` for Esc or B, which also closes the dialog.
+- `text`: the text field's text. With `"file_error"`, why: `"the file cannot be read"` or `"the file is larger than 64 KB"`.
+- `row`: the list row picked, from 1; `"0"` for none.
+- `file text`: the opened file's text, at most 64 KB; empty otherwise.
 
 ## The `throwdown` event
 

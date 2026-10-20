@@ -1,16 +1,17 @@
 ---
 title: "Skater"
-description: "reskate.skater, reskate.score, reskate.trainer and reskate.hud: read and move the local skater, pick its grind exits, show its x-ray, read the score, keep a save point and hide the HUD."
+description: "reskate.skater, reskate.physics, reskate.score, reskate.tricks, reskate.trainer and reskate.hud: read, move, push and hold the local skater, read its telemetry and stance, pick its grind exits, show its x-ray and Bone Cam, switch to stock physics, read the score and the trick list, keep a save point and hide the HUD."
 ---
 
 These tables work on the local skater: the player's own, on their own game. Each function needs a permission, named in its section:
 
-- `skater.read`: `reskate.skater.get`, `position`, `heading`, `speed` and `on_ground`.
+- `skater.read`: `reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`, `telemetry` and `goofy`.
 - `skater.teleport`: `reskate.skater.teleport`.
 - `events.skater`: `reskate.skater.state`.
-- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze`, `wipeout` and `grind_exit`.
+- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `grind_exit`, `push`, `push_wait`, `push_reset` and `hold`; `reskate.physics.competition`, `stock_ready` and `prepare`.
 - `overlay`: `reskate.skater.xray`.
-- `events.tricks`: `reskate.score.current`.
+- `camera`: `reskate.skater.bone_cam`.
+- `events.tricks`: `reskate.score.current`, `reskate.tricks.feed` and `reskate.tricks.gesture`.
 - `trainer`: `reskate.trainer.set_point` and `back`.
 - `hud`: `reskate.hud.hide` and `reskate.hud.corner`.
 
@@ -104,6 +105,94 @@ end
 ```
 
 <Note>Needs the `events.skater` permission.</Note>
+
+### `reskate.skater.telemetry()`
+
+Everything a game mode measures of the local skater in one read: its motion, its last jump, the physics state the game chose, and the slams of a bail. It is the trainer's own telemetry, updated every client tick.
+
+<ResponseField name="telemetry" type="table or nil">
+`nil` where ReSkate cannot read the game (a server copy).
+<Expandable title="fields">
+<ResponseField name="skater" type="boolean">False without a skater (in a menu, during a load). The other motion fields then keep their last values.</ResponseField>
+<ResponseField name="airborne" type="boolean">True while the skater is in the air.</ResponseField>
+<ResponseField name="position" type="vector">Where the skater is.</ResponseField>
+<ResponseField name="heading" type="number">Where it faces, in degrees from 0 to 360 (not radians): 0 faces +Z and 90 faces +X.</ResponseField>
+<ResponseField name="speed" type="number">Metres per second over the ground, smoothed over two ticks.</ResponseField>
+<ResponseField name="vertical" type="number">Metres per second, up.</ResponseField>
+<ResponseField name="air_time" type="number">Seconds into the jump going on. 0 on the ground.</ResponseField>
+<ResponseField name="height" type="number">Metres from the jump's takeoff up to its highest point so far. 0 on the ground.</ResponseField>
+<ResponseField name="top_speed" type="number">The fastest `speed` since the map loaded.</ResponseField>
+<ResponseField name="physics_state" type="number">The physics state the game chose: 100 to 199 ride the ground, 200 to 299 are the pop and the flight, 300 is a wipeout, and 500 to 599 are off the board (504 is on foot). 0 when it cannot be read.</ResponseField>
+<ResponseField name="last" type="table">The last jump measured: one of at least 0.25 s in the air. See below.</ResponseField>
+<ResponseField name="watch" type="table">How the physics state has changed. See below.</ResponseField>
+<ResponseField name="teleport_pending" type="boolean">True while a teleport of the skater is on its way.</ResponseField>
+<ResponseField name="slam" type="boolean">True when the skater's body stopped dead (lost 7 m/s within a third of a second: the ground, a pole, a wall) since the last read.</ResponseField>
+<ResponseField name="struck" type="boolean">True when the skater's head, chest, shoulders or hips struck an object at speed (a pole, a tree, a rail) since the last read.</ResponseField>
+<ResponseField name="body" type="vector">Where the skater's hips are, when ReSkate read the skater's pose in the last quarter second. Absent otherwise. Use it during a bail, when the board and the body part ways.</ResponseField>
+</Expandable>
+</ResponseField>
+
+The `last` table:
+
+<Expandable title="fields">
+<ResponseField name="serial" type="number">Counts the jumps: a new number is a new jump. 0 before the first.</ResponseField>
+<ResponseField name="takeoff_speed" type="number">Metres per second at takeoff.</ResponseField>
+<ResponseField name="takeoff_angle" type="number">Degrees above level at takeoff.</ResponseField>
+<ResponseField name="air_time" type="number">Seconds in the air.</ResponseField>
+<ResponseField name="height" type="number">Metres from the takeoff up to the highest point.</ResponseField>
+<ResponseField name="distance" type="number">Metres over the ground from the takeoff to the landing.</ResponseField>
+<ResponseField name="drop" type="number">Metres the landing is below the takeoff.</ResponseField>
+<ResponseField name="landing_speed" type="number">Metres per second at the landing.</ResponseField>
+<ResponseField name="spin" type="number">Degrees the skater turned about the vertical in the air.</ResponseField>
+<ResponseField name="spin_rate" type="number">The fastest of that turn, in degrees per second.</ResponseField>
+<ResponseField name="flip" type="number">Degrees the skater's up axis tumbled: body flips and rolls.</ResponseField>
+<ResponseField name="board_turn" type="number">The board's fastest turn rate, in degrees per second: flip tricks and shove-its.</ResponseField>
+<ResponseField name="state" type="number">The physics state the skater took off into. It tells kinds of jump apart.</ResponseField>
+<ResponseField name="takeoff" type="vector">Where the jump left the ground.</ResponseField>
+<ResponseField name="landing" type="vector">Where it landed.</ResponseField>
+</Expandable>
+
+The `watch` table:
+
+<Expandable title="fields">
+<ResponseField name="valid" type="boolean">True when the physics state is being read now.</ResponseField>
+<ResponseField name="state" type="number">The physics state now.</ResponseField>
+<ResponseField name="previous" type="number">The state before it.</ResponseField>
+<ResponseField name="previous_seconds" type="number">How long that state lasted.</ResponseField>
+<ResponseField name="ragdoll_known" type="boolean">True when `ragdoll` could be read.</ResponseField>
+<ResponseField name="ragdoll" type="boolean">True while the skater is off the board as a ragdoll rather than on foot.</ResponseField>
+<ResponseField name="changes" type="number">State changes since the game started.</ResponseField>
+<ResponseField name="wipeouts" type="number">Wipeouts since the game started.</ResponseField>
+<ResponseField name="runouts" type="number">Runouts since the game started: failed landings the skater runs out of. A dismount by choice does not count.</ResponseField>
+</Expandable>
+
+```lua
+local seen = 0
+reskate.on("tick", function()
+    local t = reskate.skater.telemetry()
+    if t and t.last.serial ~= seen then
+        seen = t.last.serial
+        reskate.log(string.format("jump: %.1f m far, %.1f m high, %.0f degrees of spin", t.last.distance, t.last.height, t.last.spin))
+    end
+end)
+```
+
+<Note>
+Needs the `skater.read` permission. `slam` and `struck` are taken as they are read: a slam shows in one read only, across every plugin. They are followed only while the Bone Cam would show or a plugin asks for it (see `bone_cam`). Read the telemetry once a tick and keep what you need.
+</Note>
+
+### `reskate.skater.goofy()`
+
+The stance the player chose in the game.
+
+<ResponseField name="goofy" type="boolean or nil">True for goofy, false for regular. `nil` when the game cannot be read.</ResponseField>
+
+```lua
+local stance = reskate.skater.goofy() and "goofy" or "regular"
+reskate.skater.grind_exit({side = "toe", stance = stance})
+```
+
+<Note>Needs the `skater.read` permission.</Note>
 
 ## Moving the skater
 
@@ -206,6 +295,128 @@ end)
 Needs the `skater.control` permission. One wipeout every 2 seconds; a refused call counts too. While No Bail protects the skater, the wipeout is asked for but dropped, as any other wipeout is: `ok` is still true, and the skater rides on.
 </Note>
 
+## Push and hold
+
+A game mode sets the skater's speed after a restart, and keeps it still for a countdown, with these. They write the board's velocity in the skater's physics, so other players see your skater move as it does.
+
+<Warning>
+A push or a hold takes effect only while the competition's stock physics is on: `reskate.physics.competition(true)` (see [stock physics](#stock-physics)), from your plugin or another. Without it, the calls still return `true`, and nothing moves.
+</Warning>
+
+### `reskate.skater.push(velocity)`
+
+Sets the skater's velocity once it is on its board: the next physics step with the skater on its board writes it. The push waits for that step for 2 seconds, then is dropped. The velocity replaces the skater's own, fall speed included.
+
+<ParamField path="velocity" type="vector" required>Metres per second, in the world. Level: `y` is 0. Each axis within 100 m/s, and at most 120 m/s over the ground.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the push is waiting for its physics step.</ResponseField>
+<ResponseField name="why" type="string">`"a push is horizontal (y 0) and at most 120 m/s"` when `ok` is false.</ResponseField>
+
+```lua
+-- Back to a checkpoint, then off again at 8 m/s the way the skater faces.
+local s = reskate.skater.get()
+if s then
+    local ok, why = reskate.skater.push(vector.create(math.sin(s.heading), 0, math.cos(s.heading)) * 8)
+    if not ok then reskate.log("no push: " .. why, "warn") end
+end
+```
+
+A velocity that is not a vector, not finite, or over 100 m/s on any axis raises an error. A new push replaces one still waiting, whichever plugin asked for it.
+
+<Note>Needs the `skater.control` permission. One push waits at a time, for every plugin together.</Note>
+
+### `reskate.skater.push_wait()`
+
+Gives the push that is waiting 2 more seconds from now. Call it while the skater is still getting back on its board, after a bail or a teleport. A push that has already been dropped is not brought back.
+
+<ResponseField name="ok" type="boolean">True.</ResponseField>
+
+```lua
+-- Still off the board after a bail: give the waiting push more time.
+local t = reskate.skater.telemetry()
+if t and t.physics_state >= 500 then reskate.skater.push_wait() end
+```
+
+<Note>Needs the `skater.control` permission.</Note>
+
+### `reskate.skater.push_reset()`
+
+Drops the push that is waiting, if there is one.
+
+<ResponseField name="ok" type="boolean">True.</ResponseField>
+
+<Note>Needs the `skater.control` permission.</Note>
+
+### `reskate.skater.hold(on)`
+
+Keeps the board still while the skater is on it: no velocity and no turning, every physics step. A push that is waiting still wins over the hold, so you can hold the skater for a countdown and push it at "go" without letting go first.
+
+<ParamField path="on" type="boolean" required>True to hold the board, false (or nothing) to let it go.</ParamField>
+
+<ResponseField name="ok" type="boolean">True.</ResponseField>
+
+```lua
+-- A three-second countdown, then a push.
+reskate.skater.hold(true)
+reskate.time.after(3000, function()
+    reskate.skater.push(vector.create(0, 0, 6))
+    reskate.skater.hold(false)
+end)
+```
+
+<Note>
+Needs the `skater.control` permission. The plugin that last held the board owns the hold: another plugin's `hold(false)` does nothing. When the plugin stops, its hold is let go.
+</Note>
+
+## Stock physics
+
+`reskate.physics` puts the local skater on the game's stock physics while the player competes, so everyone in a game mode rides the same tuning.
+
+### `reskate.physics.competition(on)`
+
+Turns the competition's stock physics on or off. While it is on, the local skater rides the game's stock tuning, whatever the player's trainer or a session's host has set. When it goes off, the player's own tuning comes back.
+
+<ParamField path="on" type="boolean" required>True while the local player competes, false (or nothing) after.</ParamField>
+
+Returns nothing. Turning it on also reads the stock tuning, as `prepare` does.
+
+```lua
+-- Stock physics for as long as a throwdown runs (the throwdown event needs throwdowns).
+reskate.on("throwdown", function(e)
+    reskate.physics.competition(e.phase == "started")
+end)
+```
+
+<Note>
+Needs the `skater.control` permission. One plugin holds it: the last to turn it on. Another plugin's `competition(false)` does nothing. When the plugin stops, it goes off if the plugin held it. `reskate.skater.push` and `hold` work only while it is on.
+</Note>
+
+### `reskate.physics.stock_ready()`
+
+Whether the game's stock tuning has been read. Until it has, the stock physics cannot be put on the skater.
+
+<ResponseField name="ready" type="boolean">True once the stock tuning is read.</ResponseField>
+
+```lua
+if not reskate.physics.stock_ready() then
+    reskate.log("stock physics still loading")
+end
+```
+
+<Note>Needs the `skater.control` permission.</Note>
+
+### `reskate.physics.prepare()`
+
+Reads the game's stock tuning now, switching nothing. Call it before a match, so `competition(true)` has the tuning ready when the match starts.
+
+Returns nothing.
+
+```lua
+reskate.on("load", function() reskate.physics.prepare() end)
+```
+
+<Note>Needs the `skater.control` permission.</Note>
+
 ## Grind exits
 
 ### `reskate.skater.grind_exit(wish)`
@@ -280,6 +491,47 @@ end)
 Needs the `overlay` permission. While the x-ray is ready ReSkate follows the skater's rendering every frame, so ask only while you may draw it. When the plugin stops, its ask is dropped.
 </Note>
 
+## Bone Cam
+
+The Bone Cam is ReSkate's X-ray view of a bail. When the local skater wipes out, the screen goes X-ray for about 4 seconds: every bone is drawn between the skater's joints, a hard hit cracks or breaks the bone beside it, and the injuries are listed. The player chooses when it shows, and the choice is kept between launches:
+
+- `"game"` (the default): while a plugin's game asks for it.
+- `"on"`: on every bail.
+- `"off"`: never.
+
+ReSkate does not watch for bails for the Bone Cam itself. Your plugin says when the skater bailed, with `"bail"`.
+
+### `reskate.skater.bone_cam(...)`
+
+Reads or drives the Bone Cam, by the words you pass.
+
+<ParamField path="..." type="string">Up to 8 words; more are ignored. Each is cut to 32 characters.</ParamField>
+
+| Words | What it does | Returns |
+| --- | --- | --- |
+| none | Reads the player's choice. | `"game"`, `"on"` or `"off"` |
+| `"status"` | Reads the whole status: the choice, slam effects and ringing. | A line such as `"Bone Cam: game, slam effects on, ringing on (...)"` |
+| `"bail"` | The skater just bailed. The Bone Cam shows if the player's choice lets it (`"on"`, or `"game"` while a plugin asks) and it is not showing already. | `""` |
+| `"ringing"` | Reads whether a concussion's ringing sound is on. | `"1"` or `"0"` |
+| `"game", "on"` or `"game", "off"` | Your plugin's game asks for the Bone Cam, or stops asking. While any plugin asks, the choice `"game"` shows it. | `""` |
+| Any other words | The `bonecam` console command's own: `"game"`, `"on"`, `"off"` or `"test"` alone, `"effects", "on"` or `"off"`, `"ring", "on"` or `"off"`. They change the player's saved choices. | The console's answer, or `"error: usage: ..."` for words it does not know |
+
+```lua
+-- Ask for the Bone Cam, and tell it about each bail (the bail event needs events.skater).
+reskate.on("load", function() reskate.skater.bone_cam("game", "on") end)
+reskate.on("bail", function() reskate.skater.bone_cam("bail") end)
+```
+
+A word that is not a string or a number raises an error.
+
+<Warning>
+`"game"`, `"on"` and `"off"` alone set the player's own choice, and it is saved. To ask for the Bone Cam from your game, pass `"game", "on"`. Leave the console words to a command the player types.
+</Warning>
+
+<Note>
+Needs the `camera` permission. While a plugin asks with `"game", "on"`, the skater's slams and strikes are followed for `reskate.skater.telemetry` even when the player turned the Bone Cam off. When the plugin stops, its ask is dropped.
+</Note>
+
 ## Score
 
 ### `reskate.score.current()`
@@ -308,6 +560,60 @@ end)
 ```
 
 <Note>Needs the `events.tricks` permission.</Note>
+
+## Tricks
+
+`reskate.tricks` reads skate.'s own trick list, as its score HUD writes it, and the stick flick behind each flip trick.
+
+### `reskate.tricks.feed(on)`
+
+Turns the trick feed on or off. While it is on, what skate.'s score HUD writes to its trick list (each trick's name, side, landing, spins, stance and modifiers) comes to your plugin as the [`trick_notes` event](/plugins/events), once a tick.
+
+<ParamField path="on" type="boolean" required>True to turn the feed on, false (or nothing) to stop asking.</ParamField>
+
+Returns nothing.
+
+```lua
+reskate.tricks.feed(true)
+
+reskate.on("trick_notes", function(e)
+    for _, note in e.notes do
+        if note.kind == "n" then
+            reskate.log("entry " .. note.entry .. ": " .. note.text)
+        end
+    end
+end)
+```
+
+<Note>
+Needs the `events.tricks` permission. The feed is on while any plugin asks for it, and every plugin with `events.tricks` and a `trick_notes` handler hears it. At most 256 notes wait between two ticks; more are dropped. When the plugin stops, its ask is dropped.
+</Note>
+
+### `reskate.tricks.gesture(name)`
+
+The stick flick of a flip trick, as skate. reads it: the path the stick takes, for drawing the trick's diagram.
+
+<ParamField path="name" type="string" required>The trick as skate. names it: `"Kickflip"`, `"Nollie Heelflip"`, `"FS 360 Pop Shove-it"`. Case, spaces and punctuation do not matter, and a leading `"Fakie"` or `"Switch"` is left out. At most 96 characters are read.</ParamField>
+
+<ResponseField name="path" type="table">A list of points, each a list `{x, y}`: `x` is to the left, `y` is the stick pulled back, and the stick's gate is the unit circle. The path is for a regular stance: mirror `x` for goofy. Empty for a trick with no flick (grabs, grinds, manuals), for a name skate. does not know, and until the gestures are read.</ResponseField>
+
+```lua
+reskate.on("load", function() reskate.tricks.gesture("") end) -- start reading the gestures
+
+reskate.on("draw", function(d)
+    local path = reskate.tricks.gesture("Kickflip")
+    local flip = if reskate.skater.goofy() then -1 else 1
+    -- 60 px across, centred at (100, 100). Screen y grows down, as "pulled back" does.
+    local function at(p) return vector.create(100 - p[1] * flip * 30, 100 + p[2] * 30, 0) end
+    for i = 2, #path do
+        d:line(at(path[i - 1]), at(path[i]), {colour = "#ffffff", thickness = 2})
+    end
+end)
+```
+
+<Note>
+Needs the `events.tricks` permission (the example also needs `overlay`, and `skater.read` for `goofy`). The gestures are read from the installed game in the background, the first time any call asks. Nothing of the game's is shipped.
+</Note>
 
 ## Trainer
 

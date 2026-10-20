@@ -1,0 +1,124 @@
+---
+title: "Files"
+description: "reskate.files: read and write files in your plugin's own data folder, such as saved routes or levels."
+---
+
+`reskate.files` keeps files for your plugin in a data folder of its own: saved routes, levels, layouts, anything you write as text. Every function needs the `files` [permission](/plugins/permissions). Calling one without it raises an error.
+
+Use it for many files, or files a player may copy and share. For a few settings, [`reskate.storage`](/plugins/api/storage) is simpler. To read files you ship with the plugin, use [`reskate.package`](/plugins/api/package).
+
+## The data folder
+
+Each plugin's data folder is in the game's folder:
+
+```
+<game folder>\Mods\.reskate\data\<id>\
+```
+
+`<id>` is your plugin's [`reskate.id`](/plugins/api/base): its mod folder name, or `<folder>@server` for its server copy on a lobby's host. A plugin in a renamed mod folder starts with an empty data folder. The folder is made the first time you write to it. It is not in your mod's folder, so updating the mod leaves it alone.
+
+A dedicated server has no data folder: every function returns `nil` or `false` with `"unavailable here"`.
+
+## Paths
+
+A path is relative to the data folder, with `/` between folders: `"routes/park/loop.json"`. A path is refused, with an error, when it:
+
+- is empty or longer than 200 characters, or starts with `/`;
+- has a `\`, a `:` (a drive, or a stream), or a character outside printable ASCII;
+- has an empty, `.` or `..` folder (`a//b`, `./a`, `a/../b`);
+- has a folder or file name that ends in `.` or a space;
+- has a folder or file name that Windows keeps for a device: `con`, `prn`, `aux`, `nul`, `com0` to `com9` or `lpt0` to `lpt9`, in any case, with or without an extension (`con.json` too).
+
+ReSkate also follows links and junctions inside the folder, and refuses a path that leads outside it with `"outside the data folder"`.
+
+```lua
+pcall(reskate.files.read, "../other-plugin/routes.json") -- false: not a path inside the data folder
+```
+
+## Rates and sizes
+
+- At most 64 calls a second, all four functions together. Past that, a call raises an error: `"more than 64 file calls in a second"`.
+- A file is at most 1 MB.
+- The data folder holds at most 1000 files, in all its folders.
+
+### `reskate.files.list(folder)`
+
+The names in a folder of your data folder.
+
+<ParamField path="folder" type="string" default="the data folder itself">The folder's path. Leave it out, or pass `""`, for the top. A `/` at the end is fine.</ParamField>
+
+<ResponseField name="names" type="table or nil">A sorted list of names. A folder's name ends in `/`. A file being written (its name ends in `.tmp`) is left out. At most 1000 names. A data folder you have not written to yet gives an empty list.</ResponseField>
+<ResponseField name="why" type="string">With `nil`: `"not found"` for a folder that is not there, `"not a folder"` for a file, or `"the folder cannot be read"`.</ResponseField>
+
+```lua
+local names = reskate.files.list("routes") or {}
+for _, name in names do
+    if name:sub(-5) == ".json" then
+        reskate.log("route " .. name:sub(1, -6))
+    end
+end
+```
+
+<Note>Needs the `files` permission.</Note>
+
+### `reskate.files.read(path)`
+
+A file's contents.
+
+<ParamField path="path" type="string" required>The file's path in the data folder.</ParamField>
+
+<ResponseField name="text" type="string or nil">The whole file, byte for byte.</ResponseField>
+<ResponseField name="why" type="string">With `nil`: `"not found"` when there is no such file (or the path is a folder), `"the file is larger than 1 MB"` or `"the file cannot be read"`.</ResponseField>
+
+```lua
+local text, why = reskate.files.read("routes/loop.json")
+if text then
+    local route = reskate.json.decode(text)
+elseif why ~= "not found" then
+    reskate.log("the route cannot be loaded: " .. why)
+end
+```
+
+<Note>Needs the `files` permission.</Note>
+
+### `reskate.files.write(path, text)`
+
+Writes a file, in place of any file there. The folders the path names are made.
+
+<ParamField path="path" type="string" required>The file's path in the data folder.</ParamField>
+<ParamField path="text" type="string" required>What the file holds, byte for byte. At most 1 MB.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the file is written.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"a file is at most 1 MB"`, `"a folder is there"`, `"the data folder holds 1000 files already"` (for a new file only), `"the folder cannot be made"` or `"the file cannot be written"`.</ResponseField>
+
+ReSkate writes the text to a file beside it first (its name ends in `.tmp`), then puts it in place. A write that fails part way leaves the file as it was.
+
+```lua
+local route = {name = "Loop", gates = {{1, 2, 3}, {1, 2, 23}}}
+local ok, why = reskate.files.write("routes/loop.json", reskate.json.encode(route))
+if not ok then reskate.ui.toast("Not saved: " .. why, "warn") end
+```
+
+<Note>Needs the `files` permission (and `overlay` for the example's toast).</Note>
+
+### `reskate.files.remove(path)`
+
+Removes a file, or a folder with nothing in it.
+
+<ParamField path="path" type="string" required>The file's or folder's path in the data folder. The data folder itself cannot be removed.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it is removed.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"not found"`, `"the folder is not empty"` or `"it cannot be removed"`.</ResponseField>
+
+```lua
+reskate.files.remove("routes/loop.json")
+if #(reskate.files.list("routes") or {}) == 0 then
+    reskate.files.remove("routes")
+end
+```
+
+<Note>Needs the `files` permission.</Note>
+
+<Tip>
+To let the player load a file from anywhere on their PC, such as a route a friend sent, use the file button of a [dialog](/plugins/api/menu#dialogs). It reads the file the player picks and hands you its text.
+</Tip>

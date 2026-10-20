@@ -1,6 +1,6 @@
 ---
 title: "Manifest"
-description: "Every field of reskate-plugin.json, the rules ReSkate checks it against, and the manifest.json name that becomes the plugin's channel."
+description: "Every field of reskate-plugin.json, the rules ReSkate checks it against, variants, plugins that ship inside an asset mod, and the manifest.json name that becomes the plugin's channel."
 ---
 
 This page covers `reskate-plugin.json`, the file that makes a mod a plugin, and the one field of the mod's `manifest.json` that plugins use. Neither needs a permission; the manifest is where you ask for them.
@@ -62,7 +62,7 @@ A plugin is listed as not loaded where it does not run. On a player's game a ser
   The permissions the plugin uses, by name, such as `["console", "overlay"]`.
 </ParamField>
 
-Every name must be one of the 42 on [permissions](/plugins/permissions). A name listed twice counts once. With no permissions, a plugin has the base set: logging, events such as `tick`, timers, its own files, JSON, and the functions and events plugins share.
+Every name must be one of the 45 on [permissions](/plugins/permissions). A name listed twice counts once. With no permissions, a plugin has the base set: logging, events such as `tick`, timers, reading its own package's files, JSON, and the functions and events plugins share.
 
 The log names the permissions a plugin loaded with:
 
@@ -88,6 +88,56 @@ Each entry is a bare host name:
 
 ReSkate lowercases each name. A request goes only to a host listed here, exactly: `example.com` does not cover `api.example.com`.
 
+### `variants`
+
+<ParamField path="variants" type="object">
+  The variants your mod holds: several takes on the same game data, such as several deck models for the one deck every board has. One of them is in the game at a time.
+  <Expandable title="fields">
+    <ParamField path="folder" type="string" required>The folder in your mod that holds the variants, such as `"decks"`. 1 to 64 characters: letters, digits, `_` and `-`.</ParamField>
+    <ParamField path="order" type="string[]" default="[]">Variant names to list first, in this order. The first loads when the player has chosen none. At most 64 names, each 1 to 64 characters: letters, digits, `_` and `-`.</ParamField>
+    <ParamField path="displaces" type="string[]" default="[]">The game's bundles a variant replaces, such as `"deck_gen_popsicle_cas_main_bundlereftable"`. At most 16 names, each 1 to 260 characters of printable ASCII, with `/` between folders and no `\`.</ParamField>
+  </Expandable>
+</ParamField>
+
+Board Break's manifest declares its decks (shortened):
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "permissions": ["board", "variants"],
+    "variants": {
+        "folder": "decks",
+        "order": ["standard", "wide", "concave"],
+        "displaces": ["deck_gen_popsicle_cas_main_bundlereftable"]
+    }
+}
+```
+
+Each folder `<folder>/<name>/` with a `layout.toc` in it is the variant `<name>`, laid out like a mod folder of its own. A folder without a `layout.toc`, or whose name has characters other than letters, digits, `_` and `-`, is not a variant. ReSkate compares every name here in lower case.
+
+**Which variant loads.** One variant of your mod is in the game at a time:
+
+1. the one the player chose, when it is still there;
+2. else the first in `order` that is there;
+3. else another variant your mod has.
+
+It loads ahead of every other mod, whatever the mod list's order. When your mod's variants folder has none, none loads.
+
+**What is set aside.** While a variant loads, these mods are left out of the game, whole, for that run:
+
+- your mod's other variants;
+- every other mod whose `layout.toc`, or a `.toc` file in its `Win32` folder, names a bundle in `displaces` (without case, anywhere in the file);
+- your own mod, when its own `layout.toc` or `Win32` files name one. Keep what a variant replaces inside the variants.
+
+A mod set aside stays switched on in the mod list. It comes back when your mod is switched off, or no longer displaces what it brings.
+
+**The choice is kept per mod.** Your plugin chooses a variant with [`reskate.package.choose`](/plugins/api/package#variants), which needs the `variants` permission, and reads them with `reskate.package.variants`. ReSkate keeps the choice for your mod's folder name, in `%LOCALAPPDATA%\ReSkate\variants.json`, and loads it at every launch. A renamed mod folder starts with no choice.
+
+<Note>
+`variants` is read by ReSkate's mod loader, not the plugin host: a `variants` that breaks these rules does not stop the plugin from loading. The mod then has no variants, and the log says why: `Mod <folder>: reskate-plugin.json's variants could not be read (<why>)`.
+</Note>
+
 ## Errors
 
 When the manifest breaks a rule, the plugin does not load. The log says why, and so does `plugin list` (as the plugin's reason):
@@ -109,13 +159,43 @@ Plugin speedo was not loaded: "side" must be "client", "server" or "both"
 | `"entry" must be a .lua or .luau file` | `entry` ends in something else. |
 | `"side" must be "client", "server" or "both"` | `side` is another value, or not a string. |
 | `"permissions" must be a list of names` | `permissions` is not a list, or holds something other than strings. |
-| `unknown permission "<name>": check the spelling, or update ReSkate` | A name is not one of the 42. |
+| `unknown permission "<name>": check the spelling, or update ReSkate` | A name is not one of the 45. |
 | `"domains" must be a list of at most 16 host names` | `domains` is not a list, or has more than 16 entries. |
 | `"domains" must be a list of host names` | An entry is not a string. |
 | `"<entry>" is not a host name for "domains" (such as api.example.com: no scheme, port, path or *)` | An entry breaks a host name rule. |
 | `"domains" is for web requests: add the "net.http" permission too` | `domains` lists hosts without `net.http`. |
 
 Problems with the entry file itself come after the manifest passed. The plugin stops, and its reason starts with the entry's path: `plugin/main.lua not found`, `plugin/main.lua is larger than 1 MB`, a syntax error, or `plugin/main.lua raised an error as it ran` (the error itself is in the log line before).
+
+## A plugin that comes with assets
+
+A plugin that needs game data of its own, such as a deck model, items or sounds, ships inside that asset mod. Put `reskate-plugin.json` and the plugin's folder at the top of the mod's folder, beside its `manifest.json` (and its `layout.toc`, when it has one at the top). The mod is then a plugin too: switching it on or off in the mod list does the same to the plugin.
+
+The Board Break plugin comes this way, inside its deck pack (`contrib/plugins/board-break` in the ReSkate repository):
+
+```
+Mods/
+  Fourth_Studio-Board_Break_Pack/
+    manifest.json
+    reskate-plugin.json
+    plugin/
+      main.lua
+      breaker.lua
+    sounds/
+    decks/
+      standard/
+        layout.toc
+        deck.ini
+      wide/
+        layout.toc
+        deck.ini
+```
+
+Its decks are [variants](#variants), so each has its own `layout.toc`. The plugin reads the pack's other files, such as `sounds/` and `decks/<name>/deck.ini`, with [`reskate.package`](/plugins/api/package): paths there start at the mod's folder.
+
+<Warning>
+A plugin's id is its mod's folder name, so it is the asset mod's folder name here. Its [storage](/plugins/api/storage), its [data folder](/plugins/api/files) and its console commands go under that id. Moving a plugin into another mod's folder gives it a new id, with empty storage and an empty data folder.
+</Warning>
 
 ## manifest.json and the plugin's channel
 

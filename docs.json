@@ -43,6 +43,7 @@
               "plugins/api/time",
               "plugins/api/console",
               "plugins/api/storage",
+              "plugins/api/files",
               "plugins/api/package",
               "plugins/api/json",
               "plugins/api/libraries",

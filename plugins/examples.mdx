@@ -188,13 +188,22 @@ Five features that were built into ReSkate are mods now, plugins in `contrib/plu
 
 | Plugin | What it does | What to read it for |
 | --- | --- | --- |
-| **road-rash** | Bails leave marks on the skater that build up: dust, scrapes, bruises, wounds. Needs the Road Rash items mod. `roadrash`, `roadrash heal`, `roadrash bails 20`. | [`reskate.outfit`](/plugins/api/outfit) and the `bail_end` event. |
-| **board-break** | A hard slam, or a hard slide onto a rail, can snap the board at the nose, the middle or the tail. Ships inside the Board Break deck pack. `boardbreak`, `boardbreak snap mid`. Which deck every board has stays in ReSkate, as the `boarddeck` command. | [`reskate.board`](/plugins/api/board), [sounds](/plugins/api/audio) and raycasts. |
+| **road-rash** | Bails leave marks on the skater that build up: dust, scrapes, bruises, wounds. Ships inside the Road Rash item pack, whose items it wears. `roadrash`, `roadrash heal`, `roadrash bails 20`. | [`reskate.outfit`](/plugins/api/outfit) and the `bail_end` event. |
+| **board-break** | A hard slam, or a hard slide onto a rail, can snap the board at the nose, the middle or the tail. Ships inside the Board Break deck pack, whose decks its manifest declares as [variants](/plugins/manifest): one is in the game at a time, picked on its page or with `boardbreak deck`. `boardbreak`, `boardbreak deck wide`, `boardbreak snap mid`. | [`reskate.board`](/plugins/api/board) (`park` and `fit`), [variants](/plugins/api/package), [sounds](/plugins/api/audio) and raycasts. |
 | **fpv-drone** | The FPV drone, flown from the free camera with the keyboard, a pad or an RC radio, or following the skater and filming. `fpv fly`, `fpv follow`, `fpv stop`. | [`reskate.camera`](/plugins/api/camera), [`reskate.input`](/plugins/api/input), the motor sound and a goggles HUD drawn with a font atlas. |
 | **hall-of-meat** | skate. 3's Hall of Meat: a bail shows the bones it hurt on an x-ray of the skater, and scores a Meat card drawn with skate.'s own pictures in the bottom left corner. A broken bone slows the game for a moment, in single player only. `hallofmeat 0` or `1`. | The `physics_step` event, [`reskate.skater.xray`](/plugins/api/skater) with `d:skeleton`, `d:game_image`, `d:gradient` and fonts ([overlay](/plugins/api/overlay)), [`reskate.hud.corner`](/plugins/api/skater) and [`reskate.time.slow`](/plugins/api/time). |
 | **grind-exits** | LT or RT in a grind picks the side the skater pops out to, whatever the trick and the rotation. `grindexit status`. | [`reskate.skater.grind_exit`](/plugins/api/skater), the `grind_exit` event and [`reskate.input.hide`](/plugins/api/input). |
 
-Copy a plugin's folder into the game's `Mods` folder to try it, as with reskate-test. board-break goes inside the deck pack's folder, beside its `sounds/`.
+Copy a plugin's folder into the game's `Mods` folder to try it, as with reskate-test. board-break and road-rash go inside their packs' folders: copy `reskate-plugin.json` and `plugin/` beside the pack's `layout.toc`.
+
+## Throwdown modes
+
+Throwdown modes made with the [throwdown kit](/plugins/api/throwdowns): the plugin registers its modes and publishes what the player should see, and ReSkate shows it with skate.'s own Throwdowns page, setup page, flag, HUD and match panel.
+
+| Plugin | What it does | What to read it for |
+| --- | --- | --- |
+| **throwdown-modes-test** | Two modes through the whole native flow (card, setup page, flag, waiting card) and no match. It says in chat what it hears. | The smallest use of the kit: `reskate.throwdowns.mode`, the `setup` and `waiting` documents and the `throwdown_ui` event. |
+| **SmokeyDawg58-ReSkate_Throwdown** | SmokeyDawg58's ten modes, Deathrace and 1-UP among them, with their rules, HUDs, gates and route editor, all in Lua, inside his asset mod. `tdm help`. | Every document of the kit, the flag, `reskate.entities` for gates, `reskate.files` and `reskate.ui.dialog` for saved routes. |
 
 ## Where to go next
 
