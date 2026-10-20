@@ -591,7 +591,7 @@ local function documents()
         return {waiting = {mode = MODE, title = "TRICK COUNT", status = "Press Start when you are ready",
                            enrolled = 1, capacity = 1, can_start = true}}
     end
-    -- The callout is in every HUD document, so its serial never goes back to 0.
+    -- The callout's serial counts up through the match: each new one shows.
     local hud = {theme = "count", callout = {text = "NICE", style = "clean", serial = callouts, ms = 1200}}
     local doc = {hud = hud}
     if phase == "countdown" then

@@ -268,7 +268,7 @@ At most 12 rows of your own, after the stock ones. A row without an `id`, of an 
 </Expandable>
 </ParamField>
 
-The page shows whole numbers: `min`, `max` and `value` are rounded, and a step is at least 1. When your document's `value` changes, the slider moves to it. The players slider is 1 to 10 players; keep the timer's value at 1 second or more.
+The page shows whole numbers: `min`, `max` and `value` are rounded, and a step is at least 1. When your document's `value` changes, the slider moves to it. The players slider is 1 to 10 players. The native flag takes the timer's value as its time, kept within 1 to 3600 seconds: a timer of 0 (none) still opens the setup page, and your plugin runs its own clock.
 
 ```lua
 reskate.throwdowns.ui({setup = {
@@ -491,7 +491,7 @@ An alert across the screen. It shows while its `text` is not empty.
 </Expandable>
 </ParamField>
 
-A banner or callout shows only when its `serial` differs from the last one the HUD saw, and a HUD document without the slot counts as serial 0. Keep one counter for the whole plugin, add 1 each time, and put the slot in every HUD document you publish: a serial that starts again for each match may match the last one and show nothing, and a slot that comes back after a document without it shows once more.
+A banner or callout shows when it has text and its `serial` differs from the last one shown. A HUD document without the slot changes nothing: the same serial coming back does not show again. A new match (your HUD going inactive and active again, or another plugin's HUD) shows the first one whatever its serial. Within a match, add 1 to the serial each time you want it shown.
 
 ```lua
 local callouts = 0
@@ -695,7 +695,7 @@ end)
 <ParamField path="input_lock" type="boolean" default="false">No skating input, as for a countdown. The skater is set on its board.</ParamField>
 <ParamField path="offboard" type="boolean" default="false">The skater is kept off its board.</ParamField>
 <ParamField path="hidden" type="table">At most 16 Steam IDs whose skater, nametag, map dot and chat bubble your game hides.</ParamField>
-<ParamField path="teleports" type="boolean" default="false">`reskate.skater.teleport` works even where the host has turned teleporting off.</ParamField>
+<ParamField path="teleports" type="boolean" default="false">Your plugin's `reskate.skater.teleport` works even where the host has turned teleporting off, while your match runs: your HUD document is active, or the native flag is one of your modes. Other plugins' teleports are not let through.</ParamField>
 <ParamField path="in_activity" type="boolean" default="false">The game treats the player as in an activity.</ParamField>
 </Expandable>
 </ParamField>
@@ -721,7 +721,7 @@ Begins the native flag for one of your modes, without the card.
 <ParamField path="options" type="table">
 <Expandable title="fields">
 <ParamField path="players" type="number" default="4">1 to 10.</ParamField>
-<ParamField path="seconds" type="number" default="120">The match's time, 1 to 3600. 0 is taken, but `begin` then returns `false`.</ParamField>
+<ParamField path="seconds" type="number" default="120">The match's time, 1 to 3600. Anything else raises an error.</ParamField>
 <ParamField path="setup_page" type="boolean" default="true">False goes straight to flag placement.</ParamField>
 <ParamField path="cursor_height" type="number" default="0">0 to 100000 metres, as the mode's `cursor_height`.</ParamField>
 </Expandable>

@@ -126,8 +126,8 @@ Everything a game mode measures of the local skater in one read: its motion, its
 <ResponseField name="last" type="table">The last jump measured: one of at least 0.25 s in the air. See below.</ResponseField>
 <ResponseField name="watch" type="table">How the physics state has changed. See below.</ResponseField>
 <ResponseField name="teleport_pending" type="boolean">True while a teleport of the skater is on its way.</ResponseField>
-<ResponseField name="slam" type="boolean">True when the skater's body stopped dead (lost 7 m/s within a third of a second: the ground, a pole, a wall) since the last read.</ResponseField>
-<ResponseField name="struck" type="boolean">True when the skater's head, chest, shoulders or hips struck an object at speed (a pole, a tree, a rail) since the last read.</ResponseField>
+<ResponseField name="slam" type="boolean">True when the skater's body stopped dead (lost 7 m/s within a third of a second: the ground, a pole, a wall) since your plugin last read the telemetry.</ResponseField>
+<ResponseField name="struck" type="boolean">True when the skater's head, chest, shoulders or hips struck an object at speed (a pole, a tree, a rail) since your plugin last read the telemetry.</ResponseField>
 <ResponseField name="body" type="vector">Where the skater's hips are, when ReSkate read the skater's pose in the last quarter second. Absent otherwise. Use it during a bail, when the board and the body part ways.</ResponseField>
 </Expandable>
 </ResponseField>
@@ -178,7 +178,7 @@ end)
 ```
 
 <Note>
-Needs the `skater.read` permission. `slam` and `struck` are taken as they are read: a slam shows in one read only, across every plugin. They are followed only while the Bone Cam would show or a plugin asks for it (see `bone_cam`). Read the telemetry once a tick and keep what you need.
+Needs the `skater.read` permission. `slam` and `struck` are news since your plugin's own last read: each plugin hears of a slam once, whatever other plugins read. The first read only takes your place, so slams before it are not reported. They are followed only while the Bone Cam would show or a plugin asks for it (see `bone_cam`). Read the telemetry once a tick and keep what you need.
 </Note>
 
 ### `reskate.skater.goofy()`
@@ -300,7 +300,7 @@ Needs the `skater.control` permission. One wipeout every 2 seconds; a refused ca
 A game mode sets the skater's speed after a restart, and keeps it still for a countdown, with these. They write the board's velocity in the skater's physics, so other players see your skater move as it does.
 
 <Warning>
-A push or a hold takes effect only while the competition's stock physics is on: `reskate.physics.competition(true)` (see [stock physics](#stock-physics)), from your plugin or another. Without it, the calls still return `true`, and nothing moves.
+A push or a hold takes effect only while the competition's stock physics is on: `reskate.physics.competition(true)` (see [stock physics](#stock-physics)), from your plugin or another. Without it, `push` and `hold(true)` return `false` and say so.
 </Warning>
 
 ### `reskate.skater.push(velocity)`
@@ -310,7 +310,7 @@ Sets the skater's velocity once it is on its board: the next physics step with t
 <ParamField path="velocity" type="vector" required>Metres per second, in the world. Level: `y` is 0. Each axis within 100 m/s, and at most 120 m/s over the ground.</ParamField>
 
 <ResponseField name="ok" type="boolean">True when the push is waiting for its physics step.</ResponseField>
-<ResponseField name="why" type="string">`"a push is horizontal (y 0) and at most 120 m/s"` when `ok` is false.</ResponseField>
+<ResponseField name="why" type="string">When `ok` is false: `"a push is horizontal (y 0) and at most 120 m/s"`, or `"a push needs the game's stock physics: reskate.physics.competition(true) first"`.</ResponseField>
 
 ```lua
 -- Back to a checkpoint, then off again at 8 m/s the way the skater faces.
@@ -353,7 +353,8 @@ Keeps the board still while the skater is on it: no velocity and no turning, eve
 
 <ParamField path="on" type="boolean" required>True to hold the board, false (or nothing) to let it go.</ParamField>
 
-<ResponseField name="ok" type="boolean">True.</ResponseField>
+<ResponseField name="ok" type="boolean">True, unless the hold cannot take effect.</ResponseField>
+<ResponseField name="why" type="string">`"a hold needs the game's stock physics: reskate.physics.competition(true) first"`, for `hold(true)` while the stock physics is off. Letting go always works.</ResponseField>
 
 ```lua
 -- A three-second countdown, then a push.
