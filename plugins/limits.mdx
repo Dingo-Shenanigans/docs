@@ -112,7 +112,9 @@ These raise a Lua error. The plugin runs on.
 | Package file reads | 16 MB a file | `<path> is larger than 16 MB` |
 | Source files (`require`) | 1 MB a file | `is larger than 1 MB` |
 | Package folder listing | 1000 entries | `the folder holds more than 1000 entries` |
-| Raycasts | 64 a tick | `more than 64 raycasts in one tick` |
+| Raycasts | 64 a tick, `reskate.world.raycast` and `reskate.session.raycast` together | `more than 64 raycasts in one tick` |
+| Players touched (`reskate.session.touch`) | 64 at once | none: a touch waits until one of them is apart |
+| Players hidden (`reskate.session.hide`) | 256, for every plugin together | `at most 256 players are hidden` |
 | Ray length | 1000 m | `a ray is at most 1000 m long` |
 | Pictures | 32 different files | `a plugin draws at most 32 different pictures` |
 | Animation clips | 48 MB of poses | `a plugin's clips hold at most 48 MB of poses` |

@@ -11,7 +11,7 @@ This page lists every event `reskate.on` accepts. Five need no permission; each 
 
 Registers a function to run each time the event fires. Register handlers when the entry file runs, usually at its top level.
 
-<ParamField path="event" type="string" required>The event's name, one of the 26 on this page, or the same name from `reskate.Enums.Event`.</ParamField>
+<ParamField path="event" type="string" required>The event's name, one of the 28 on this page, or the same name from `reskate.Enums.Event`.</ParamField>
 <ParamField path="handler" type="function" required>Called with the event's arguments, described in each section below.</ParamField>
 
 It returns nothing. These raise a Lua error:
@@ -409,6 +409,37 @@ Fires for each player who leaves. When you leave the session, it fires for every
 ```lua
 reskate.on("player_left", function(player)
     reskate.log(player.name .. " left")
+end)
+```
+
+### `touch`
+
+**Permission:** `session.skaters`.
+
+Fires when your skater comes within reach of another player's, while your plugin has touching on ([`reskate.session.touch`](/plugins/api/session#touching-hiding-and-rays-at-players)). It fires once a contact: again only after the two were apart. Bodies are compared every tick.
+
+<ResponseField name="e.player" type="string">The player's id.</ResponseField>
+<ResponseField name="e.part" type="string">The part of your skater nearest theirs: `"head"`, `"body"`, `"left_arm"`, `"right_arm"`, `"left_leg"`, `"right_leg"` or `"board"`.</ResponseField>
+<ResponseField name="e.their_part" type="string">The part of their skater nearest yours.</ResponseField>
+<ResponseField name="e.distance" type="number">The gap between those parts, in metres: 0 where they overlap.</ResponseField>
+<ResponseField name="e.position" type="vector">The point halfway across that gap, in the world.</ResponseField>
+
+```lua
+reskate.session.touch(true)
+reskate.on("touch", function(e)
+    if e.their_part == "board" then reskate.log("you touched " .. e.player .. "'s board") end
+end)
+```
+
+### `touch_end`
+
+**Permission:** `session.skaters`.
+
+Fires when the two are apart again: 10 cm further apart than the reach, or the player has gone (left, or is no longer drawn). The handler gets the same fields as `touch`, as the two were at that moment (when the player has gone, as they last touched).
+
+```lua
+reskate.on("touch_end", function(e)
+    reskate.log(e.player .. " is out of reach")
 end)
 ```
 

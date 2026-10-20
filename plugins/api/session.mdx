@@ -3,7 +3,7 @@ title: "Session and messages"
 description: "reskate.session, reskate.voice and reskate.net: who is in the multiplayer session, their skaters and voices, spectating them, the session's world, and messages between copies of your plugin."
 ---
 
-This page covers the multiplayer session: who is in it, spectating a player and the session's world (`reskate.session`, which needs `session.read`), other players' skaters (`session.skaters`), tags beside their nametags (`session.nametags`), their voice volume (`voice.control`), and messages between the copies of your plugin on every player's game (`reskate.net.send` and the `message` event, which need `net.session`). See [permissions](/plugins/permissions).
+This page covers the multiplayer session: who is in it, spectating a player and the session's world (`reskate.session`, which needs `session.read`), other players' skaters, touching them, hiding them and rays at them (`session.skaters`), tags beside their nametags (`session.nametags`), their voice volume (`voice.control`), and messages between the copies of your plugin on every player's game (`reskate.net.send` and the `message` event, which need `net.session`). See [permissions](/plugins/permissions).
 
 ## Players
 
@@ -168,6 +168,108 @@ reskate.session.tag(player, nil)
 <Note>
 Needs `session.nametags`. Raises an error for a player that is not one, text over 16 characters or not printable, and a colour that is not a whole number from `0` to `0xFFFFFFFF`. When several plugins tag the same player, one tag shows. Your tags go away when your plugin stops.
 </Note>
+
+## Touching, hiding and rays at players
+
+For tag, infection or prop hunt: when your skater touches another player's, another player's skater hidden on your screen, and a ray that hits players.
+
+Each skater's body is a set of capsules around its parts, as your game draws it: `"head"`, `"body"` (hips to neck), `"left_arm"`, `"right_arm"` (shoulder to hand), `"left_leg"`, `"right_leg"` (hip to foot) and `"board"` (the deck, while it is drawn). Your own skater's body is read each time your pose is sent to the other players, and moves with your skater in between. Bodies are read only in a multiplayer session, and only while a plugin uses them: the first tick or two after you start, nothing is touched or hit.
+
+Each game sees its own skater's touches. To tell everyone, send a [message](#messages): the player you touched hears it on their game too.
+
+### `reskate.session.touch(on, reach)`
+
+Turns the [`touch` and `touch_end` events](/plugins/events#touch) on or off for your plugin.
+
+<ParamField path="on" type="boolean" default="true">True (or nothing) to hear touches. False stops them: `touching` is empty again, and no `touch_end` fires for the players touched then.</ParamField>
+<ParamField path="reach" type="number" default="0.05">How near counts as touching, in metres between the two bodies' surfaces: 0 to 1. Calling it again while on changes the reach.</ParamField>
+
+Returns nothing.
+
+```lua
+-- Tag: whoever is it passes it on by touching someone.
+local it = nil -- the id of the player who is it
+reskate.session.touch(true, 0.1)
+reskate.on("touch", function(e)
+    if it == reskate.session.me().id then
+        it = e.player
+        reskate.net.send("all", reskate.json.encode({it = it})) -- net.send needs net.session
+    end
+end)
+```
+
+<Note>Needs `session.skaters`. A reach that is not 0 to 1 raises an error. At most 64 players are touched at once: past that, a touch waits until one of them is apart.</Note>
+
+### `reskate.session.touching()`
+
+The players your skater touches now, while touching is on.
+
+<ResponseField name="touching" type="table">
+A list of tables, as the [`touch` event](/plugins/events#touch) gives them:
+
+- `player` (string): the player's id.
+- `part` (string): the part of your skater nearest theirs.
+- `their_part` (string): the part of their skater nearest yours.
+- `distance` (number): the gap between the two parts, in metres: 0 where they overlap.
+- `position` (vector): the point halfway across that gap, in the world.
+</ResponseField>
+
+<Note>Needs `session.skaters`. Empty while touching is off.</Note>
+
+### `reskate.session.hide(player, hidden)`
+
+Hides another player's skater on your screen, or shows it again. Only your game changes: they still see themselves, and everyone else still sees them.
+
+While hidden, their skater and board are not drawn, their sounds do not play, their nametag and their marker on the map are gone, they cannot be spectated, and they are not solid to your skater. Their body is still there for `touch` and `raycast`.
+
+<ParamField path="player" type="string or table" required>The player, by id or player table.</ParamField>
+<ParamField path="hidden" type="boolean" default="true">True (or nothing) hides them; false shows them again.</ParamField>
+
+<ResponseField name="ok" type="boolean">Whether it was done.</ResponseField>
+<ResponseField name="why" type="string">`"at most 256 players are hidden"`: the most for every plugin together.</ResponseField>
+
+```lua
+-- Prop hunt: the hiders' skaters are hidden, and a prop of your own stands in for each (reskate.entities.set).
+local function hide_hiders(hiders)
+    for _, id in hiders do
+        reskate.session.hide(id)
+    end
+end
+```
+
+<Note>Needs `session.skaters`. A player stays hidden while any plugin hides them. Your plugin's go when it stops.</Note>
+
+### `reskate.session.hidden()`
+
+<ResponseField name="players" type="table">The ids (strings) of the players your plugin hides.</ResponseField>
+
+<Note>Needs `session.skaters`.</Note>
+
+### `reskate.session.raycast(from, to, options)`
+
+The first other player's body a ray meets. Your own skater is never hit; hidden players are.
+
+<ParamField path="from" type="vector" required>Where the ray starts, in world metres.</ParamField>
+<ParamField path="to" type="vector" required>Where it ends. At most 1000 m from `from`.</ParamField>
+<ParamField path="options.world" type="boolean" default="true">True: the world blocks the ray, as [`reskate.world.raycast`](/plugins/api/world) meets it. Anything it meets more than 0.4 m before the player blocks (closer than that, the player's own collision can be what it meets). False: the ray goes through the world.</ParamField>
+
+<ResponseField name="hit" type="table or nil">
+`nil` when no player is hit, or the world is in the way. Otherwise:
+
+- `player` (string): the player's id.
+- `part` (string): the part hit, one of the parts above.
+- `position` (vector): where the ray meets the part's surface.
+- `distance` (number): how far that is from `from`, in metres.
+</ResponseField>
+
+```lua
+-- Who the camera looks at, within 50 m (camera.get needs the camera permission).
+local cam = reskate.camera.get()
+local hit = cam and reskate.session.raycast(cam.position, cam.position + cam.forward * 50)
+if hit then reskate.log("looking at " .. hit.player .. "'s " .. hit.part) end
+```
+
+<Note>Needs `session.skaters`, and no `world.raycast`. Each call counts towards the 64 raycasts a tick, with `reskate.world.raycast`'s. A ray longer than 1000 m, or a raycast past those 64, raises an error. Collision is loaded only near your skater, so far from it the world does not block.</Note>
 
 ## Voice
 

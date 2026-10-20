@@ -87,7 +87,7 @@ Every plugin has these without asking:
 | Permission | Unlocks | What other players see |
 | --- | --- | --- |
 | `session.read` | [`reskate.session.active`, `is_dedicated`, `players`, `me`, `host`, `spectate`, `world`](/plugins/api/session); the `player_joined` and `player_left` events | Nothing. |
-| `session.skaters` | [`reskate.session.skaters`, `joint`](/plugins/api/session) | Nothing. |
+| `session.skaters` | [`reskate.session.skaters`, `joint`, `touch`, `touching`, `hide`, `hidden`, `raycast`](/plugins/api/session); the [`touch` and `touch_end` events](/plugins/events#touch) | Other players' skaters hidden on your screen while it hides them. Nothing on anyone else's game. |
 | `session.nametags` | [`reskate.session.tag`](/plugins/api/session) | Nothing: the tags show beside nametags on your game. |
 | `net.session` | [`reskate.net.send`](/plugins/api/session); the `message` event | The same plugin on other players' games (or its server copy) gets your messages. The session says who sent them. |
 | `voice.control` | [`reskate.voice.set_volume`](/plugins/api/session) | Nothing: it sets how loud a player is to you. |
