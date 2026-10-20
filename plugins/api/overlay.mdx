@@ -1,6 +1,6 @@
 ---
 title: "Overlay"
-description: "Draw text, shapes, gradients and pictures over the game, on screen or at places in the world, the game's own pictures and the skater's x-ray, and show toasts."
+description: "Draw text, shapes, gradients and pictures over the game, on screen or at places in the world, the game's own pictures and the skater's x-ray, put a camcorder look over the picture, and show toasts."
 ---
 
 Your plugin draws over the game from a `draw` handler, and shows short notices with `reskate.ui.toast`. Both need the `overlay` [permission](/plugins/permissions).
@@ -319,6 +319,69 @@ end
 <Note>
 Needs `overlay`, for the `draw` event and every `d` function. In one tick a plugin draws at most 4000 shapes and 64 KB of text; the rest are left out, and a warning is logged at most once every 10 s, saying which of the two limits was hit. A plugin draws at most 32 different pictures from its package in all its life (each path counts once; the game's own pictures do not count); the next raises an error. A wrong argument raises an error: a position that is not a vector, text over 500 characters, a negative radius, a polygon of fewer than 3 or more than 64 points, a picture that is not a `.png` or `.jpg` file in the package, a game picture's name that is not one of the 13, a gradient without four colours.
 </Note>
+
+## Screen look
+
+A camcorder look over the game's whole picture, for a filming mode: a fisheye adapter's bend and its hood's dark edge, 4:3 bars, the camcorder's colour, standard-definition softness, interlaced fields, tape grain and its faults, an auto-iris, a hand that slaps the lens, and burnt-in text in the camcorder's own blocky characters. It is drawn under everything the overlay draws, plugins' shapes and ReSkate's menus included, and shows only on this player's screen.
+
+### `reskate.screen.look(look)`
+
+<ParamField path="look" type="table or nil" required>
+The look. Every effect is off unless you turn it on. `nil` ends your look.
+<Expandable title="fields">
+<ParamField path="bend" type="number" default="0">0 to 1: how much the fisheye adapter squeezes the picture into its barrel. It squeezes what the game drew, so it reads best over a wide camera.</ParamField>
+<ParamField path="fov" type="number" default="60">The game camera's vertical field of view, 5 to 170 degrees, which the bend works from. Pass the camera's own (`reskate.camera.get().fov`) or the one you set.</ParamField>
+<ParamField path="bars" type="boolean">4:3, black at the sides.</ParamField>
+<ParamField path="hood" type="boolean">The hood's dark round edge in the corners.</ParamField>
+<ParamField path="grade" type="boolean">The camcorder's colour: punchy, warm, the blacks a little crushed.</ParamField>
+<ParamField path="soft" type="boolean">Standard definition: soft, with the camcorder's sharpening halo.</ParamField>
+<ParamField path="scanlines" type="boolean">Interlaced fields.</ParamField>
+<ParamField path="grain" type="boolean">Tape noise.</ParamField>
+<ParamField path="age" type="number" default="0">0 to 1: how often and how badly the tape misbehaves, for the faults below.</ParamField>
+<ParamField path="dropouts" type="boolean">Now and then a white streak where the tape lost its coating.</ParamField>
+<ParamField path="head_switching" type="boolean">The torn, noisy lines at the very bottom.</ParamField>
+<ParamField path="tracking" type="boolean">A band of tearing that rolls up the picture in the first half second after the tape starts rolling (see `rolling`).</ParamField>
+<ParamField path="smear" type="boolean">Reds trail to the right.</ParamField>
+<ParamField path="iris" type="boolean">An auto-iris that lags the scene: blown out into the sun, murky into shade, for a moment.</ParamField>
+<ParamField path="rolling" type="number">Seconds since the tape started rolling, 0 or more. ReSkate keeps counting between your calls; a value that jumps by more than a quarter of a second starts a new roll. Nothing: not rolling.</ParamField>
+<ParamField path="text" type="table">Up to 5 lines burnt in: top left, top right, bottom left, then two lines bottom right. Each is at most 12 characters, or `nil` for none. Letters (shown in capitals), digits, spaces and `!"#$%&'()*+,-./:;<=>?@[\]^_`. `#` draws the record dot, and `[`, `=` and `]` a battery. The right-hand lines are right-aligned.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when your look is on the screen (or ended).</ResponseField>
+<ResponseField name="why" type="string">`"<plugin> has the screen's look"` when another plugin set its look in the last 300 ms.</ResponseField>
+
+```lua
+-- A VX1000 look with a blinking REC, the tape counter and the battery while filming.
+local filming = true
+local started = nil
+reskate.on("tick", function()
+    if not filming then started = nil return end
+    started = started or reskate.time.now()
+    local seconds = (reskate.time.now() - started) / 1000
+    local whole = math.floor(seconds)
+    local blink = seconds % 1 < 0.65 and "#REC" or nil
+    reskate.screen.look({
+        bend = 1, fov = reskate.camera.get().fov, bars = true, hood = true, grade = true, soft = true,
+        scanlines = true, grain = true, age = 0.35, dropouts = true, head_switching = true,
+        tracking = true, smear = true, iris = true, rolling = seconds,
+        text = {blink, string.format("%d:%02d:%02d", whole // 3600, whole // 60 % 60, whole % 60), "[==]  SP"},
+    })
+end)
+```
+
+<Note>
+Needs the `overlay` permission. A look lasts 300 ms: call it every tick to keep it on. One plugin's look is on the screen at a time; `nil` from another plugin does nothing. A `bend` or `age` outside 0 to 1, a `fov` outside 5 to 170, a negative `rolling`, more than 5 lines of `text`, a line over 12 characters or with a character the camcorder cannot show raises an error. The colour grade and the grain are left out when the game draws in HDR, and the auto-iris in HDR10. On a system that cannot build the look, it is not drawn and the log says why, once; `look` still returns true. When the plugin stops, its look ends.
+</Note>
+
+### `reskate.screen.slap()`
+
+A hand slaps the lens: it reaches round from a lower corner, presses on the glass a moment and pulls away, about 0.6 s in all, from the other side every second time. The iris closes down as it covers the lens and opens too wide for a moment as it comes off.
+
+<ResponseField name="ok" type="boolean">True when the hand slaps, or one is already slapping.</ResponseField>
+<ResponseField name="why" type="string">`"only over this plugin's screen look"` unless your plugin's look is on the screen.</ResponseField>
+
+<Note>Needs the `overlay` permission.</Note>
 
 ## Toasts
 

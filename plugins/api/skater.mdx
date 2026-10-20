@@ -369,6 +369,28 @@ end)
 Needs the `skater.control` permission. The plugin that last held the board owns the hold: another plugin's `hold(false)` does nothing. When the plugin stops, its hold is let go.
 </Note>
 
+### `reskate.skater.cruise(speed, may_slow)`
+
+Cruise control: carries the skater up to a speed while it rolls, with no pushing. The skater must be rolling (at least 1 m/s) and not braking; it gains up to 0.15 m/s a physics step until it reaches the speed. Pushing still works as usual, and can take the skater faster. It needs no stock physics.
+
+<ParamField path="speed" type="number" default="0">Metres per second over the ground, 1 to 30. 0 or nothing turns it off.</ParamField>
+<ParamField path="may_slow" type="boolean" default="false">True to also ease the skater down to the speed when it is going more than 0.3 m/s faster (at most 0.1 m/s a physics step), never while it pushes. For keeping pace with someone.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the cruise control is on (or off).</ResponseField>
+<ResponseField name="why" type="string">When `ok` is false: `"the host has turned boosts off"`, in a session whose host turned boosts off, or `"not while a throwdown runs"`. Turning it off always works.</ResponseField>
+
+```lua
+-- Roll along at 6 m/s while the plugin's camera mode is on.
+local filming = true
+reskate.on("tick", function()
+    if filming then reskate.skater.cruise(6, true) end
+end)
+```
+
+<Note>
+Needs the `skater.control` permission. It lasts 300 ms: call it every tick to keep it on. A speed that is not 0 or 1 to 30 raises an error. One cruise speed is kept for every plugin together: the last call wins.
+</Note>
+
 ## Stock physics
 
 `reskate.physics` puts the local skater on the game's stock physics while the player competes, so everyone in a game mode rides the same tuning.
@@ -417,6 +439,56 @@ reskate.on("load", function() reskate.physics.prepare() end)
 ```
 
 <Note>Needs the `skater.control` permission.</Note>
+
+## Arm reach
+
+Your skater's arm reaches for a point in the world: the upper arm and forearm bend, so the hand gets there, with the elbow out from the body and a little down and back. The arm bends after whatever the animation (or a [clip](/plugins/api/animation)) does with it, in the pose your game draws and sends to the other players, so they see your skater reach too.
+
+### `reskate.skater.reach(goal)`
+
+<ParamField path="goal" type="table or nil" required>
+Where the hand goes. `nil` lets the arm go back to the animation.
+<Expandable title="fields">
+<ParamField path="at" type="vector" required>The point for the hand joint, in the world. A point out of reach is pointed at: the arm stops just short of straight.</ParamField>
+<ParamField path="hand" type="string" default='"right"'>`"right"` or `"left"`.</ParamField>
+<ParamField path="rotation" type="table">The hand joint's rotation in the world, `{x, y, z, w}`. It is scaled to a length of 1. Without it, the hand stays turned as the forearm leaves it.</ParamField>
+<ParamField path="weight" type="number" default="1">0 to 1: how far from the animation's arm to the reach. Ease it in and out for an arm that comes up and goes back down.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the arm reaches (or is let go).</ResponseField>
+<ResponseField name="why" type="string">`"<plugin> holds the skater's arm"` when another plugin reached in the last 300 ms.</ResponseField>
+
+```lua
+-- Hold the right hand out in front of the chest, 60 cm ahead.
+reskate.on("tick", function()
+    local s = reskate.skater.get()
+    if s then
+        local ahead = vector.create(math.sin(s.heading), 0, math.cos(s.heading))
+        reskate.skater.reach({at = s.position + vector.create(0, 1.3, 0) + ahead * 0.6})
+    end
+end)
+```
+
+<Note>
+Needs the `skater.animation` permission. A reach lasts 300 ms: call it every tick to keep the arm there. One plugin reaches at a time; `nil` from another plugin does nothing. A `hand` that is not `"right"` or `"left"`, an `at` that is not a finite vector, a `rotation` that is not 4 finite numbers with a length, or a `weight` outside 0 to 1 raises an error. Unlike clips, a reach also works while a throwdown runs. When the plugin stops, the arm is let go.
+</Note>
+
+### `reskate.skater.hand(side)`
+
+Where one of your skater's hand joints is in the world, as the pose was last worked out, after any reach. For putting something in the hand, or aiming from it.
+
+<ParamField path="side" type="string" default='"right"'>`"right"` or `"left"`. Anything else raises an error.</ParamField>
+
+<ResponseField name="hand" type="table or nil">
+`nil` without a skater, and on the first call: asking keeps the hands read for 2 seconds, so call it every tick.
+<Expandable title="fields">
+<ResponseField name="position" type="vector">The hand joint's position.</ResponseField>
+<ResponseField name="rotation" type="table">Its rotation, `{x, y, z, w}`.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `skater.read` permission. To keep an object in a hand every frame, attach it to the joint with [`reskate.entities.set`](/plugins/api/world#your-own-world-objects) instead of moving it yourself.</Note>
 
 ## Grind exits
 

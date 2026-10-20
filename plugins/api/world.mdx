@@ -253,7 +253,7 @@ A transform is a table in one of three forms:
 `yaw` here is in degrees. Headings elsewhere, such as the [skater's](/plugins/api/skater#positions-and-headings), are radians: convert with `math.deg`.
 </Note>
 
-### `reskate.entities.set(id, blueprint, transform, hidden)`
+### `reskate.entities.set(id, blueprint, transform, hidden, attach)`
 
 Makes, moves or changes one of your objects.
 
@@ -261,6 +261,13 @@ Makes, moves or changes one of your objects.
 <ParamField path="blueprint" type="string" required>The world object blueprint's name, as the game's data names it, such as `"World/Props/Common/Construction/CMN_PRP_TrafficCone_01/CMN_PRP_TrafficCone_01"`. At most 200 characters.</ParamField>
 <ParamField path="transform" type="table" required>Where the object goes, in one of the forms above.</ParamField>
 <ParamField path="hidden" type="boolean" default="false">`true` keeps the object under its id but out of the world: it is taken away, and made again when you set it without `hidden`.</ParamField>
+<ParamField path="attach" type="table">
+Keeps the object on a joint of a skater, moved with it every frame: a camera in a hand, a hat on a head. The `transform` is then in the joint's frame: its position is along the joint's own axes, from the joint.
+<Expandable title="fields">
+<ParamField path="joint" type="number or string" required>The joint: a number from 0 to 394 (the skater's animation skeleton), or one of `"right_hand"` (49), `"left_hand"` (278), `"head"` (103), `"hips"` (7) and `"spine"` (42).</ParamField>
+<ParamField path="player" type="string or table">Another player in your session, by id or [player table](/plugins/api/session). Nothing for your own skater. Their joint is where your game draws their skater.</ParamField>
+</Expandable>
+</ParamField>
 
 <ResponseField name="ok" type="boolean">True when ReSkate keeps the object. It is made over the next frames: use `status` to know when it is there.</ResponseField>
 <ResponseField name="why" type="string">Why not: `"an object's blueprint is a name of 1 to 200 characters"`, `"an object's transform must be finite, within 100 km, each axis at most 200 long"`, `"at most 512 objects"` or `"the world holds as many objects as ReSkate keeps"`.</ResponseField>
@@ -276,9 +283,22 @@ if s then
 end
 ```
 
+```lua
+-- A traffic cone worn as a hat, 25 cm up from the head joint.
+local cone = "World/Props/Common/Construction/CMN_PRP_TrafficCone_01/CMN_PRP_TrafficCone_01"
+reskate.entities.set(2, cone, {position = vector.create(0, 0.25, 0)}, false, {joint = "head"})
+```
+
 <Note>
-Needs the `world.entities` permission. An id that is not a whole number from 1, a blueprint longer than 200 characters, a `transform` that is not a table, a `matrix` that is not 16 numbers, a `scale` that is neither a number nor a vector, an axis that is not a vector, or an angle that is not finite raises an error. A plugin keeps at most 512 objects, and ReSkate keeps at most 1024 for all plugins together. Moving or changing an object you already have does not count again.
+Needs the `world.entities` permission. An id that is not a whole number from 1, a blueprint longer than 200 characters, a `transform` that is not a table, a `matrix` that is not 16 numbers, a `scale` that is neither a number nor a vector, an axis that is not a vector, or an angle that is not finite raises an error. So does an `attach` that is not a table, a joint that is not a whole number from 0 to 394 or one of the five names, or a `player` that is not a player's id. A plugin keeps at most 512 objects, and ReSkate keeps at most 1024 for all plugins together. Moving or changing an object you already have does not count again.
 </Note>
+
+#### Objects on a joint
+
+- An attached object is not made until its joint is known: for your own skater, from the frame after you set it; for another player, once your game draws their skater. Until then `status` gives `"waiting"` or `"loading"`.
+- It moves every frame, without the 16 ms an object you move yourself waits between moves.
+- When its joint stops being known (the player left, or your skater is gone), it stays where it was, and after a second it is taken away until the joint comes back.
+- ReSkate reads at most 32 joints of your own skater and 64 of other players' at once, for every plugin together. An object on a joint past those waits.
 
 ### `reskate.entities.remove(id)`
 

@@ -148,6 +148,8 @@ These return `false` and a reason, and raise nothing. Check the result.
 | `reskate.skater.teleport`, `reskate.trainer.back` | 2 a second, together | `asked more than twice in a second` |
 | `reskate.skater.noclip`, `boost`, `freeze`; `reskate.camera.follow`; `reskate.ai.spawn`; `reskate.animation.play`; `reskate.board.toss`; `reskate.outfit.set` | 4 a second, together | `asked more than 4 times in a second` |
 | `reskate.skater.wipeout` | 1 every 2 s | `one wipeout every 2 s` |
+| `reskate.skater.reach` | one plugin at a time, for 300 ms after its last call | `<plugin> holds the skater's arm` |
+| `reskate.screen.look` | one plugin at a time, for 300 ms after its last call | `<plugin> has the screen's look` |
 | `reskate.objects.place`, `move`, `remove` | 4 a second | `more than 4 edits in a second` |
 | `reskate.world.set_time`, `set_control`, `set_park` | 4 a second | `more than 4 changes in a second` |
 | `reskate.travel.go`, `reskate.travel.load` | 1 every 5 s | `one trip every 5 s` |

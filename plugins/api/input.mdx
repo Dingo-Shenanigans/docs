@@ -186,7 +186,7 @@ Needs the `input` permission. It works only while the plugin's own camera view i
 
 ### `reskate.input.hide(controls)`
 
-Keeps some of the pad's controls from the game, for a plugin that gives them a job of its own, such as picking a grind's exit with the triggers. A hidden trigger reads to the game as let go. The left stick's left and right, hidden while grinding, read as centred only while the skater grinds, so a push held through the pop reaches the game at the pop. Your plugin still reads them all with `gamepad()`.
+Keeps some of the pad's controls from the game, for a plugin that gives them a job of its own, such as picking a grind's exit with the triggers, or aiming a camera of its own with the right stick. A hidden trigger reads to the game as let go, a hidden stick as centred, and a hidden stick click as not pressed. The left stick's left and right, hidden while grinding, read as centred only while the skater grinds, so a push held through the pop reaches the game at the pop. Your plugin still reads them all with `gamepad()`.
 
 <ParamField path="controls" type="table or nil" required>
 What to keep from the game. Each call replaces your plugin's last one; `nil` or `{}` gives everything back.
@@ -194,6 +194,9 @@ What to keep from the game. Each call replaces your plugin's last one; `nil` or 
 <ParamField path="left_trigger" type="boolean">True to hide the left trigger.</ParamField>
 <ParamField path="right_trigger" type="boolean">True to hide the right trigger.</ParamField>
 <ParamField path="left_x" type="string">`"grinding"` to hide the left stick's left and right while the skater grinds. Any other value raises an error.</ParamField>
+<ParamField path="right_stick" type="boolean">True to hide the right stick, both ways.</ParamField>
+<ParamField path="left_stick_click" type="boolean">True to hide the left stick's click.</ParamField>
+<ParamField path="right_stick_click" type="boolean">True to hide the right stick's click.</ParamField>
 </Expandable>
 </ParamField>
 
@@ -293,6 +296,33 @@ end)
 ```
 
 <Note>Needs the `input` permission. The notches are used up as they are read, for every plugin together.</Note>
+
+### `reskate.input.mouse()`
+
+How far the mouse moved since your plugin last read it, for a camera of your own that the mouse aims. Unlike `wheel`, it needs no pause: the game still gets the mouse too.
+
+<ResponseField name="motion" type="table or nil">
+`nil` while the game window is not in front, or ReSkate's menu, console or a dialog is open. Movement in that time is thrown away, so nothing piles up for when it closes.
+<Expandable title="fields">
+<ResponseField name="x" type="number">The mouse's raw counts to the right since your last read (negative: to the left).</ResponseField>
+<ResponseField name="y" type="number">Its raw counts down (negative: up).</ResponseField>
+<ResponseField name="wheel" type="number">The wheel's notches: above 0 rolled away from the player, below 0 towards.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+-- Turn a camera of your own with the mouse.
+local yaw, pitch = 0, 0
+reskate.on("tick", function()
+    local m = reskate.input.mouse()
+    if m then
+        yaw = yaw + m.x * 0.003
+        pitch = math.clamp(pitch - m.y * 0.003, -1.4, 1.4)
+    end
+end)
+```
+
+<Note>Needs the `input` permission. Each plugin gets all the movement: reading it does not take it from another plugin. Your first read gives only the latest movement, and a plugin that has not read for 2 seconds starts again that way.</Note>
 
 ### `reskate.input.game_buttons(hidden, held, pause)`
 
