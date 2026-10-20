@@ -12,10 +12,10 @@ Use it for many files, or files a player may copy and share. For a few settings,
 Each plugin's data folder is in the game's folder:
 
 ```
-<game folder>\Mods\.reskate\data\<id>\
+<game folder>\Mods\.reskate_plugin_data\<id>\
 ```
 
-`<id>` is your plugin's [`reskate.id`](/plugins/api/base): its mod folder name, or `<folder>@server` for its server copy on a lobby's host. A plugin in a renamed mod folder starts with an empty data folder. The folder is made the first time you write to it. It is not in your mod's folder, so updating the mod leaves it alone.
+`<id>` is your plugin's [`reskate.id`](/plugins/api/base): its mod folder name, or `<folder>@server` for its server copy on a lobby's host. A plugin in a renamed mod folder starts with an empty data folder. The folder is made the first time you write to it. It is not in your mod's folder, so updating the mod leaves it alone, and no merge of the mods touches it. A program that goes with your plugin can read the files there too.
 
 A dedicated server has no data folder: every function returns `nil` or `false` with `"unavailable here"`.
 
