@@ -324,6 +324,32 @@ end)
 
 <Note>Needs the `input` permission. Each plugin gets all the movement: reading it does not take it from another plugin. Your first read gives only the latest movement, and a plugin that has not read for 2 seconds starts again that way.</Note>
 
+### `reskate.input.text(capture)`
+
+What the player typed since the last call, while one of your plugin's screens is open: for a text field your plugin draws itself on a [screen with no panel](/plugins/api/menu#full-screen-screens).
+
+<ParamField path="capture" type="boolean" default="true">True (or nothing) to keep taking the typing for 300 ms more: call it every frame while your field types. While it does, Esc is your plugin's (read it with `reskate.input.key`) and does not close the screen. False lets go at once.</ParamField>
+
+<ResponseField name="typed" type="string">The characters typed, in UTF-8, printable ones only: no Enter, Backspace, Tab or arrows (read those with `reskate.input.key`). `""` when none were, and always while none of your screens is open. At most 1024 bytes wait between calls.</ResponseField>
+
+```lua
+-- A one-line field: what is typed goes in at the end, Backspace takes one off, Enter keeps it.
+local name, typing, backspace_was = "", false, false
+reskate.on("draw", function(d)
+    if not typing then return end
+    name ..= reskate.input.text(true)
+    if reskate.input.key("Backspace") and not backspace_was then name = string.sub(name, 1, utf8.offset(name, -1) - 1) end
+    backspace_was = reskate.input.key("Backspace")
+    if reskate.input.key("Enter") then
+        typing = false
+        reskate.input.text(false)
+    end
+    d:text(vector.create(100, 100, 0), name .. "|", {size = 24})
+end)
+```
+
+<Note>Needs the `input` permission. There is no clipboard: a field cannot paste.</Note>
+
 ### `reskate.input.cursor()`
 
 The mouse over the game window while one of your plugin's screens is open: for a tool on a [docked screen](/plugins/api/menu#full-screen-screens) that picks or drags things the player sees.

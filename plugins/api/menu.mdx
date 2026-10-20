@@ -298,7 +298,7 @@ Adds a screen. It is built ten times a second while it is open, whether or not a
 <Expandable title="fields">
 <ParamField path="dock" type="string">`"left"` or `"right"`: a panel down that side of the window, the game showing beside it, for a tool that works on what the player sees. While it is open, the game gets no input, and [`reskate.input.cursor`](/plugins/api/input) reads the mouse over the game.</ParamField>
 <ParamField path="width" type="number" default="0.3">A docked screen's share of the window's width, 0.2 to 0.6.</ParamField>
-<ParamField path="panel" type="boolean" default="true">`false`: a screen with no panel at all. It takes the input as any screen does (the game gets none, Esc closes it), and draws nothing: your plugin draws the whole screen in its `draw` handler, and reads the mouse with [`reskate.input.cursor`](/plugins/api/input), the keys with `reskate.input.key` and the pad with `reskate.input.gamepad`. Its `build` is still called, and its widgets are not drawn. It takes no `dock`.</ParamField>
+<ParamField path="panel" type="boolean" default="true">`false`: a screen with no panel at all. It takes the input as any screen does (the game gets none, Esc closes it), and draws nothing: your plugin draws the whole screen in its `draw` handler, and reads the mouse with [`reskate.input.cursor`](/plugins/api/input), the keys with `reskate.input.key` and the pad with `reskate.input.gamepad`. Its `build` is still called, and its widgets are not drawn. It takes no `dock`. For a text field of your own, [`reskate.input.text`](/plugins/api/input) gives what is typed.</ParamField>
 </Expandable>
 </ParamField>
 
@@ -329,6 +329,48 @@ Fires when the player closes your screen with Esc, with the screen's title. It n
 <Warning>
 While your screen is open, it has the player's input: the game behind it does not get the keys. Close it when you are done with it, and let Esc close it.
 </Warning>
+
+## The character room
+
+The character room of the game menu's Skaters page: a plain, lit studio under every map, where the game shows the skater while you dress him. `reskate.room` takes the game there and shows your own skater in it: for a tool that poses, animates or dresses the skater, or a photo booth.
+
+- `open` walks the game's menu there the way the player would: it opens the menu, goes from page to page to the Skaters page, and waits for the room's skater to show. It takes a moment or two; read `state` each tick.
+- Once there, your skater is drawn on the room's floor, facing as the room's own skater does, and the room's skater and board are hidden. Your skater stays where it was in the world, and that is where other players see it. Clips, poses and `reskate.skater.joint` follow the skater as drawn, in the room.
+- The menu's own pages are still there: hide them with [`reskate.hud.hide(true)`](/plugins/api/skater), and keep the input from them with a [screen](#full-screen-screens) of your own. Point the camera at the skater with [`reskate.camera.set`](/plugins/api/camera).
+- `leave` walks back: the game's menu closes, the room's skater and board come back, and your skater is drawn where it is again.
+
+### `reskate.room.open()`
+
+<ResponseField name="ok" type="boolean">True when the walk there started (or goes on already).</ResponseField>
+<ResponseField name="why" type="string">`"<plugin> has the character room"` while another plugin has it, or `"not while a throwdown runs"`.</ResponseField>
+
+<Note>Needs the `room` permission. One plugin has the room at a time. When your plugin stops, it leaves the room.</Note>
+
+### `reskate.room.state()`
+
+<ResponseField name="state" type="string">`"idle"`, `"opening"` (the walk goes on), `"open"` (your skater shows in the room), `"leaving"` (the walk back goes on) or `"failed"`.</ResponseField>
+<ResponseField name="why" type="string">For `"failed"`, why, as a sentence: such as `"The character room did not open: the Skaters page did not open."`. A walk fails when it takes more than 30 seconds, when the game's menu is not found or does not open, or when the map changes under it.</ResponseField>
+
+```lua
+reskate.room.open()
+reskate.on("tick", function()
+    local state, why = reskate.room.state()
+    if state == "failed" then
+        reskate.log(why .. " Showing the skater where he is.", "warn")
+        reskate.room.leave()
+    end
+end)
+```
+
+<Note>Needs the `room` permission. Another plugin's room reads as `"idle"`, or `"leaving"` while it walks back.</Note>
+
+### `reskate.room.leave()`
+
+Walks the game back to the world, and draws your skater where it is again. Leaving a room your plugin does not have does nothing.
+
+Returns nothing.
+
+<Note>Needs the `room` permission.</Note>
 
 ## Dialogs
 

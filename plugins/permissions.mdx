@@ -50,7 +50,7 @@ Every plugin has these without asking:
 | `overlay` | The `draw` event and its drawing object (`d:text`, `d:rect`, `d:line`, `d:circle`, `d:poly`, `d:gradient`, `d:world_text`, `d:world_line`, `d:world_circle`, `d:image`, `d:world_image`, `d:game_image`, `d:skeleton`, `d:size`, `d:world_to_screen`) ([overlay](/plugins/api/overlay)); [`reskate.screen.look`, `slap`](/plugins/api/overlay#screen-look); [`reskate.ui.toast`](/plugins/api/menu); [`reskate.skater.xray`](/plugins/api/skater) | Nothing: it draws on your screen only. |
 | `menu` | [`reskate.menu.page`, `reskate.menu.panel`](/plugins/api/menu) and their widgets (`ui:card`, `ui:tabs`, `ui:heading`, `ui:label`, `ui:note`, `ui:warn`, `ui:info`, `ui:separator`, `ui:bar`, `ui:button`, `ui:toggle`, `ui:slider`, `ui:dropdown`), on the plugin's own page in the menu's **PLUGINS** section | Nothing. |
 | `ui.screen` | [`reskate.ui.screen`, `reskate.ui.open`, `reskate.ui.close`](/plugins/api/menu); the `screen_closed` event; [`reskate.ui.dialog`](/plugins/api/menu#dialogs) (which needs `throwdowns` too, for its answers) and `reskate.ui.close_dialog` | Nothing. |
-| `input` | [`reskate.input.bind`, `flight`, `gamepad`, `joystick`, `capture`, `hide`, `pad_bits`, `key`, `wheel`, `mouse`, `cursor`, `game_buttons`, `allowed`, `focus`](/plugins/api/input); the `action` event | Nothing. Your binds show on your **Binds** page. |
+| `input` | [`reskate.input.bind`, `flight`, `gamepad`, `joystick`, `capture`, `hide`, `pad_bits`, `key`, `wheel`, `mouse`, `cursor`, `text`, `game_buttons`, `allowed`, `focus`](/plugins/api/input); the `action` event | Nothing. Your binds show on your **Binds** page. |
 | `hud` | [`reskate.hud.hide`, `reskate.hud.corner`, `reskate.tricks.label`](/plugins/api/skater) | Nothing: it hides your HUD only, and changes what your trick ticker shows. |
 | `audio.ui` | [`reskate.audio.play_ui`](/plugins/api/audio) | Nothing. |
 | `audio` | [`reskate.audio.play`, `set`, `stop`, `playing`](/plugins/api/audio) | Nothing: your game plays the sounds. |
@@ -108,6 +108,7 @@ Every plugin has these without asking:
 | `progression.read` | [`reskate.progression.get`](/plugins/api/progression) | Nothing. It only reads. |
 | `settings.read` | [`reskate.settings.game`, `reskate.settings.names`](/plugins/api/progression) | Nothing. It only reads. |
 | `settings.write` | [`reskate.settings.set`](/plugins/api/progression) | Your game's settings while the plugin holds them. During a multiplayer session, none that change how the game plays. |
+| `room` | [`reskate.room.open`, `leave`, `state`](/plugins/api/menu#the-character-room) | Your game opens its menu on the Skaters page, and your skater is drawn in its room. Other players see your skater where it is. |
 | `mods.read` | [`reskate.mods.installed`, `list`, `content`, `read_content`](/plugins/api/mods): which mods are installed, and the files they ship in the folders your manifest's `content` names | Nothing. |
 | `variants` | [`reskate.package.choose`](/plugins/api/package#variants) (`reskate.package.variants` needs no permission) | Nothing: it chooses which of its own mod's variants your game loads. |
 | `game.speed` | [`reskate.time.slow`, `reskate.time.speed`](/plugins/api/time) | Nothing: slow motion is refused in a multiplayer session. |
