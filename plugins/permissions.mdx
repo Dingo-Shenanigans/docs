@@ -51,7 +51,7 @@ Every plugin has these without asking:
 | `menu` | [`reskate.menu.page`, `reskate.menu.panel`](/plugins/api/menu) and their widgets (`ui:card`, `ui:tabs`, `ui:heading`, `ui:label`, `ui:note`, `ui:warn`, `ui:info`, `ui:separator`, `ui:bar`, `ui:button`, `ui:toggle`, `ui:slider`, `ui:dropdown`), on the plugin's own page in the menu's **PLUGINS** section | Nothing. |
 | `ui.screen` | [`reskate.ui.screen`, `reskate.ui.open`, `reskate.ui.close`](/plugins/api/menu); the `screen_closed` event; [`reskate.ui.dialog`](/plugins/api/menu#dialogs) (which needs `throwdowns` too, for its answers) and `reskate.ui.close_dialog` | Nothing. |
 | `input` | [`reskate.input.bind`, `flight`, `gamepad`, `joystick`, `capture`, `hide`, `pad_bits`, `key`, `wheel`, `game_buttons`, `allowed`, `focus`](/plugins/api/input); the `action` event | Nothing. Your binds show on your **Binds** page. |
-| `hud` | [`reskate.hud.hide`, `reskate.hud.corner`](/plugins/api/skater) | Nothing: it hides your HUD only. |
+| `hud` | [`reskate.hud.hide`, `reskate.hud.corner`, `reskate.tricks.label`](/plugins/api/skater) | Nothing: it hides your HUD only, and changes what your trick ticker shows. |
 | `audio.ui` | [`reskate.audio.play_ui`](/plugins/api/audio) | Nothing. |
 | `audio` | [`reskate.audio.play`, `set`, `stop`, `playing`](/plugins/api/audio) | Nothing: your game plays the sounds. |
 
@@ -64,7 +64,7 @@ Every plugin has these without asking:
 | `events.physics` | The `physics_step` event ([events](/plugins/events)) | Nothing. |
 | `skater.read` | [`reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`, `telemetry`, `goofy`](/plugins/api/skater); [`reskate.board.motion`](/plugins/api/board) | Nothing. |
 | `skater.teleport` | [`reskate.skater.teleport`](/plugins/api/skater) | Your skater where it lands, as with the console's teleport. Refused in a session whose host turned teleporting off. |
-| `skater.control` | [`reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `grind_exit`, `push`, `push_wait`, `push_reset`, `hold`; `reskate.physics.competition`, `stock_ready`, `prepare`](/plugins/api/skater) | Your skater as it moves and bails, the side it pops out of a grind to, the speed a push gives it and the board held still. While you compete, your skater rides the game's stock physics. Noclip and boosts follow the host's rules. |
+| `skater.control` | [`reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `grind_exit`, `push`, `push_wait`, `push_reset`, `hold`; `reskate.physics.competition`, `stock_ready`, `prepare`; `reskate.tricks.record_as`](/plugins/api/skater) | Your skater as it moves and bails, the side it pops out of a grind to, the speed a push gives it and the board held still. While you compete, your skater rides the game's stock physics. A trick recorded as another is your game's. Noclip and boosts follow the host's rules. |
 | `trainer` | [`reskate.trainer.set_point`, `reskate.trainer.back`](/plugins/api/skater) | Your skater going back to the point, as a teleport. Refused when the host turned teleporting off. |
 | `skater.animation` | [`reskate.animation.play`, `stop`, `playing`, `replace`, `record`, `recorded`, `forget`, `trick`](/plugins/api/animation) | The clips your skater plays: other players see your body as your game draws it. |
 | `outfit` | [`reskate.outfit.set`, `clear`, `find`, `slots`, `status`](/plugins/api/outfit) | What your skater wears over the outfit (tattoos, moles, eyewear; never a paid store item). |

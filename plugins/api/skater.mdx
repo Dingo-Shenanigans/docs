@@ -564,7 +564,7 @@ end)
 
 ## Tricks
 
-`reskate.tricks` reads skate.'s own trick list, as its score HUD writes it, and the stick flick behind each flip trick.
+`reskate.tricks` reads skate.'s own trick list, as its score HUD writes it, and the stick flick behind each flip trick. It also changes what the trick ticker shows, and what a trick is recorded as.
 
 ### `reskate.tricks.feed(on)`
 
@@ -614,6 +614,54 @@ end)
 
 <Note>
 Needs the `events.tricks` permission (the example also needs `overlay`, and `skater.read` for `goofy`). The gestures are read from the installed game in the background, the first time any call asks. Nothing of the game's is shipped.
+</Note>
+
+### `reskate.tricks.label(from, to)`
+
+Changes what skate.'s trick ticker shows of the local skater's tricks: where the game's label is exactly `from`, the ticker shows `to`. Only the ticker's own text changes, in the ticker's own buffer and only when it has room for `to`: the game's string database, other text and other players' tickers stay the game's.
+
+<ParamField path="from" type="string" required>The game's label, exactly as the ticker shows it, such as `"Board Stall"`. 1 to 63 characters.</ParamField>
+<ParamField path="to" type="string or nil" required>What to show in its place, 1 to 63 characters. `nil` gives that label back to the game.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the label is set (or given back).</ResponseField>
+<ResponseField name="why" type="string">Why not: `"a plugin has at most 16 labels"`, or `"trick labels are unavailable for this game build"`.</ResponseField>
+
+```lua
+-- "Rock to Fakie" while a stall is held (the physics state is 400 or 401).
+local t = reskate.skater.telemetry()
+local stalled = t and t.watch.valid and (t.watch.state == 400 or t.watch.state == 401)
+reskate.tricks.label("Board Stall", if stalled then "Rock to Fakie" else nil)
+```
+
+A label that is empty or longer than 63 characters raises an error. A label the ticker shows longer than 63 characters never matches.
+
+<Note>
+Needs the `hud` permission. Each plugin has up to 16 labels; when two plugins label the same text, one of theirs shows. When the plugin stops, its labels are given back.
+</Note>
+
+### `reskate.tricks.record_as(from, to, within_ms)`
+
+Records the next trick the game records whose id is one of `from` as the trick `to` instead, if it comes within `within_ms` of the call. The game's trick recorder gets a changed copy of the trick; the game's own is never written. What scores, the trick list and the trick's history then see is the trick `to`.
+
+<ParamField path="from" type="table or integer" required>The game's trick ids to replace: a list of 1 to 16, or one. Each is a whole number, 0 to 336.</ParamField>
+<ParamField path="to" type="integer" required>The trick id to record instead, 0 to 336.</ParamField>
+<ParamField path="within_ms" type="number" required>How long the ask waits for that trick, 1 to 2000 ms. Past that it is dropped.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the ask is waiting.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"not while a throwdown runs"`, or `"trick records are unavailable for this game build"`.</ResponseField>
+
+Trick ids are the game's own numbers in its trick catalogue. Among them: 9 is a Board Stall (`bs_board`), 12 a Lip Stall (`bs_lip`) and 187 a rock to fakie (`fakie_rock`).
+
+```lua
+-- B pressed while a stall is held: the stall the game records next is a rock to fakie.
+local ok, why = reskate.tricks.record_as({9, 12}, 187, 250)
+if not ok then reskate.log("no rock to fakie: " .. why) end
+```
+
+An id that is not a whole number from 0 to 336, an empty list or one of more than 16, or a `within_ms` out of range raises an error.
+
+<Note>
+Needs the `skater.control` permission. Each plugin has one ask waiting at a time: a new one replaces it. It is used once, by the first trick that matches. Refused while a throwdown runs, as trick replacements are. When the plugin stops, its ask is dropped. A recorded trick is your game's: whether a multiplayer host sees it the same has not been checked.
 </Note>
 
 ## Trainer

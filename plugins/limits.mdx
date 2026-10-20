@@ -135,6 +135,7 @@ These raise a Lua error. The plugin runs on.
 | Server calls | 20 a second, all `reskate.server` functions, `player.permissions` and `player:apply_permissions` together | `more than 20 server calls in a second` |
 | Turning a value into JSON | nested at most 32 deep | `tables nested deeper than 32 cannot be turned into JSON` |
 | Data files (`reskate.files`) | 64 calls a second | `more than 64 file calls in a second` |
+| Trick labels | 16 a plugin, 1 to 63 characters each | `a label is 1 to 63 characters` |
 | Dialogs (`reskate.ui.dialog`) | 120 calls a second | `more than 120 dialog calls in a second` |
 
 ## Limits that refuse a call with false
