@@ -130,6 +130,27 @@ end)
 
 <Note>Needs `session.skaters`.</Note>
 
+### `reskate.session.joint(player, joint)`
+
+Where one of another player's joints is in the world, as your game draws their skater.
+
+<ParamField path="player" type="string or table" required>The player, by id or player table.</ParamField>
+<ParamField path="joint" type="number or string" required>A joint, as [`reskate.skater.joint`](/plugins/api/skater) takes it: 0 to 394, or `"right_hand"`, `"left_hand"`, `"head"`, `"hips"` or `"spine"`.</ParamField>
+
+<ResponseField name="joint" type="table or nil">`{position, rotation, scale}`, as `reskate.skater.joint` gives it. `nil` while your game does not draw that player, and on the first call: asking keeps the joint read for 2 seconds, so call it every tick. At most 64 joints of other players are read at once, for every plugin together.</ResponseField>
+
+```lua
+-- A marker over each player's head.
+reskate.on("draw", function(d)
+    for _, p in reskate.session.skaters() do
+        local head = reskate.session.joint(p.id, "head")
+        if head then d:world_text(head.position + vector.create(0, 0.4, 0), "IT", {colour = "#ff4040"}) end
+    end
+end)
+```
+
+<Note>Needs `session.skaters`. A `player` that is not a player's id, or a joint that is not one of those, raises an error.</Note>
+
 ### `reskate.session.tag(player, text, colour)`
 
 Puts a short tag beside a player's nametag, or takes yours away. Only this player sees it: it changes nothing on anyone else's game.

@@ -369,6 +369,25 @@ end)
 Needs the `skater.control` permission. The plugin that last held the board owns the hold: another plugin's `hold(false)` does nothing. When the plugin stops, its hold is let go.
 </Note>
 
+### `reskate.skater.set_velocity(velocity, add)`
+
+Sets the board's velocity, or adds to it, at the next physics step that has the skater on its board, on the ground or in the air. For keeping speed through a teleport, a launch, a tow, or steering something the skater rides. Unlike `push`, it needs no stock physics, keeps `y`, and works in the air.
+
+<ParamField path="velocity" type="vector" required>Metres per second, in the world. At most 100 m/s on each axis.</ParamField>
+<ParamField path="add" type="boolean" default="false">True to add it to the board's velocity (an impulse) instead of replacing it.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the velocity waits for its physics step.</ResponseField>
+<ResponseField name="why" type="string">When `ok` is false: `"the host has turned boosts off"`, in a session whose host turned boosts off, or `"not while a throwdown runs"` (unless the game's stock physics is on, as a game mode has it).</ResponseField>
+
+```lua
+-- A jump pad: 9 m/s up, on top of the skater's own speed.
+reskate.skater.set_velocity(vector.create(0, 9, 0), true)
+```
+
+<Note>
+Needs the `skater.control` permission. The velocity waits 500 ms for a physics step with the skater on its board, then is dropped: off the board (bailed, walking) or while a teleport is under way, nothing is written. A new call replaces one still waiting, whichever plugin made it. A velocity that is not a finite vector, or over 100 m/s on any axis, raises an error.
+</Note>
+
 ### `reskate.skater.cruise(speed, may_slow)`
 
 Cruise control: carries the skater up to a speed while it rolls, with no pushing. The skater must be rolling (at least 1 m/s) and not braking; it gains up to 0.15 m/s a physics step until it reaches the speed. Pushing still works as usual, and can take the skater faster. It needs no stock physics.
@@ -440,6 +459,74 @@ reskate.on("load", function() reskate.physics.prepare() end)
 
 <Note>Needs the `skater.control` permission.</Note>
 
+## Physics tuning
+
+The game's physics tuning, value by value, as ReSkate's trainer has it: jump heights, push speeds, truck settings and the rest. A plugin reads them and sets its own over the player's, for as long as it keeps them. ReSkate never saves a plugin's values: the player's own come back when the plugin lets go or stops.
+
+Each value has an id, the trainer's name for it, such as `"PhysicsMode.JumpMaxHeight"`; case does not matter. A curve or graph is set as one multiplier on its outputs, and its id ends in `" x"`. Use `find` to look ids up.
+
+### `reskate.physics.tuning(id)`
+
+<ParamField path="id" type="string" required>The value's id, 1 to 200 characters.</ParamField>
+
+<ResponseField name="value" type="table or nil">
+`nil`, with a second result saying why: `"the game's physics tuning is not read yet"` (it is read in the background once the game is up) or `"no tuning value is called \"<id>\""`.
+<Expandable title="fields">
+<ResponseField name="id" type="string">Its id, as the trainer writes it.</ResponseField>
+<ResponseField name="label" type="string">Its name in the trainer's list.</ResponseField>
+<ResponseField name="group" type="string">The trainer's group it is in.</ResponseField>
+<ResponseField name="kind" type="string">`"number"`, `"integer"`, `"flag"` (0 or 1) or `"multiplier"` (a curve's or a graph's).</ResponseField>
+<ResponseField name="value" type="number">What the running game has now: the player's own, a plugin's, or the session host's.</ResponseField>
+<ResponseField name="stock" type="number">The game's own.</ResponseField>
+<ResponseField name="tuner" type="string">The id of the plugin whose value it is, when one set it.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.physics.find(text)`
+
+The values whose id has every word of `text` in it, case aside. A word starting with `!` must not be in the id.
+
+<ParamField path="text" type="string" required>At most 200 characters. `""` lists from the start.</ParamField>
+
+<ResponseField name="values" type="table">A list of at most 64 values, each as `tuning` gives it, in the trainer's order. Empty while the tuning is not read.</ResponseField>
+
+```lua
+for _, v in reskate.physics.find("jump !hippy") do
+    reskate.log(string.format("%s = %g (stock %g)", v.id, v.value, v.stock))
+end
+```
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.physics.tune(id, value)`
+
+Sets a value over the player's own. The value stays until you let go of it, the player changes it in the trainer (which takes it back from you), or your plugin stops. A value another value drives (a linked one's graphs) follows it, as in the trainer.
+
+<ParamField path="id" type="string" required>The value's id, 1 to 200 characters.</ParamField>
+<ParamField path="value" type="number, boolean or nil" required>The new value, within a million either way. A flag takes `true` or `false` (or 1 and 0), an integer is rounded, and a multiplier is at least 0. `nil` lets go: what was there before you set it comes back.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the value is set (or let go).</ResponseField>
+<ResponseField name="why" type="string">
+When `ok` is false:
+- `"the game's physics tuning is not read yet"`, or `"no tuning value is called \"<id>\""`.
+- `"<plugin> tunes <id>"`: another plugin has set it.
+- `"This session's host sets everyone's physics: you skate with the host's."`: you are a guest in a session whose host's tuning everyone skates with.
+- `"the player has locked <id> in the trainer"`.
+</ResponseField>
+
+```lua
+-- Moon jumps while the plugin is on.
+local ok, why = reskate.physics.tune("PhysicsMode.JumpMaxHeight", 3)
+if not ok then reskate.log("no moon jumps: " .. why, "warn") end
+reskate.on("unload", function() reskate.physics.tune("PhysicsMode.JumpMaxHeight", nil) end)
+```
+
+<Note>
+Needs the `skater.control` permission. An id that is not 1 to 200 characters, or a value that is not finite or is over a million either way, raises an error. Letting go of a value you did not set does nothing. In a session you host, your guests skate with your tuning, a plugin's values included, as they do with the trainer's.
+</Note>
+
 ## Arm reach
 
 Your skater's arm reaches for a point in the world: the upper arm and forearm bend, so the hand gets there, with the elbow out from the body and a little down and back. The arm bends after whatever the animation (or a [clip](/plugins/api/animation)) does with it, in the pose your game draws and sends to the other players, so they see your skater reach too.
@@ -489,6 +576,52 @@ Where one of your skater's hand joints is in the world, as the pose was last wor
 </ResponseField>
 
 <Note>Needs the `skater.read` permission. To keep an object in a hand every frame, attach it to the joint with [`reskate.entities.set`](/plugins/api/world#your-own-world-objects) instead of moving it yourself.</Note>
+
+### `reskate.skater.pose(joints, weight)`
+
+Turns and scales joints of your skater on top of whatever the animation (or a clip) does, in the pose your game draws and sends, so other players see it too. For a style of your own, a head shrunk out of a first-person view, a pose held. A reach bends the arm after this.
+
+<ParamField path="joints" type="table or nil" required>
+Keyed by joint, as `reskate.skater.joint` takes one (a number from 2 to 394, or a name), each with:
+<Expandable title="fields">
+<ParamField path="rotation" type="table">A turn in the joint's own frame, `{x, y, z, w}`, scaled to a length of 1.</ParamField>
+<ParamField path="angles" type="vector">The same as degrees about the joint's own X, then Y, then Z. Used instead of `rotation` when both are given.</ParamField>
+<ParamField path="scale" type="number" default="1">0 to 10: the joint's size, its children's with it. 0 hides it.</ParamField>
+</Expandable>
+`nil` (or `{}`) ends your pose.
+</ParamField>
+<ParamField path="weight" type="number" default="1">0 to 1: how far from the animation to your pose.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the joints are posed (or let go).</ResponseField>
+<ResponseField name="why" type="string">`"<plugin> poses the skater"` when another plugin posed it in the last 300 ms.</ResponseField>
+
+```lua
+-- Head shrunk away for a first-person camera, the chest turned a little towards the front foot.
+reskate.on("tick", function()
+    reskate.skater.pose({head = {scale = 0}, spine = {angles = vector.create(0, 15, 0)}})
+end)
+```
+
+<Note>
+Needs the `skater.animation` permission. A pose lasts 300 ms: call it every tick to keep it. One plugin poses at a time; `nil` from another plugin does nothing. Joints 0 and 1 place the skater in the world and cannot be posed. At most 64 joints at once, each once. A joint that is not one of those, a `rotation` that is not 4 finite numbers with a length, `angles` that are not a finite vector, a `scale` outside 0 to 10, or a `weight` outside 0 to 1 raises an error. It also works while a throwdown runs. When the plugin stops, its pose ends.
+</Note>
+
+### `reskate.skater.joint(joint)`
+
+Where one of your skater's joints is in the world, as the pose was last worked out (after any clip and reach). For a hat on the head, a light on the board's nose, a trail from a hand.
+
+<ParamField path="joint" type="number or string" required>A joint of the skater's animation skeleton, 0 to 394, or one of `"right_hand"` (49), `"left_hand"` (278), `"head"` (103), `"hips"` (7) and `"spine"` (42). Anything else raises an error.</ParamField>
+
+<ResponseField name="joint" type="table or nil">
+`nil` without a skater, and on the first call for a joint: asking keeps that joint read for 2 seconds, so call it every tick. ReSkate reads at most 32 of your skater's joints at once, for every plugin together; past that, a joint not already read gives `nil`.
+<Expandable title="fields">
+<ResponseField name="position" type="vector">The joint's position.</ResponseField>
+<ResponseField name="rotation" type="table">Its rotation, `{x, y, z, w}`.</ResponseField>
+<ResponseField name="scale" type="number">Its scale.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `skater.read` permission. `reskate.session.joint` reads another player's.</Note>
 
 ## Grind exits
 

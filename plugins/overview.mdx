@@ -37,7 +37,7 @@ What a plugin may touch depends on the permissions its manifest lists. With none
 
 Some things are left out of the API on purpose, whatever a manifest asks for:
 
-- **Write cosmetics, entitlements or progression.** `progression.read` and `settings.read` only read. `outfit` wears tattoos, moles and eyewear over your outfit, and never a paid store item.
+- **Write cosmetics, entitlements or progression.** `progression.read` only reads. `outfit` wears tattoos, moles and eyewear over your outfit, and never a paid store item.
 - **Run ReSkate's console commands.** A plugin adds its own commands. ReSkate refuses a command name whose first word is one of ReSkate's, `plugin` or `help`.
 - **Reach game memory, files or programs.** There is no API for memory, no `io`, no `os.execute`, and no loading of code but the plugin's own Luau source. A plugin reads only files inside its own package.
 - **Use the microphone, voice audio or the clipboard.** `voice.control` sets how loud another player is to you, nothing more.

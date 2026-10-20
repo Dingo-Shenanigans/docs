@@ -1,12 +1,13 @@
 ---
 title: "Progression and settings"
-description: "reskate.progression and reskate.settings: read the player's progress and the game's settings."
+description: "reskate.progression and reskate.settings: read the player's progress, and read the game's settings or hold one at a value of yours."
 ---
 
-These tables read the player's progress in the game and the game's own settings. Both are read only: nothing here changes the profile or a setting.
+These tables read the player's progress in the game and the game's own settings. Nothing here changes the profile. A plugin can hold a game setting at a value of its own while it runs, and the setting goes back to what it was after.
 
 - `reskate.progression.get` needs the `progression.read` permission.
 - `reskate.settings.game` and `reskate.settings.names` need the `settings.read` permission.
+- `reskate.settings.set` needs the `settings.write` permission.
 
 Calling a function without its permission raises an error. See [permissions](/plugins/permissions).
 
@@ -82,3 +83,34 @@ Every setting name known so far: those listed from the engine's settings this se
 <ResponseField name="names" type="table">A list of strings.</ResponseField>
 
 <Note>Needs the `settings.read` permission.</Note>
+
+### `reskate.settings.set(name, value)`
+
+Holds a game setting at a value of yours for as long as your plugin keeps it. When you let go, or your plugin stops, the setting goes back to the value it had when you first set it, unless something else has changed it since: then it stays as that left it.
+
+<ParamField path="name" type="string" required>The setting's name, as `names()` lists it. At most 120 characters; longer raises an error.</ParamField>
+<ParamField path="value" type="string, number, boolean or nil" required>The value, as the console takes it: text of at most 200 characters, a number, or `true` and `false`. `nil` lets go.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the setting holds your value (or you let go).</ResponseField>
+<ResponseField name="why" type="string">
+When `ok` is false:
+- `"no game setting is called \"<name>\""`.
+- `"<plugin> holds <name>"`: another plugin set it first.
+- `"<name> changes how the game plays, so it cannot be changed during a multiplayer session"`.
+- `"a plugin holds at most 32 settings"`.
+- The game's own reason, for a value the setting cannot take.
+</ResponseField>
+
+```lua
+-- Every field-of-view setting held at 90 while the plugin runs; each goes back when it stops.
+for _, name in reskate.settings.names() do
+    if string.find(name, "Fov", 1, true) then
+        local ok, why = reskate.settings.set(name, 90)
+        if not ok then reskate.log(name .. " unchanged: " .. why, "warn") end
+    end
+end
+```
+
+<Note>
+Needs the `settings.write` permission. During a multiplayer session, settings that change how the game plays are refused, as they are from the console: those of the `SimulationTime`, `Physics`, `PhysicsQuality`, `FBCorePhysics`, `DingoGameplay`, `DingoActivity`, `DingoThrowdowns`, `DingoThrowdown`, `DelMarGame`, `AutoPlayers` and `SkaterRecord` groups. One your plugin held before the session goes back when it starts. Letting go of a setting you do not hold does nothing.
+</Note>
