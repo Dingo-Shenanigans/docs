@@ -324,6 +324,34 @@ end)
 
 <Note>Needs the `input` permission. Each plugin gets all the movement: reading it does not take it from another plugin. Your first read gives only the latest movement, and a plugin that has not read for 2 seconds starts again that way.</Note>
 
+### `reskate.input.cursor()`
+
+The mouse over the game window while one of your plugin's screens is open: for a tool on a [docked screen](/plugins/api/menu#full-screen-screens) that picks or drags things the player sees.
+
+<ResponseField name="cursor" type="table or nil">
+`nil` while none of your screens is open.
+<Expandable title="fields">
+<ResponseField name="position" type="vector">Where the mouse is, in pixels from the window's top left, as the overlay's screen shapes place them.</ResponseField>
+<ResponseField name="left" type="boolean">True while the left button is held. Also `right` and `middle`.</ResponseField>
+<ResponseField name="wheel" type="number">The wheel's notches since your last read: above 0 rolled away from the player.</ResponseField>
+<ResponseField name="over_screen" type="boolean">True while the mouse is over your screen's own panel, where its widgets take the clicks.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+-- Pick the nearest of the points drawn last frame with a left click beside the panel.
+local was_down = false
+reskate.on("tick", function()
+    local c = reskate.input.cursor()
+    if c and not c.over_screen and c.left and not was_down then
+        pick_near(c.position)
+    end
+    was_down = c ~= nil and c.left
+end)
+```
+
+<Note>Needs the `input` permission.</Note>
+
 ### `reskate.input.game_buttons(hidden, held, pause)`
 
 Keeps pad buttons from the game, for a plugin that gives them a job, and pauses all game input for a moment. Your plugin still reads every button with `pad_bits` and `gamepad`.

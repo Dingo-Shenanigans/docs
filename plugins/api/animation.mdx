@@ -1,9 +1,9 @@
 ---
 title: "Animation"
-description: "reskate.animation: play clips on the local skater's body, replace the game's tricks with your own, and record the skater's pose."
+description: "reskate.animation: play clips on the local skater's body, replace the game's tricks with your own, record the skater's pose, and cut, key and save clips."
 ---
 
-`reskate.animation` plays clips on the local skater's body. A clip is an Animation Studio clip file in your plugin's package, or a recording the plugin made with `record`. Every function needs the `skater.animation` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+`reskate.animation` plays clips on the local skater's body. A clip is an Animation Studio clip file in your plugin's package or its data folder, a recording the plugin made with `record`, or one it made from another with `trim` or `edit`. Every function needs the `skater.animation` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
 
 <Warning>
 Other players see what is drawn: a clip on your skater shows on their games too.
@@ -22,9 +22,11 @@ Other players see what is drawn: a clip on your skater shows on their games too.
 Every function that takes a clip takes its name:
 
 - A path in your plugin's package, such as `"clips/spin.fas"` (with `/` between folders, no `..`). The file is read once, the first time you name it, and kept under that name.
+- `"data:"` and a path in your plugin's [data folder](/plugins/api/files), such as `"data:anims/kick.fas"`, for a clip `save` wrote there. It needs the `files` permission too. It is read once and kept, like a package file: `forget` it to read it again after saving over it.
 - `"rec:1"`, `"rec:2"`... for a recording, as `recorded()` named it.
+- `"clip:<n>"` for a clip `trim` or `edit` made, and `"edit:<name>"` for one `edit` made under a name.
 
-A file that cannot be read, is not a clip, has more joints than the skater or has no frames raises an error, as does a recording name that is not one.
+A file that cannot be read, is not a clip, has more joints than the skater or has no frames raises an error, as does a `rec:`, `clip:` or `edit:` name the plugin does not hold.
 
 <Note>
 A plugin's clips hold at most 48 MB of poses together, counted as 40 bytes a joint a frame. A clip file is at most 8 MB. Each `record` needs room for 10 seconds of poses (about 9.5 MB) before it starts. `forget` gives a clip's room back.
@@ -40,6 +42,8 @@ Plays a clip on the skater's body from now.
 <ParamField path="speed" type="number" default="1">0.1 to 4: how many times as fast.</ParamField>
 <ParamField path="blend" type="number" default="0.15">0 to 2: the seconds it blends in and out over.</ParamField>
 <ParamField path="loop" type="boolean" default="false">True to play it over and over until `stop`.</ParamField>
+<ParamField path="at" type="number" default="0">Seconds into the clip it starts from, 0 to its length.</ParamField>
+<ParamField path="paused" type="boolean" default="false">True to hold the skater in the clip's pose at `at` until `pause(false)`. A paused clip never finishes. For an editor's timeline: move it with `seek`.</ParamField>
 </Expandable>
 </ParamField>
 
@@ -70,6 +74,34 @@ Returns nothing.
 Whether this plugin's clip is still playing.
 
 <ResponseField name="playing" type="boolean">False once a clip that does not loop has finished, after `stop`, or when another plugin plays.</ResponseField>
+
+<Note>Needs the `skater.animation` permission.</Note>
+
+### `reskate.animation.seek(seconds)`
+
+Moves your playing clip to a time: held there when it is paused, playing on from there when not. It has no rate limit, so a timeline can call it as it is dragged.
+
+<ParamField path="seconds" type="number" required>Seconds into the clip, 0 or more; past its end is its end.</ParamField>
+
+Returns nothing. Without a clip of yours playing, it does nothing.
+
+<Note>Needs the `skater.animation` permission. A negative or non-finite number raises an error.</Note>
+
+### `reskate.animation.pause(on)`
+
+Holds your playing clip where it is, or lets it play on from there.
+
+<ParamField path="on" type="boolean" default="true">True (or nothing) to hold it, false to let it play.</ParamField>
+
+Returns nothing. Without a clip of yours playing, it does nothing.
+
+<Note>Needs the `skater.animation` permission.</Note>
+
+### `reskate.animation.time()`
+
+Where in its clip your playing clip is.
+
+<ResponseField name="seconds" type="number or nil">Seconds into the clip (within it, for a clip that loops). `nil` when no clip of yours is playing.</ResponseField>
 
 <Note>Needs the `skater.animation` permission.</Note>
 
@@ -144,6 +176,126 @@ reskate.animation.forget("rec:1")
 ```
 
 <Note>Needs the `skater.animation` permission.</Note>
+
+## Working on clips
+
+These read clips and make new ones from them, for a plugin that edits animations. Each clip they make counts towards your plugin's 48 MB of poses: `forget` the ones you are done with.
+
+### `reskate.animation.info(clip)`
+
+<ParamField path="clip" type="string" required>The clip's name.</ParamField>
+
+<ResponseField name="info" type="table">
+<Expandable title="fields">
+<ResponseField name="duration" type="number">Its length in seconds.</ResponseField>
+<ResponseField name="frames" type="integer">How many frames it holds.</ResponseField>
+<ResponseField name="joints" type="integer">Joints a frame (395 for a recording).</ResponseField>
+<ResponseField name="board" type="boolean">True when it holds the board, frame by frame.</ResponseField>
+<ResponseField name="takeoff" type="number">Seconds into the clip the trick takes off, when it has one. A recording marks it when the skater leaves the ground.</ResponseField>
+<ResponseField name="landing" type="number">Seconds into the clip the trick lands, when it has one.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `skater.animation` permission.</Note>
+
+### `reskate.animation.sample(clip, joint, seconds)`
+
+One joint of a clip at a time, blended between the frames around it.
+
+<ParamField path="clip" type="string" required>The clip's name.</ParamField>
+<ParamField path="joint" type="number or string" required>A joint, as [`reskate.skater.joint`](/plugins/api/skater) takes one (0 to 394, or a name), or `"board"`.</ParamField>
+<ParamField path="seconds" type="number" required>Seconds into the clip; before its start is its start, past its end its end.</ParamField>
+
+<ResponseField name="joint" type="table or nil">`{position, rotation, scale}` in the joint's parent's frame (the board's: relative to joint 1, the skater's placement). `nil` for a joint the clip does not hold, or `"board"` in a clip without the board.</ResponseField>
+
+<Note>Needs the `skater.animation` permission. A joint that is not one of those, or a time that is not a number, raises an error.</Note>
+
+### `reskate.animation.joints()`
+
+The joints an animation editor offers, in the order Animation Studio lists them: the board, the hips, the back and chest, the neck and head, the arms and hands, the legs and feet, then three more of the back and neck.
+
+<ResponseField name="joints" type="table">A list of 25 tables: `joint` (its number, or `"board"`), `label` (such as `"Hips"`) and `moves` (true for the board and the hips, which take an offset as well as a turn).</ResponseField>
+
+<Note>Needs the `skater.animation` permission.</Note>
+
+### `reskate.animation.trim(clip, from, to)`
+
+A new clip of the frames between two times, starting at 0. Its takeoff and landing move with it, and one outside it is dropped.
+
+<ParamField path="clip" type="string" required>The clip's name.</ParamField>
+<ParamField path="from" type="number" required>Seconds, 0 or more.</ParamField>
+<ParamField path="to" type="number" required>Seconds, later than `from`.</ParamField>
+
+<ResponseField name="clip" type="string">The new clip's name, `"clip:<n>"`.</ResponseField>
+
+```lua
+-- A recording cut to its trick: a little before the takeoff to a little after the landing.
+local i = reskate.animation.info(rec)
+if i.takeoff and i.landing then
+    local cut = reskate.animation.trim(rec, math.max(0, i.takeoff - 0.6), math.min(i.duration, i.landing + 0.8))
+    reskate.animation.forget(rec)
+end
+```
+
+<Note>Needs the `skater.animation` permission. A `to` not later than `from`, or a span with fewer than two frames, raises an error.</Note>
+
+### `reskate.animation.edit(clip, tracks, options)`
+
+A new clip: `clip` with keyframed edits on its joints. Each key turns a joint in its own frame and moves it in its parent's, on top of what the clip has, and the edit is eased from each key into the next. The keys are baked into every frame, so the new clip plays, replaces a trick and saves like any other.
+
+<ParamField path="clip" type="string" required>The clip the edits go on.</ParamField>
+<ParamField path="tracks" type="table" required>
+A list of tracks, each a table:
+<Expandable title="fields">
+<ParamField path="joint" type="number or string" required>The joint, as `sample` takes one, `"board"` included. Not 0 or 1, which place the skater.</ParamField>
+<ParamField path="keys" type="table" required>
+A list of keys, in any order. Each is a table:
+<Expandable title="fields">
+<ParamField path="time" type="number" required>Seconds into the clip (clamped to it).</ParamField>
+<ParamField path="rotation" type="table">A turn in the joint's own frame, `{x, y, z, w}`, scaled to a length of 1.</ParamField>
+<ParamField path="angles" type="vector">The same as degrees about the joint's own X, then Y, then Z. Used instead of `rotation` when both are given.</ParamField>
+<ParamField path="offset" type="vector">Metres in the joint's parent's frame, at most 10 on each axis.</ParamField>
+<ParamField path="ease" type="string" default='"smooth"'>How it goes into the next key: `"smooth"`, `"linear"` or `"step"` (it holds until the next key).</ParamField>
+</Expandable>
+Before a track's first key and after its last, the nearest key holds.
+</ParamField>
+</Expandable>
+</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="name" type="string">Keep the new clip as `"edit:<name>"`, in place of the last one of that name: for an editor that bakes again after each change. 1 to 48 letters, digits, spaces, `-` and `_`. Without it, the clip is `"clip:<n>"`.</ParamField>
+<ParamField path="takeoff" type="number">Seconds: the new clip's takeoff, or -1 for none. Default: the clip's.</ParamField>
+<ParamField path="landing" type="number">The same for its landing.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="clip" type="string">The new clip's name.</ResponseField>
+
+```lua
+-- The hips turned 90 degrees and lifted 20 cm halfway through, back by the end.
+local keyed = reskate.animation.edit(cut, {
+    {joint = "hips", keys = {
+        {time = 0},
+        {time = 0.4, angles = vector.create(0, 90, 0), offset = vector.create(0, 0.2, 0)},
+        {time = 0.8},
+    }},
+}, {name = "work"})
+reskate.animation.play(keyed, {paused = true, at = 0.4})
+```
+
+<Note>Needs the `skater.animation` permission. At most 128 tracks and 4096 keys. A joint with two tracks, 0 or 1 as a joint, a key without a time, an ease that is not one of the three, an offset over 10 m, or a name with other characters raises an error.</Note>
+
+### `reskate.animation.save(clip, path)`
+
+Writes a clip to your plugin's data folder as a clip file (`FAS3`), to name later as `"data:<path>"`. It writes over a file there.
+
+<ParamField path="clip" type="string" required>The clip's name.</ParamField>
+<ParamField path="path" type="string" required>A path in the data folder, as [`reskate.files.write`](/plugins/api/files) takes one. The folders it names are made.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it is written.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"a clip file is at most 8 MB"`, `"the data folder holds 1000 files already"`, or why the file could not be written.</ResponseField>
+
+<Note>Needs the `skater.animation` and `files` permissions. A clip file is at most 8 MB; the data folder's other files stay at most 1 MB.</Note>
 
 ### `reskate.animation.trick()`
 

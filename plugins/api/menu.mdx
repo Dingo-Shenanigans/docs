@@ -288,14 +288,20 @@ end)
 reskate.ui.open("Results")
 ```
 
-### `reskate.ui.screen(title, build)`
+### `reskate.ui.screen(title, build, options)`
 
 Adds a screen. It is built ten times a second while it is open, whether or not a menu is.
 
 <ParamField path="title" type="string" required>1 to 40 characters, different from your plugin's other screens. It is shown at the top, with your plugin's id and "Esc closes it" under it.</ParamField>
 <ParamField path="build" type="function" required>Called with `ui` each time the screen is built. It takes the same widgets as a page, drawn plainly: a card is a heading with its subtitle under it, and tabs are a row of names to pick from.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="dock" type="string">`"left"` or `"right"`: a panel down that side of the window, the game showing beside it, for a tool that works on what the player sees. While it is open, the game gets no input, and [`reskate.input.cursor`](/plugins/api/input) reads the mouse over the game.</ParamField>
+<ParamField path="width" type="number" default="0.3">A docked screen's share of the window's width, 0.2 to 0.6.</ParamField>
+</Expandable>
+</ParamField>
 
-<Note>Needs `ui.screen`. Raises an error for a title that is empty or longer than 40 characters, a title this plugin used already, a `build` that is not a function, and more than 4 screens.</Note>
+<Note>Needs `ui.screen`. Raises an error for a title that is empty or longer than 40 characters, a title this plugin used already, a `build` that is not a function, more than 4 screens, a `dock` that is not `"left"` or `"right"`, and a `width` out of range.</Note>
 
 ### `reskate.ui.open(title)`
 

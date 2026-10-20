@@ -200,6 +200,10 @@ Copy a plugin's folder into the game's `Mods` folder to try it, as with reskate-
 
 **rock-to-fakie**, TheRealEJR's Rock to Fakie as a plugin: ride up to a coping, Board Stall or Lip Stall on it, and press B to roll back in fakie. While the stall is held the trick ticker shows Rock to Fakie, and a stall left with B is recorded as the game's own `fakie_rock`. Off until switched on: `rocktofakie on`. Read it for [`reskate.tricks.label` and `record_as`](/plugins/api/skater), the physics state in [`reskate.skater.telemetry`](/plugins/api/skater) and the pad in [`reskate.input.pad_bits`](/plugins/api/input).
 
+## Animator Studio
+
+**animator-studio**, the Animator Studio of 22sh, Fourth Studio and Norms as a plugin: record a trick, key the body and the board on a timeline, save it, and doing that trick in game plays your version. F8 (or L3 + R3) opens it, as a panel down the right of the screen with an orbit camera round the skater. Read it for [`reskate.animation`](/plugins/api/animation)'s `record`, `trim`, `edit`, `save` and paused play with `seek`, a [docked screen](/plugins/api/menu) with [`reskate.input.cursor`](/plugins/api/input), and [`reskate.skater.joint`](/plugins/api/skater) for the joints' dots.
+
 ## Settings for a companion program
 
 **dual-stick** puts the settings of GoalTrains' Dual Stick Controls companion (a program that translates Skate's controls across two sticks) on its own page: presets, five custom slots shared with the companion's menu, stance, stick layout and every other setting. It edits the companion's `session_controls.ini` in its own [data folder](/plugins/api/files), keeping every line it does not change, and never creates the file. `dualstick status`, `dualstick preset xl`. Read it for [`reskate.files`](/plugins/api/files), a whole settings page made of dropdowns ([menu](/plugins/api/menu)), and a file shared with a program outside the game.
