@@ -1,6 +1,6 @@
 ---
 title: "Server"
-description: "reskate.server: what only the session's authority does: kick a player, speak in chat, tell one player, move a skater."
+description: "reskate.server: what only the session's authority does: kick or ban a player, speak in chat, tell one player, move a skater, and set what a player may do."
 ---
 
 `reskate.server` is the session's authority acting on its players. It works only in a plugin's **server copy**, and every function needs the `server` permission. See [permissions](/plugins/permissions) and [manifest](/plugins/manifest).
@@ -27,7 +27,7 @@ Calling a `reskate.server` function in a client copy raises an error, as does ca
 
 ## Lobby host and dedicated server
 
-The four functions do not all work the same way in both places.
+The functions do not all work the same way in both places.
 
 | Function | On a lobby's host | On a dedicated server |
 | --- | --- | --- |
@@ -35,6 +35,8 @@ The four functions do not all work the same way in both places.
 | `say` | A line in the host's own chat, under the host's name, needing a session. | A line from the server to every player. |
 | `tell` | Not available: a lobby has no private chat. It returns `false` and says to message that player's copy instead. | A line to that player only. |
 | `move` | The player's game moves their skater (only a player in the world, not the host). | The same: the player's game makes the move. |
+| `ban`, `unban` | Not available: they return `false` and `"unavailable here"`. | The server's own ban list, as the console's `ban` and `unban`. |
+| `player.permissions`, `player:apply_permissions` | Not available: `permissions` is `nil`, and applying returns `false` and `"unavailable here"`. | What the player may do on the server, as the console's `lock`. |
 
 Chat lines from `say` and `tell` start with the plugin's name in brackets (`[My Plugin] ...`): the `name` in its `manifest.json`, or its folder's name without one.
 
@@ -120,8 +122,104 @@ end
 
 <Note>Needs the `server` permission and a server copy. A position that is not finite raises an error.</Note>
 
+### `reskate.server.ban(player)`
+
+Bans a player from a dedicated server, whether they are connected or not, as the server console's `ban` does: a connected player is dropped with "You were banned from this server.", and the ban is saved in the server's ban list.
+
+<ParamField path="player" type="string or table" required>The player: a player table, or any player's SteamID64 (17 digits starting `7656119`), here or not.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the player is banned afterwards, including one who was banned already.</ResponseField>
+<ResponseField name="why" type="string">Why not: the console's answer, such as `"Enter a connected player or a SteamID64 (17 digits starting 7656119)."`; on a lobby's host `"unavailable here"`.</ResponseField>
+
+```lua
+-- Three kicks and you are banned.
+local function strike(player)
+    local kicks = reskate.storage.add("kicks." .. player.id, 1)
+    if kicks >= 3 then
+        reskate.server.ban(player)
+    else
+        reskate.server.kick(player, "warning " .. kicks .. " of 3")
+    end
+end
+```
+
+Each ban the plugin makes is written to the server's log.
+
+<Note>Needs the `server` permission and a server copy on a dedicated server. The example also needs `storage`.</Note>
+
+### `reskate.server.unban(player)`
+
+Lifts a dedicated server's ban on a player, as the server console's `unban` does. The player may also join again at once if they were kicked.
+
+<ParamField path="player" type="string or table" required>The player: a player table or a SteamID64.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the player is not banned afterwards, including one who was not banned.</ResponseField>
+<ResponseField name="why" type="string">Why not: on a lobby's host `"unavailable here"`.</ResponseField>
+
+```lua
+reskate.server.unban("76561198000000001")
+```
+
+<Note>Needs the `server` permission and a server copy on a dedicated server.</Note>
+
+## Player permissions
+
+On a dedicated server, the server copy decides what each player may do, as the server console's `lock` does. A player table (from `reskate.session.players()`, the `player_joined` event and the others) has two names of its own for this in a server copy: `permissions` and `apply_permissions`.
+
+| Permission | When it is `false` |
+| --- | --- |
+| `noclip` | No noclip or teleporting. |
+| `nobail` | No No Bail. |
+| `boosts` | No boosts. |
+| `tuning` | No physics tuning of the player's own. |
+| `objects` | No placing objects. |
+| `ollies` | No ollies. |
+
+### `player.permissions`
+
+What the server holds for the player now: a read-only table with each permission above, `true` where the player may. It is read from the server each time you read it.
+
+<ResponseField name="permissions" type="table or nil">
+`nil` for a player the server cannot hold permissions for (not a player's SteamID64), and on a lobby's host.
+</ResponseField>
+
+```lua
+local p = player.permissions
+if p and not p.noclip then reskate.server.tell(player, "Noclip is off for you here.") end
+```
+
+Reading it outside a server copy, or without the `server` permission, raises an error. Each read counts as a `reskate.server` call (see [limits](#limits)).
+
+### `permissions:clone()`
+
+A copy of a permissions table that you can change, for `apply_permissions`. The table `player.permissions` gives is read-only.
+
+<ResponseField name="copy" type="table">The same six permissions, each `true` or `false`.</ResponseField>
+
+### `player:apply_permissions(permissions)`
+
+Makes the player's permissions exactly these. They hold as an admin's locks do: a throwdown ending does not lift them.
+
+<ParamField path="permissions" type="table" required>All six permissions, each `true` or `false`, and nothing else: start from `player.permissions:clone()`, so none is left out by mistake. A permission that is missing or not a boolean, or a name that is not a permission, raises an error.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the permissions were applied.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"not a player's SteamID64"`; on a lobby's host `"unavailable here"`.</ResponseField>
+
+```lua
+-- No noclip or boosts while the race runs; the rest as it was.
+reskate.on("player_joined", function(player)
+    local p = player.permissions
+    if not p then return end
+    local race = p:clone()
+    race.noclip, race.boosts = false, false
+    player:apply_permissions(race)
+end)
+```
+
+<Note>Needs the `server` permission and a server copy on a dedicated server. The example also needs `session.read`. Each call counts as a `reskate.server` call.</Note>
+
 ## Limits
 
 <Note>
-A server copy makes at most 20 `reskate.server` calls a second; the 21st raises an error. `say` also has its own limit of one line a second, which returns `false`. See [limits](/plugins/limits).
+A server copy makes at most 20 `reskate.server` calls a second, reading `player.permissions` and `apply_permissions` included; the 21st raises an error. `say` also has its own limit of one line a second, which returns `false`. See [limits](/plugins/limits).
 </Note>

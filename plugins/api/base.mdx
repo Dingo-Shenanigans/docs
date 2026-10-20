@@ -1,6 +1,6 @@
 ---
 title: "Base API"
-description: "The reskate table every plugin gets: its id and side, logging, events, print, require and the sandbox."
+description: "The reskate table every plugin gets: its id and side, named constants, logging, events, print, require and the sandbox."
 ---
 
 The base set is what every plugin has, with no permission: who the plugin is, where it runs, its log, its event handlers, `print`, `require` for its own modules, and the Luau libraries the sandbox keeps.
@@ -30,6 +30,23 @@ end
 ### `reskate.api_version`
 
 The plugin API this ReSkate gives plugins, a number. It is `1`. A plugin whose manifest asks for a newer `"api"` is not loaded.
+
+### `reskate.Enums`
+
+Named constants for the strings the API takes, read-only and built from ReSkate's own lists, so a name that is not there is `nil` rather than a typo that never matches. Each constant is the string itself: plain strings work as well.
+
+<ResponseField name="Enums" type="table">
+<Expandable title="fields">
+<ResponseField name="Side" type="table">The copies a plugin runs as: `client`, `server` and `both`, each its own name (`reskate.Enums.Side.server` is `"server"`).</ResponseField>
+<ResponseField name="Event" type="table">Every event `reskate.on` takes, each its own name (`reskate.Enums.Event.tick` is `"tick"`). See [events](/plugins/events).</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local E = reskate.Enums.Event
+reskate.on(E.level_loaded, function() reskate.log("a level loaded") end)
+if reskate.side == reskate.Enums.Side.server then reskate.log("the server copy") end
+```
 
 ### `reskate.level.current()`
 

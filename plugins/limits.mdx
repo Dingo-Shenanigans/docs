@@ -132,7 +132,7 @@ These raise a Lua error. The plugin runs on.
 | Web requests waiting | 4 | `more than 4 web requests waiting for an answer` |
 | Web request body | 65536 characters | `a web request's body is longer than 65536 characters` |
 | Web request URL | 2048 characters | `a web request's url is longer than 2048 characters` |
-| Server calls | 20 a second, all `reskate.server` functions together | `more than 20 server calls in a second` |
+| Server calls | 20 a second, all `reskate.server` functions, `player.permissions` and `player:apply_permissions` together | `more than 20 server calls in a second` |
 | Turning a value into JSON | nested at most 32 deep | `tables nested deeper than 32 cannot be turned into JSON` |
 | Data files (`reskate.files`) | 64 calls a second | `more than 64 file calls in a second` |
 | Dialogs (`reskate.ui.dialog`) | 120 calls a second | `more than 120 dialog calls in a second` |

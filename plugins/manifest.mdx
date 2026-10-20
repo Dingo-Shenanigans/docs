@@ -1,6 +1,6 @@
 ---
 title: "Manifest"
-description: "Every field of reskate-plugin.json, the rules ReSkate checks it against, variants, plugins that ship inside an asset mod, and the manifest.json name that becomes the plugin's channel."
+description: "Every field of reskate-plugin.json, the rules ReSkate checks it against, variants, resident assets, plugins that ship inside an asset mod, and the manifest.json name that becomes the plugin's channel."
 ---
 
 This page covers `reskate-plugin.json`, the file that makes a mod a plugin, and the one field of the mod's `manifest.json` that plugins use. Neither needs a permission; the manifest is where you ask for them.
@@ -136,6 +136,30 @@ A mod set aside stays switched on in the mod list. It comes back when your mod i
 
 <Note>
 `variants` is read by ReSkate's mod loader, not the plugin host: a `variants` that breaks these rules does not stop the plugin from loading. The mod then has no variants, and the log says why: `Mod <folder>: reskate-plugin.json's variants could not be read (<why>)`.
+</Note>
+
+### `resident`
+
+<ParamField path="resident" type="object[]">
+  Assets of your mod that the game picks while it runs, with nothing in the game data naming them: world objects your plugin places with [`reskate.entities`](/plugins/api/world), or HUD widgets the [throwdown kit](/plugins/api/throwdowns) picks by name. Listed here, they stay in the game when another mod, such as a map, replaces the bundle they are in. At most 16 entries.
+  <Expandable title="each entry">
+    <ParamField path="bundle" type="string" required>The bundle the assets are in, as ReSkate Studio names it (`win32/levels/...` for a level's).</ParamField>
+    <ParamField path="roots" type="string[]">The assets to keep: at most 512 asset names. A name ending in `/` keeps every asset under it.</ParamField>
+    <ParamField path="shaders" type="object[]">At most 32 shader block depots your assets need, each `{name, roots}`: the depot's name and the assets it goes with (1 to 64 names). A depot is kept when all of its roots come from your mod.</ParamField>
+  </Expandable>
+</ParamField>
+
+Each name is 1 to 260 characters of printable ASCII, with `/` between folders and no `\`; ReSkate compares them in lower case. Without this list, an asset only your plugin asks for is lost when a map brings its own copy of the bundle: the entity or widget is simply not there.
+
+```json
+"resident": [{
+    "bundle": "win32/levels/...",
+    "roots": ["world/mymod/gates/", "ui/mymod/hud/"]
+}]
+```
+
+<Note>
+Like `variants`, `resident` is read by ReSkate's mod loader: a list that breaks these rules does not stop the plugin, the mod keeps nothing resident, and the log says why: `Mod <folder>: reskate-plugin.json's resident list could not be read (<why>)`.
 </Note>
 
 ## Errors

@@ -1,6 +1,6 @@
 ---
 title: "Events"
-description: "All 24 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
+description: "All 26 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
 ---
 
 This page lists every event `reskate.on` accepts. Five need no permission; each of the others needs the permission named in its section.
@@ -11,7 +11,7 @@ This page lists every event `reskate.on` accepts. Five need no permission; each 
 
 Registers a function to run each time the event fires. Register handlers when the entry file runs, usually at its top level.
 
-<ParamField path="event" type="string" required>The event's name, one of the 24 on this page.</ParamField>
+<ParamField path="event" type="string" required>The event's name, one of the 26 on this page, or the same name from `reskate.Enums.Event`.</ParamField>
 <ParamField path="handler" type="function" required>Called with the event's arguments, described in each section below.</ParamField>
 
 It returns nothing. These raise a Lua error:

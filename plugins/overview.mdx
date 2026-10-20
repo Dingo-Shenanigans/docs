@@ -138,7 +138,7 @@ end
 -- the client's part from here on
 ```
 
-Only the server copy can use the `server` functions (kick, announce, tell, move a player). Client copies talk to it with `reskate.net.send("server", ...)`, and it answers to `"all"` or to one player. The same plugin on every game shares one message channel: the `name` in its `manifest.json`.
+Only the server copy can use the `server` functions (kick, ban, announce, tell, move a player, set what a player may do). Client copies talk to it with `reskate.net.send("server", ...)`, and it answers to `"all"` or to one player. The same plugin on every game shares one message channel: the `name` in its `manifest.json`.
 
 ## Where to go next
 
@@ -150,15 +150,15 @@ Only the server copy can use the `server` functions (kick, announce, tell, move 
     Every field of `reskate-plugin.json`, and the rules it is checked against.
   </Card>
   <Card title="Permissions" icon="key" href="/plugins/permissions">
-    All 42 permissions: what each unlocks and what other players see.
+    All 45 permissions: what each unlocks and what other players see.
   </Card>
   <Card title="Limits" icon="gauge" href="/plugins/limits">
     The sandbox, every limit, and what happens when a plugin goes over one.
   </Card>
   <Card title="Events" icon="bolt" href="/plugins/events">
-    The 24 events, when they fire and what they hand your handler.
+    The 26 events, when they fire and what they hand your handler.
   </Card>
   <Card title="Base API" icon="code" href="/plugins/api/base">
-    `reskate.id`, `reskate.side`, `reskate.log`, `reskate.on` and `require`.
+    `reskate.id`, `reskate.side`, `reskate.Enums`, `reskate.log`, `reskate.on` and `require`.
   </Card>
 </CardGroup>
