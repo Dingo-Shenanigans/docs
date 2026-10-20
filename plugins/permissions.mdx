@@ -107,7 +107,7 @@ Every plugin has these without asking:
 | `music` | [`reskate.music.current`, `play`, `pause`, `next`, `previous`, `game`, `game_next`](/plugins/api/music); the `track_changed` event | Nothing: it reads and controls your music. |
 | `progression.read` | [`reskate.progression.get`](/plugins/api/progression) | Nothing. It only reads. |
 | `settings.read` | [`reskate.settings.game`, `reskate.settings.names`](/plugins/api/progression) | Nothing. It only reads. |
-| `mods.read` | [`reskate.mods.installed`, `reskate.mods.list`](/plugins/api/mods) | Nothing. |
+| `mods.read` | [`reskate.mods.installed`, `list`, `content`, `read_content`](/plugins/api/mods): which mods are installed, and the files they ship in the folders your manifest's `content` names | Nothing. |
 | `variants` | [`reskate.package.choose`](/plugins/api/package#variants) (`reskate.package.variants` needs no permission) | Nothing: it chooses which of its own mod's variants your game loads. |
 | `game.speed` | [`reskate.time.slow`, `reskate.time.speed`](/plugins/api/time) | Nothing: slow motion is refused in a multiplayer session. |
 | `replay` | No function or event yet. | Nothing. The manifest accepts it, so a plugin written for a later ReSkate loads. |

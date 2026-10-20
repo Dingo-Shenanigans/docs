@@ -88,6 +88,22 @@ Each entry is a bare host name:
 
 ReSkate lowercases each name. A request goes only to a host listed here, exactly: `example.com` does not cover `api.example.com`.
 
+### `content`
+
+<ParamField path="content" type="string[]">
+  The folders your plugin reads in every mod that is on, such as `["parks"]`: other mods ship files for it there, with no code. At most 8. Needs the `mods.read` permission. Read them with [`reskate.mods.content` and `read_content`](/plugins/api/mods#shared-content).
+</ParamField>
+
+Each name is a folder name: 1 to 32 letters, digits, `_` and `-`. ReSkate lowercases each, and keeps each once. A mod brings files for your plugin by having that folder beside its `manifest.json`:
+
+```
+Mods/Someone-Park_Pack/
+├─ manifest.json
+└─ parks/
+   ├─ bridge.json
+   └─ sanvan/seaside.json
+```
+
 ### `variants`
 
 <ParamField path="variants" type="object">
@@ -188,6 +204,10 @@ Plugin speedo was not loaded: "side" must be "client", "server" or "both"
 | `"domains" must be a list of host names` | An entry is not a string. |
 | `"<entry>" is not a host name for "domains" (such as api.example.com: no scheme, port, path or *)` | An entry breaks a host name rule. |
 | `"domains" is for web requests: add the "net.http" permission too` | `domains` lists hosts without `net.http`. |
+| `"content" must be a list of at most 8 folder names` | `content` is not a list, or has more than 8 entries. |
+| `"content" must be a list of folder names` | An entry is not a string. |
+| `"<entry>" is not a folder name for "content" (1 to 32 letters, digits, _ and -)` | An entry breaks the folder name rule. |
+| `"content" reads other mods' folders: add the "mods.read" permission too` | `content` names folders without `mods.read`. |
 
 Problems with the entry file itself come after the manifest passed. The plugin stops, and its reason starts with the entry's path: `plugin/main.lua not found`, `plugin/main.lua is larger than 1 MB`, a syntax error, or `plugin/main.lua raised an error as it ran` (the error itself is in the log line before).
 

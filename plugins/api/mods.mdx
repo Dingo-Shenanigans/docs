@@ -1,6 +1,6 @@
 ---
 title: "Mods"
-description: "reskate.mods: which mods the player has in their Mods folder, and whether each is on."
+description: "reskate.mods: which mods the player has in their Mods folder, whether each is on, and the files other mods ship for your plugin."
 ---
 
 `reskate.mods` tells your plugin which mods are installed, so it can work with another mod or warn about one. It needs the `mods.read` [permission](/plugins/permissions).
@@ -41,3 +41,57 @@ end
 ```
 
 <Note>Needs `mods.read`.</Note>
+
+## Shared content
+
+Other mods can ship data for your plugin with no code of their own: parks for a game mode, routes, presets. Name a folder in your manifest's [`content`](/plugins/manifest#content), such as `"parks"`, and any mod that has a `parks/` folder beside its `manifest.json` brings files your plugin can list and read. Only mods that are on count.
+
+### `reskate.mods.content(folder)`
+
+Every file in that folder of every mod that is on.
+
+<ParamField path="folder" type="string" required>One of the names in your manifest's `content`, without regard to case.</ParamField>
+
+<ResponseField name="files" type="table">
+A list of tables, mod by mod in the mod list's order, each mod's files by path:
+
+- `mod` (string): the mod's folder name in `Mods`.
+- `title` (string): the name it gives itself, or its folder name when it gives none.
+- `path` (string): where the file is in the mod's folder for it, with `/` between folders, such as `"sanvan/bridge.json"`. A file in more than four folders inside it is left out.
+- `size` (number): its size in bytes.
+
+At most 1000 files in all.
+</ResponseField>
+
+```lua
+-- reskate-plugin.json: "permissions": ["mods.read"], "content": ["parks"]
+for _, file in reskate.mods.content("parks") do
+    local text = reskate.mods.read_content(file.mod, "parks", file.path)
+    if text then reskate.log("a park from " .. file.title .. ": " .. file.path) end
+end
+```
+
+A folder your manifest does not name raises an error: `reskate.mods.content("x"): name "x" in the manifest's "content" first`.
+
+<Note>Needs `mods.read`. The mods are read again every 2 seconds. Your own mod's folder counts too, when it has one.</Note>
+
+### `reskate.mods.read_content(mod, folder, path)`
+
+One of those files, as text.
+
+<ParamField path="mod" type="string" required>The mod's folder name, as `content` lists it, without regard to case. 1 to 64 characters.</ParamField>
+<ParamField path="folder" type="string" required>One of the names in your manifest's `content`.</ParamField>
+<ParamField path="path" type="string" required>The file's path in that folder, as `content` lists it: `/` between folders, no `..`.</ParamField>
+
+<ResponseField name="text" type="string or nil">The file's bytes. At most 1 MB.</ResponseField>
+<ResponseField name="why" type="string">When `text` is nil: `"not found"`, `"no such mod is on"`, `"outside the mod's folder"` (a link that leads out of it), `"the file is larger than 1 MB"` or `"the file cannot be read"`.</ResponseField>
+
+```lua
+local text, why = reskate.mods.read_content("Someone-Park_Pack", "parks", "sanvan/bridge.json")
+if not text then reskate.log("no park: " .. why) end
+```
+
+A folder your manifest does not name, or a path that could leave the folder, raises an error.
+
+<Note>Needs `mods.read`. A mod that is off is not read.</Note>
+
