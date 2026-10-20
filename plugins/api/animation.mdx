@@ -3,7 +3,7 @@ title: "Animation"
 description: "reskate.animation: play clips on the local skater's body, replace the game's tricks with your own, record the skater's pose, and cut, key and save clips."
 ---
 
-`reskate.animation` plays clips on the local skater's body. A clip is an Animation Studio clip file in your plugin's package or its data folder, a recording the plugin made with `record`, or one it made from another with `trim` or `edit`. Every function needs the `skater.animation` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+`reskate.animation` plays clips on the local skater's body. A clip is an Animation Studio clip file in your plugin's package or its data folder, one of the game's own animations, a recording the plugin made with `record`, or one it made from another with `trim` or `edit`. Every function needs the `skater.animation` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
 
 <Warning>
 Other players see what is drawn: a clip on your skater shows on their games too.
@@ -23,10 +23,11 @@ Every function that takes a clip takes its name:
 
 - A path in your plugin's package, such as `"clips/spin.fas"` (with `/` between folders, no `..`). The file is read once, the first time you name it, and kept under that name.
 - `"data:"` and a path in your plugin's [data folder](/plugins/api/files), such as `"data:anims/kick.fas"`, for a clip `save` wrote there. It needs the `files` permission too. It is read once and kept, like a package file: `forget` it to read it again after saving over it.
+- `"game:"` and the name of one of the game's own animations, such as `"game:animation/dingo/c_proto_onb_trick_o_kickflip_high"`, as `game_clips` (below) lists them. It is read out of the game's data once and kept, like a package file.
 - `"rec:1"`, `"rec:2"`... for a recording, as `recorded()` named it.
 - `"clip:<n>"` for a clip `trim` or `edit` made, and `"edit:<name>"` for one `edit` made under a name.
 
-A file that cannot be read, is not a clip, has more joints than the skater or has no frames raises an error, as does a `rec:`, `clip:` or `edit:` name the plugin does not hold.
+A file that cannot be read, is not a clip, has more joints than the skater or has no frames raises an error, as does a `rec:`, `clip:` or `edit:` name the plugin does not hold, and a `game:` name that is not a clip the game's skater can play (or while the game's animations are still being read).
 
 <Note>
 A plugin's clips hold at most 48 MB of poses together, counted as 40 bytes a joint a frame. A clip file is at most 8 MB. Each `record` needs room for 10 seconds of poses (about 9.5 MB) before it starts. `forget` gives a clip's room back.
@@ -36,7 +37,7 @@ A plugin's clips hold at most 48 MB of poses together, counted as 40 bytes a joi
 
 Plays a clip on the skater's body from now.
 
-<ParamField path="clip" type="string" required>The clip's name (a package path or `"rec:<n>"`), at most 200 characters.</ParamField>
+<ParamField path="clip" type="string" required>The clip's name (a package path, `"data:<path>"`, `"game:<name>"` or `"rec:<n>"`), at most 200 characters.</ParamField>
 <ParamField path="options" type="table">
 <Expandable title="fields">
 <ParamField path="speed" type="number" default="1">0.1 to 4: how many times as fast.</ParamField>
@@ -44,6 +45,7 @@ Plays a clip on the skater's body from now.
 <ParamField path="loop" type="boolean" default="false">True to play it over and over until `stop`.</ParamField>
 <ParamField path="at" type="number" default="0">Seconds into the clip it starts from, 0 to its length.</ParamField>
 <ParamField path="paused" type="boolean" default="false">True to hold the skater in the clip's pose at `at` until `pause(false)`. A paused clip never finishes. For an editor's timeline: move it with `seek`.</ParamField>
+<ParamField path="floor" type="boolean" default="false">True to play it on the floor where the skater stands, as a trick editor shows it. The clip's rise and turn since its first frame go onto the body, and the whole clip moves up or down so its board's lowest point (its wheels, or a tip when it tilts) lies on the floor before the takeoff and after the landing. Between them it follows the arc of a jump as long as the clip's air, unless the clip rises by itself as a recording does, and nothing of the board goes under the floor. On the ground the board lies under the feet. The game's own trick clips stay in place and keep the placement joint at the hips, so without `floor` their skater sinks into the ground. False: the body hangs from where the skater is, as the clip has it.</ParamField>
 </Expandable>
 </ParamField>
 
@@ -176,6 +178,31 @@ reskate.animation.forget("rec:1")
 ```
 
 <Note>Needs the `skater.animation` permission.</Note>
+
+### `reskate.animation.game_clips(containing)`
+
+The names of the game's own animations, to play as `"game:<name>"`. They are read out of the game's data the first time any plugin asks, which takes about a quarter of a second.
+
+The ones a plugin can play are the skater's clips: an animation on the skater's rig, stored the way the game stores its trick animations. Its trick clips are `animation/dingo/c_proto_onb_trick_<trick>_<pop>`. `<trick>` is `o_` and the trick (`o_kickflip`, `o_popshuv_bs`, `o_360flip`), or `n_` for a nollie one (`n_kickflip`). `<pop>` is `low`, `mid` or `high`. Not every name is a clip: naming one that is not (a sequence or a blend, such as the `seq_` ones) raises an error that says what it is.
+
+<ParamField path="containing" type="string">Only the names with this in them, at most 64 characters, in any case. Nothing for every one.</ParamField>
+
+<ResponseField name="names" type="table or nil">The names, lower case, at most 2000. `nil` while the game's animations are still being read: ask again a moment later.</ResponseField>
+<ResponseField name="why" type="string">Why there are none yet: `"the game's animations are still being read"`, or `"the game's animations cannot be read: "` and the reason.</ResponseField>
+
+A game clip has the skater's 395 joints and the board, at the clip's own frame rate (60 a second for the tricks). Each joint holds the game's animation where it has one, and the rig's rest pose where it does not. The board is the clip's own. The game's trick clips stay in place: the skater does not rise, his placement joint sits at his hips, and in flips the game places the board with its physics. So play one with `floor` to see it as the trick looks, the board under the feet on the ground. Its `takeoff` and `landing` are found from the board's height: the pop is the board's first low point, and the landing its deepest one between a quarter and about 0.85 seconds later.
+
+```lua
+reskate.on("tick", function()
+    local names = reskate.animation.game_clips("c_proto_onb_trick_o_kickflip_")
+    if not names or shown then return end
+    shown = true
+    for _, name in names do reskate.log(name) end
+    reskate.animation.play("game:animation/dingo/c_proto_onb_trick_o_kickflip_high", {floor = true, paused = true, at = 0.3})
+end)
+```
+
+<Note>Needs the `skater.animation` permission. A `containing` longer than 64 characters raises an error. Each game clip counts towards your plugin's 48 MB of poses, about 1.9 MB for a two-second trick.</Note>
 
 ## Working on clips
 
