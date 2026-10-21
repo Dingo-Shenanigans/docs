@@ -12,7 +12,7 @@ Other players see what is drawn: a clip on your skater shows on their games too.
 ## How clips play
 
 - A clip replaces the skater's body, from the hips down every joint below them, blended in and out. The joints the game moves the skater with are never written: a clip plays in place, wherever the skater is.
-- The board follows a clip only when the clip recorded one.
+- The board follows a clip only when the clip has one. Its trucks and wheels stay on the deck as they were when the clip took the board.
 - One plugin plays a clip at a time.
 - Nothing plays while a throwdown or a game of S.K.A.T.E. runs: `play` is refused, and trick replacements wait until it ends.
 - When the plugin stops, its clip stops and its replacements go.
@@ -190,7 +190,7 @@ The ones a plugin can play are the skater's clips: an animation on the skater's 
 <ResponseField name="names" type="table or nil">The names, lower case, at most 2000. `nil` while the game's animations are still being read: ask again a moment later.</ResponseField>
 <ResponseField name="why" type="string">Why there are none yet: `"the game's animations are still being read"`, or `"the game's animations cannot be read: "` and the reason.</ResponseField>
 
-A game clip has the skater's 395 joints and the board, at the clip's own frame rate (60 a second for the tricks). Each joint holds the game's animation where it has one, and the rig's rest pose where it does not. The board is the clip's own. The game's trick clips stay in place: the skater does not rise, his placement joint sits at his hips, and in flips the game places the board with its physics. So play one with `floor` to see it as the trick looks, the board under the feet on the ground. Its `takeoff` and `landing` are found from the board's height: the pop is the board's first low point, and the landing its deepest one between a quarter and about 0.85 seconds later.
+A game clip has the skater's 395 joints and the board, at the clip's own frame rate (60 a second for the tricks). Each joint turns as the game's animation has it. Most joints have no position in the game's clips: those keep your skater's own (his build), as the game does, and only the hips and a few others move. The board is the clip's own. The game's trick clips stay in place: the skater does not rise, his placement joint sits at his hips, and in flips the game places the board with its physics. So play one with `floor` to see it as the trick looks, the board under the feet on the ground. Its `takeoff` and `landing` are found from the board's height: the pop is the board's first low point, and the landing its deepest one between a quarter and about 0.85 seconds later.
 
 ```lua
 reskate.on("tick", function()
