@@ -220,10 +220,34 @@ These read clips and make new ones from them, for a plugin that edits animations
 <ResponseField name="board" type="boolean">True when it holds the board, frame by frame.</ResponseField>
 <ResponseField name="takeoff" type="number">Seconds into the clip the trick takes off, when it has one. A recording marks it when the skater leaves the ground.</ResponseField>
 <ResponseField name="landing" type="number">Seconds into the clip the trick lands, when it has one.</ResponseField>
+<ResponseField name="stance" type="string">`"regular"` or `"goofy"`: how the skater stands on the board at the clip's first frame, goofy when his right foot is nearer the front truck. Absent when it cannot be told (no board under his feet, or a clip that is not of the skater's 395 joints), and until the game's animations are read (see `game_clips`).</ResponseField>
 </Expandable>
 </ResponseField>
 
 <Note>Needs the `skater.animation` permission.</Note>
+
+### `reskate.animation.mirror(clip)`
+
+The clip for the other stance, as a new clip. The game's trick clips stand goofy, and the game mirrors them for a regular skater: play one unmirrored on a regular skater and his body faces the other side of the board, half a turn round from how he rides.
+
+Left and right trade places (every joint named `Left...` with its `Right...` twin), reflected across the upright plane along the board from its back truck to its front one, so the board keeps its nose ahead. Each joint keeps its own axes: how far it is from the skeleton's rest pose is mirrored onto its twin's rest. The board is mirrored as itself: it keeps its nose ahead, a board rolling one way rolls the other, and its trucks and wheels go with it. The placement joint's turn and travel since the first frame go the other way round. Its takeoff and landing stay.
+
+<ParamField path="clip" type="string" required>The clip's name: one of the skater's 395 joints with its board.</ParamField>
+
+<ResponseField name="clip" type="string or nil">The new clip's name, `"clip:<n>"`.</ResponseField>
+<ResponseField name="why" type="string">When `nil`: `"the game's animations are still being read"` (the mirror reads the skeleton with them), `"the clip has no board to mirror it along"`, or `"only a clip of the skater's 395 joints can be mirrored"`.</ResponseField>
+
+```lua
+local clip = "game:animation/dingo/c_proto_onb_trick_o_kickflip_high"
+local info = reskate.animation.info(clip)
+local goofy = reskate.skater.goofy() -- needs skater.read
+if info.stance and goofy ~= nil and (info.stance == "goofy") ~= goofy then
+    clip = reskate.animation.mirror(clip) or clip
+end
+reskate.animation.play(clip, {floor = true})
+```
+
+<Note>Needs the `skater.animation` permission. The new clip counts towards your plugin's 48 MB of poses.</Note>
 
 ### `reskate.animation.sample(clip, joint, seconds)`
 
