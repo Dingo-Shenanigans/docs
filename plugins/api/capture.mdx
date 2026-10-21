@@ -1,0 +1,189 @@
+---
+title: "Capture"
+description: "reskate.capture: record an area of the screen as the game draws it, cut out from its backdrop, and save it as a GIF, APNG, PNG or WebM."
+---
+
+`reskate.capture` records an area of the screen, frame by frame, as the game draws it. It can cut each frame out from the backdrop behind it, and save the frames you pick as an animation or a still. Fit Check uses it to spin the board or the skater in the game's menu and save one turn of it.
+
+Every function needs the `capture` [permission](/plugins/permissions). `reskate.capture.save` needs `files` too: it writes into your plugin's [data folder](/plugins/api/files#the-data-folder). A dedicated server has no screen. There `start` and `save` return `false` with `"unavailable here"`.
+
+## How it works
+
+- **What is in a frame.** Each frame is taken before ReSkate's overlay draws. Your plugin's drawing, toasts, ReSkate's menu and the banner you draw while recording are never in it. The game's own menus and HUD are.
+- **One capture at a time.** One plugin records at a time. While another plugin's capture records or saves, `start` returns `false`. A capture another plugin has finished is let go when you start yours.
+- **Numbers.** Frames are numbered from 1, in the order they are taken, after the frames `skip` lets go.
+- **Thumbnails.** Every frame taken has a small grey thumbnail of the area, 24 by 48. `compare` reads them, so you can tell how far something has turned, or whether it has stopped.
+- **Kept pictures.** At most 480 pictures are kept at once, and at most 1000 MB of them. Past either limit, every other kept picture is let go, and from then on only every other frame taken is kept. `kept` says which frames still have their pictures. `height` keeps each picture smaller, so more fit.
+- **The end.** A capture stops by itself after `frames` frames, or after `seconds` seconds. Its state is then `"stopped"`. Call `discard` when you are done with it: its pictures are held until you do.
+
+## Cutting out
+
+Each frame can be cut out from its backdrop in two ways:
+
+- **By depth.** Where the game has a depth for the frame, what is nearer than the backdrop behind it is kept. The backdrop's distance in each row is that of the area's left and right edges, so leave a little backdrop at both sides of what you record. The game's UI is never in the depth.
+- **By colour.** Where there is no depth, or when you ask for it, the backdrop is keyed out by its colour across all the frames you save.
+
+Then, by either way, only what moved over the frames is kept: the biggest moving piece, and any piece centred within it. Anything that stays the same in every frame, such as a prompt of the game's menu, is cleared. The picture is cut to a square around what is kept, with a small margin. A single frame cut by depth has nothing that moves, so the depth alone says what is kept.
+
+### `reskate.capture.start(options)`
+
+Starts recording. Calling it again while your capture records starts it over.
+
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="area" type="table" default="the whole frame">`{left, top, right, bottom}`, each 0 to 1, as fractions of the frame. `right` must be more than `left`, and `bottom` more than `top`.</ParamField>
+<ParamField path="frame" type="string" default="&quot;screen&quot;">What `area` is a fraction of. `"screen"` is the whole screen. `"menu"` is the frame the game lays its menus out in: the whole width up to 21:9, and a 21:9 frame in the middle of anything wider. Use `"menu"` for a place in the game's menus, so it holds at every window size.</ParamField>
+<ParamField path="depth" type="boolean" default="true">Cut each frame out by the game's depth where it has one.</ParamField>
+<ParamField path="height" type="number" default="0">Each kept picture is made this tall at most: 0 for as on screen, or 64 to 4096.</ParamField>
+<ParamField path="skip" type="number" default="0">Frames let go first, 0 to 600. For example, frames while something gets up to speed.</ParamField>
+<ParamField path="frames" type="number" default="2400">Frames taken at most, 1 to 20000. Then it stops.</ParamField>
+<ParamField path="seconds" type="number" default="60">How long it records at most, 1 to 120. Then it stops.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it started.</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"<plugin> is capturing"` while another plugin's capture records or saves, `"a capture is being saved"`, or `"asked more than 4 times in a second"`.</ResponseField>
+
+A value out of its range raises an error.
+
+```lua
+-- The Board screen's board, as Fit Check records it.
+local ok, why = reskate.capture.start({
+    area = {0.655, 0.185, 0.86, 0.985},
+    frame = "menu",
+    height = 640,
+    skip = 45,
+})
+if not ok then reskate.log("no capture: " .. why, "warn") end
+```
+
+<Note>Needs the `capture` permission. At most 4 calls a second, a budget shared with the plugin's other control calls (`skater.noclip`, `boost`, `freeze`, `camera.follow`, `ai.spawn`, `animation.play`, `board.toss`, `outfit.set`).</Note>
+
+### `reskate.capture.stop()`
+
+Stops recording. What was kept stays, for `save`. Stopping a capture that is not yours, or one that is not recording, does nothing.
+
+Returns nothing.
+
+<Note>Needs the `capture` permission.</Note>
+
+### `reskate.capture.discard()`
+
+Lets go of your capture: everything it kept. Its state is `"idle"` again. While it saves, the save goes on, and this does nothing. When your plugin stops, its capture is discarded.
+
+Returns nothing.
+
+<Note>Needs the `capture` permission.</Note>
+
+### `reskate.capture.state()`
+
+How your capture is going. Another plugin's capture reads as `"idle"`.
+
+<ResponseField name="state" type="table">
+<Expandable title="fields">
+<ResponseField name="state" type="string">`"idle"`, `"recording"`, `"stopped"`, `"saving"`, `"saved"` or `"failed"`.</ResponseField>
+<ResponseField name="taken" type="number">Frames taken so far.</ResponseField>
+<ResponseField name="kept" type="number">Pictures kept.</ResponseField>
+<ResponseField name="depth" type="boolean">True when every kept picture was cut out by the game's depth.</ResponseField>
+<ResponseField name="message" type="string">When there is one. For `"stopped"`: `"the recording reached its time"`. For `"saved"`: `"cut out by depth"`, `"cut out by colour"` or `"not cut out"`. For `"failed"`: why, such as `"the area is not on the screen"`, or `"not saved: "` and why the file was not saved.</ResponseField>
+<ResponseField name="file" type="string">For `"saved"`: the path you saved to.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+reskate.on("tick", function()
+    local now = reskate.capture.state()
+    if now.state == "saved" then
+        reskate.ui.toast("Saved " .. now.file .. " (" .. now.message .. ")")
+        reskate.capture.discard()
+    elseif now.state == "failed" then
+        reskate.ui.toast(now.message, "warn")
+        reskate.capture.discard()
+    end
+end)
+```
+
+<Note>Needs the `capture` permission.</Note>
+
+### `reskate.capture.compare(a, b)`
+
+How unlike two frames taken look: the mean difference of their grey thumbnails, from 0 for the same to 255. Every frame taken has a thumbnail, kept or not.
+
+<ParamField path="a" type="number" required>A frame's number, a whole number from 1.</ParamField>
+<ParamField path="b" type="number" required>Another frame's number.</ParamField>
+
+<ResponseField name="difference" type="number or nil">0 to 255, or `nil` when either frame has not been taken, or there is no capture of yours.</ResponseField>
+
+A number that is not a whole number from 1 to 20000 raises an error.
+
+```lua
+-- Has it come back to how it started?
+local now = reskate.capture.state()
+if now.taken >= 8 and reskate.capture.compare(1, now.taken) < 2 then
+    reskate.log("back where it started")
+end
+```
+
+<Note>Needs the `capture` permission.</Note>
+
+### `reskate.capture.kept()`
+
+The numbers of the frames whose pictures are kept, in order.
+
+<ResponseField name="frames" type="table">A list of frame numbers. Empty when there is no capture of yours.</ResponseField>
+
+<Note>Needs the `capture` permission.</Note>
+
+### `reskate.capture.save(path, options)`
+
+Saves frames of your capture to a file in your data folder. It stops the recording first. The file is written on its own thread: `state` reads `"saving"`, then `"saved"` or `"failed"`. The pictures stay after saving, so you can save the same capture again, in another format for example, until you `discard` it.
+
+<ParamField path="path" type="string" required>The file's path in your data folder, as [`reskate.files.write`](/plugins/api/files#paths) takes it. A folder it names is made. A file already there is replaced.</ParamField>
+<ParamField path="options" type="table" required>
+<Expandable title="fields">
+<ParamField path="frames" type="table" required>The frames to save, in the order they play: 1 to 360 frame numbers. A frame whose picture was not kept gives the nearest kept one.</ParamField>
+<ParamField path="format" type="string" default="&quot;gif&quot;">`"gif"`, `"apng"`, `"png"` (one frame) or `"webm"`. A GIF's edges are a little rough. An APNG or WebM has soft edges. A GIF's frame times are in hundredths of a second, and players slow anything under two hundredths, so a GIF plays at 50 frames a second at most.</ParamField>
+<ParamField path="fps" type="number" default="30">Frames a second it plays at, 1 to 60.</ParamField>
+<ParamField path="size" type="number" default="512">The side of the square the picture is fitted in, in pixels, 64 to 2048.</ParamField>
+<ParamField path="background" type="number or string" default="&quot;transparent&quot;">A colour, as `0xRRGGBB`, behind what was cut out. Or `"transparent"`.</ParamField>
+<ParamField path="cutout" type="string" default="&quot;auto&quot;">How each frame is [cut out](#cutting-out). `"auto"` is by depth when every kept picture had the game's depth, else by colour. `"depth"` fails when not every one had it. `"colour"` keys out the backdrop. `"none"` keeps the whole area.</ParamField>
+<ParamField path="solid" type="boolean" default="true">For a cut by colour: true when what you recorded is solid, such as a board, so any hole it closes all round is part of it. False for a skater, whose arms and legs have backdrop between them.</ParamField>
+<ParamField path="card" type="table">A card drawn beside the picture, in the game menu's fonts: `{title = "Board", lines = {{"Deck", "Baker Logo"}, ...}}`. The title is at most 32 bytes. At most 16 lines, each `{label, value}`, at most 64 bytes each.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the saving started.</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"nothing was recorded"`, `"a capture is being saved"`, `"a folder is there"`, or `"more than 64 file calls in a second"`.</ResponseField>
+
+An option out of its range, a path that is not one, or a `png` of more than one frame raises an error.
+
+```lua
+-- One turn of 100 frames, saved as 120 evenly spaced frames.
+local kept = reskate.capture.kept()
+local frames = {}
+for j = 0, 119 do
+    local at, best = 100 * j / 120, kept[1]
+    for _, n in kept do
+        if math.abs((n - 1) - at) < math.abs((best - 1) - at) then best = n end
+    end
+    table.insert(frames, best)
+end
+local ok, why = reskate.capture.save("fit-checks/board.gif", {
+    frames = frames,
+    format = "gif",
+    background = "transparent",
+    card = {title = "Board", lines = {{"Deck", "Baker Logo"}, {"Wheels", "Spitfire"}}},
+})
+```
+
+<Note>Needs the `capture` and `files` permissions. It counts as a call to `reskate.files`: at most 64 a second, together.</Note>
+
+## Fit Check
+
+The Fit Check plugin, `contrib/plugins/fit-check` in the ReSkate repository, uses all of this. It does the following:
+
+- On V, it finds out which screen is open with [`reskate.menu.grid`](/plugins/api/menu#the-game-menu) and [`reskate.menu.game`](/plugins/api/menu#the-game-menu).
+- It turns the board or skater with [`reskate.room.turn`](/plugins/api/menu#the-character-room).
+- It finds where one turn comes round with `compare`.
+- It eases the stick off when the turn is too fast for the frames wanted.
+- It saves the frames nearest evenly spaced points of the turn, with a card of [`reskate.outfit.board`](/plugins/api/outfit#what-the-skater-wears) or `worn`.

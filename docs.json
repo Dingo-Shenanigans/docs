@@ -58,7 +58,8 @@
               "plugins/api/menu",
               "plugins/api/audio",
               "plugins/api/input",
-              "plugins/api/camera"
+              "plugins/api/camera",
+              "plugins/api/capture"
             ]
           },
           {

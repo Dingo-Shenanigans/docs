@@ -1,6 +1,6 @@
 ---
 title: "Outfit"
-description: "reskate.outfit: put tattoos, moles and eyewear on the local skater over the player's own outfit."
+description: "reskate.outfit: put tattoos, moles and eyewear on the local skater over the player's own outfit, and read what the skater wears."
 ---
 
 `reskate.outfit` puts items on the local skater, over the outfit the player chose: a tattoo where your plugin places it, moles, a pair of glasses. Every function needs the `outfit` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
@@ -108,5 +108,53 @@ What the outfit service is doing now, for the player or your log.
 ```lua
 reskate.console.print("outfit: " .. reskate.outfit.status())
 ```
+
+<Note>Needs the `outfit` permission.</Note>
+
+## What the skater wears
+
+What the player chose for their skater, read from the selected skater preset (the first one when none is selected). It is the player's own outfit. Items your plugin puts on with `set` are not in it.
+
+### `reskate.outfit.worn()`
+
+The skater's clothes and accessories, from head to foot. The body, hair, tattoos, gestures and the board are left out.
+
+<ResponseField name="items" type="table">A list of `{slot, item, title}`, empty when the preset cannot be read.
+<Expandable title="fields">
+<ResponseField name="slot" type="string">The kind of item: `"Headwear"`, `"Eyewear"`, `"Face"`, `"Neckwear"`, `"Jewellery"`, `"Earrings"`, `"Costume"`, `"Outfit"`, `"Outerwear"`, `"Top"`, `"Gloves"`, `"Wrist"`, `"Bag"`, `"Bottoms"`, `"Socks"` or `"Shoes"`. For a category ReSkate does not know, the category's name made readable.</ResponseField>
+<ResponseField name="item" type="string">The item's key.</ResponseField>
+<ResponseField name="title" type="string">Its name, as `title` gives it.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+for _, worn in reskate.outfit.worn() do
+    reskate.log(worn.slot .. ": " .. worn.title)
+end
+```
+
+<Note>Needs the `outfit` permission.</Note>
+
+### `reskate.outfit.board()`
+
+The parts of the skater's board, in this order: `"Deck"`, `"Grip tape"`, `"Grip cutout"`, `"Trucks"`, `"Wheels"`. A part the board has none of is left out.
+
+<ResponseField name="parts" type="table">A list of `{slot, item, title}`, as `worn` gives them, with the part's name as `slot`. Empty when the preset cannot be read.</ResponseField>
+
+```lua
+for _, part in reskate.outfit.board() do
+    if part.slot == "Deck" then reskate.log("riding a " .. part.title) end
+end
+```
+
+<Note>Needs the `outfit` permission.</Note>
+
+### `reskate.outfit.title(key)`
+
+An item's name as the game shows it. It is the item's title in the game's catalog. A mod's item has no catalog entry, so for one it is the title an item grid showed this session. Failing both, it is the key made readable: without an `Own_` at its start, and with spaces for underscores.
+
+<ParamField path="key" type="string" required>The item's key, at most 255 characters.</ParamField>
+
+<ResponseField name="title" type="string">The item's name.</ResponseField>
 
 <Note>Needs the `outfit` permission.</Note>

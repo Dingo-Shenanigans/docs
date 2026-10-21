@@ -119,6 +119,21 @@ end
 
 <Note>Needs the `files` permission.</Note>
 
+### `reskate.files.reveal(folder)`
+
+Opens a folder of your data folder in Windows File Explorer, for the player to see the files you saved there, such as recordings from [`reskate.capture.save`](/plugins/api/capture). The folder is made if it is not there.
+
+<ParamField path="folder" type="string" default="the data folder itself">The folder's path. Leave it out, or pass `""`, for the top. A `/` at the end is fine.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the folder was opened.</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"not a folder"` for a file, `"the folder could not be opened"`, or `"once a second"` when called again within a second.</ResponseField>
+
+```lua
+reskate.files.reveal("fit-checks")
+```
+
+<Note>Needs the `files` permission. At most once a second. It does not count toward the 64 file calls a second.</Note>
+
 <Tip>
 To let the player load a file from anywhere on their PC, such as a route a friend sent, use the file button of a [dialog](/plugins/api/menu#dialogs). It reads the file the player picks and hands you its text.
 </Tip>

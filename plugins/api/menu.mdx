@@ -372,6 +372,69 @@ Returns nothing.
 
 <Note>Needs the `room` permission.</Note>
 
+### `reskate.room.turn(value, stick)`
+
+Turns what the game's menu shows on its stick: the board on the Board screen, the skater on the Skaters page. It works as a player turning it on a controller would. It holds a stick of a stand-in pad over at `value` for 300 ms, with the rest of the pad at rest. Call it each tick to keep turning, and with 0 to let go.
+
+It needs no character room, and no controller: the stand-in pad works without one. While it holds, the game reads the stand-in pad in place of the first controller, so the player's own pad does nothing. A walk to the character room comes first.
+
+<ParamField path="value" type="number" required>How far over the stick is held, -1 to 1. 0 lets go.</ParamField>
+<ParamField path="stick" type="string" default="&quot;right_x&quot;">`"left_x"`, `"left_y"`, `"right_x"` or `"right_y"`.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the stick is held, or let go.</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"the game's menu is not open"`. Letting go always works.</ResponseField>
+
+A value outside -1 to 1, or another stick, raises an error.
+
+```lua
+-- Spin the board on the Board screen, half speed to the right, while turning is true.
+reskate.on("tick", function()
+    if turning then reskate.room.turn(0.5) end
+end)
+```
+
+<Note>Needs the `room` permission.</Note>
+
+## The game menu
+
+What the game's own menu shows, for a plugin that does something on one of its screens. Fit Check uses it to tell the Board screen from the Skaters page when V is pressed.
+
+### `reskate.menu.game()`
+
+<ResponseField name="menu" type="table">
+<Expandable title="fields">
+<ResponseField name="open" type="boolean">True while the game's menu is open.</ResponseField>
+<ResponseField name="skaters" type="boolean">True while it shows the Skaters page.</ResponseField>
+<ResponseField name="buttons" type="table">Where each button of the open page goes, as the game names it, such as `"CASPresetPurchase"`. At most 64. Empty while the menu is closed.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `menu` permission.</Note>
+
+### `reskate.menu.grid()`
+
+The item grid that has the focus in the game's customization menu: the Apparel, Accessories, Board, Tattoos, Gestures or Appearance grids.
+
+<ResponseField name="grid" type="table or nil">`nil` when no item grid has the focus.
+<Expandable title="fields">
+<ResponseField name="focused" type="string">The highlighted item's key, when one is highlighted.</ResponseField>
+<ResponseField name="title" type="string">The highlighted item's name, as the grid shows it.</ResponseField>
+<ResponseField name="category" type="string">The highlighted item's category in the game's catalog.</ResponseField>
+<ResponseField name="items" type="table">Every item's key in the grid, at most 4000.</ResponseField>
+<ResponseField name="shown" type="number">Items the grid shows, after ReSkate's search and filter.</ResponseField>
+<ResponseField name="total" type="number">Items in the grid.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local grid = reskate.menu.grid()
+if grid and grid.category and grid.category:lower():find("deck") then
+    reskate.log("browsing decks: " .. (grid.title or "?"))
+end
+```
+
+<Note>Needs the `menu` permission.</Note>
+
 ## Dialogs
 
 A dialog is a box in the middle of the screen, over the game, that asks the player something: a name to save under, a row to pick from a list, a file to load. It can have a title, a message, a text field, a list of rows with buttons of their own, a row of buttons and a file button: each only if you give it. While it is open it has the player's input.

@@ -184,7 +184,7 @@ Each of these keeps running and must be refused.
 
 ## Ports
 
-Five features that were built into ReSkate are mods now, plugins in `contrib/plugins` that use only the API on these pages. ReSkate keeps no copy of them: their console commands, settings and menu panels are the plugins' own. Each has its own checks (`<command> test`), which the plugin tests run too, and its switches on its own page in the menu's PLUGINS section. They are larger than reskate-test's checks, and show how the APIs go together in a whole feature.
+Six features that were built into ReSkate, or written for it, are mods now, plugins in `contrib/plugins` that use only the API on these pages. ReSkate keeps no copy of them: their console commands, settings and menu panels are the plugins' own. Each has its own checks (`<command> test`), which the plugin tests run too, and its switches on its own page in the menu's PLUGINS section. They are larger than reskate-test's checks, and show how the APIs go together in a whole feature.
 
 | Plugin | What it does | What to read it for |
 | --- | --- | --- |
@@ -193,6 +193,7 @@ Five features that were built into ReSkate are mods now, plugins in `contrib/plu
 | **fpv-drone** | The FPV drone, flown from the free camera with the keyboard, a pad or an RC radio, or following the skater and filming. `fpv fly`, `fpv follow`, `fpv stop`. | [`reskate.camera`](/plugins/api/camera), [`reskate.input`](/plugins/api/input), the motor sound and a goggles HUD drawn with a font atlas. |
 | **hall-of-meat** | skate. 3's Hall of Meat: a bail shows the bones it hurt on an x-ray of the skater, and scores a Meat card drawn with skate.'s own pictures in the bottom left corner. A broken bone slows the game for a moment, in single player only. `hallofmeat 0` or `1`. | The `physics_step` event, [`reskate.skater.xray`](/plugins/api/skater) with `d:skeleton`, `d:game_image`, `d:gradient` and fonts ([overlay](/plugins/api/overlay)), [`reskate.hud.corner`](/plugins/api/skater) and [`reskate.time.slow`](/plugins/api/time). |
 | **grind-exits** | LT or RT in a grind picks the side the skater pops out to, whatever the trick and the rotation. `grindexit status`. | [`reskate.skater.grind_exit`](/plugins/api/skater), the `grind_exit` event and [`reskate.input.hide`](/plugins/api/input). |
+| **fit-check** | Fit Check: V on the Board screen spins the board, and V on the Skaters page spins the skater. One turn is saved as a GIF, APNG or WebM, cut out from the backdrop, with a card of the board's parts or the outfit beside it. `fitcheck`, `fitcheck set format webm`, `fitcheck open`. | [`reskate.capture`](/plugins/api/capture), [`reskate.room.turn`](/plugins/api/menu#the-character-room), [`reskate.menu.grid`](/plugins/api/menu#the-game-menu), [`reskate.outfit.board`](/plugins/api/outfit#what-the-skater-wears), [`reskate.settings.set`](/plugins/api/progression) and [`reskate.files.reveal`](/plugins/api/files). |
 
 Copy a plugin's folder into the game's `Mods` folder to try it, as with reskate-test. board-break and road-rash go inside their packs' folders: copy `reskate-plugin.json` and `plugin/` beside the pack's `layout.toc`.
 
