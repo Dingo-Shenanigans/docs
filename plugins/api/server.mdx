@@ -1,9 +1,9 @@
 ---
 title: "Server"
-description: "reskate.server: what only the session's authority does: kick or ban a player, speak in chat, tell one player, move a skater, and set what a player may do."
+description: "reskate.server: what only the session's authority does: kick or ban a player, speak in chat, tell one player, move a skater, set what a player may do, and spawn a dedicated server's park mods."
 ---
 
-`reskate.server` is the session's authority acting on its players. It works only in a plugin's **server copy**, and every function needs the `server` permission. See [permissions](/plugins/permissions) and [manifest](/plugins/manifest).
+`reskate.server` is the session's authority acting on its players. It works only in a plugin's **server copy**. Every function needs the `server` permission, except the [park mod](#park-mods) functions, which need `server.parks`. See [permissions](/plugins/permissions) and [manifest](/plugins/manifest).
 
 ## Server copies
 
@@ -37,6 +37,7 @@ The functions do not all work the same way in both places.
 | `move` | The player's game moves their skater (only a player in the world, not the host). | The same: the player's game makes the move. |
 | `ban`, `unban` | Not available: they return `false` and `"unavailable here"`. | The server's own ban list, as the console's `ban` and `unban`. |
 | `player.permissions`, `player:apply_permissions` | Not available: `permissions` is `nil`, and applying returns `false` and `"unavailable here"`. | What the player may do on the server, as the console's `lock`. |
+| `parks`, `park_spawn`, `park_remove` | Not available: `parks` is empty, and spawning or removing returns `false` and `"unavailable here"`. | The server's park mods, as the console's `park-mod`. |
 
 Chat lines from `say` and `tell` start with the plugin's name in brackets (`[My Plugin] ...`): the `name` in its `manifest.json`, or its folder's name without one.
 
@@ -162,6 +163,74 @@ reskate.server.unban("76561198000000001")
 
 <Note>Needs the `server` permission and a server copy on a dedicated server.</Note>
 
+## Park mods
+
+A dedicated server can have park mods set up: parks built in the Park Editor and shipped as mods, each bound to one map (`maps.park_mods` in `ReSkateServer.json`, or the console's `park-mod config add`). The server copy can list them and spawn or remove them, as the console's `park-mod add` and `remove` do: with the server's limits on parks and objects, the check that a park belongs on the map running now, and the chat line to everyone. The server's log says `[parks] <name> spawned (...) by plugin <id>`.
+
+These functions need the `server.parks` permission, not `server`, and a server copy on a dedicated server.
+
+A park mod's name is its own in the server's setup: 1 to 16 of `a-z`, `0-9`, `-` and `_`. Anything else raises an error.
+
+### `reskate.server.parks()`
+
+The park mods the server has set up.
+
+<ResponseField name="parks" type="table">
+A list of tables:
+
+- `name` (string): the park mod's name.
+- `map` (string): the map it belongs on, as the server names it (`"San Vansterdam"`).
+- `here` (boolean): `true` when it belongs on the map running now, so it can be spawned.
+- `spawned` (boolean): `true` while it is out.
+- `objects` (number): how many objects it has out (0 while it is not spawned).
+- `minutes_left` (number): minutes until it goes; 0 when it stays until removed, or is not spawned.
+
+Empty on a lobby's host.
+</ResponseField>
+
+```lua
+for _, park in reskate.server.parks() do
+    if park.here and not park.spawned then reskate.log(park.name .. " could come out") end
+end
+```
+
+<Note>Needs `server.parks` and a server copy on a dedicated server. Each call counts as a `reskate.server` call.</Note>
+
+### `reskate.server.park_spawn(name, minutes)`
+
+Spawns a park mod for every player.
+
+<ParamField path="name" type="string" required>The park mod's name.</ParamField>
+<ParamField path="minutes" type="number">How long it stays, 1 to 1440. Without it, it stays until removed (or until the map changes).</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it was spawned.</ResponseField>
+<ResponseField name="why" type="string">Why not, as `park-mod add` says it: `"street is already spawned."`, `"street belongs on Isle of Grom, and the server is on San Vansterdam."`, `"there is no park mod called "street" (park-mod list)."`, the limits on parks and objects; on a lobby's host `"unavailable here"`.</ResponseField>
+
+```lua
+-- The race's park, out for the race and a little after.
+local ok, why = reskate.server.park_spawn("immi-race2", 10)
+if not ok then reskate.log("no park: " .. why, "warn") end
+```
+
+<Tip>Players' games need a few seconds to load a park's objects after it is spawned. Wait before moving anyone onto it.</Tip>
+
+<Note>Needs `server.parks` and a server copy on a dedicated server. A name that is not a park mod's, or minutes outside 1 to 1440, raises an error. Each call counts as a `reskate.server` call.</Note>
+
+### `reskate.server.park_remove(name)`
+
+Removes a spawned park mod.
+
+<ParamField path="name" type="string" required>The park mod's name.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it was removed.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"street is not spawned."`, `"there is no park mod called "street" (park-mod list)."`; on a lobby's host `"unavailable here"`.</ResponseField>
+
+```lua
+reskate.server.park_remove("immi-race2")
+```
+
+<Note>Needs `server.parks` and a server copy on a dedicated server. Each call counts as a `reskate.server` call.</Note>
+
 ## Player permissions
 
 On a dedicated server, the server copy decides what each player may do, as the server console's `lock` does. A player table (from `reskate.session.players()`, the `player_joined` event and the others) has two names of its own for this in a server copy: `permissions` and `apply_permissions`.
@@ -221,5 +290,5 @@ end)
 ## Limits
 
 <Note>
-A server copy makes at most 20 `reskate.server` calls a second, reading `player.permissions` and `apply_permissions` included; the 21st raises an error. `say` also has its own limit of one line a second, which returns `false`. See [limits](/plugins/limits).
+A server copy makes at most 20 `reskate.server` calls a second, reading `player.permissions`, `apply_permissions` and the park mod functions included; the 21st raises an error. `say` also has its own limit of one line a second, which returns `false`. See [limits](/plugins/limits).
 </Note>

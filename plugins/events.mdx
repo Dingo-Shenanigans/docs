@@ -36,7 +36,7 @@ On a player's game, each tick hands out the trick events first, then the session
 
 ### Client and server copies
 
-The trick events and the level events reach only a plugin's client copy. A server copy on a dedicated server has no skater, so it hears no skater, physics, chat or music events either. See [client and server copies](/plugins/overview#client-and-server-copies).
+The trick events reach only a plugin's client copy. The level events reach a client copy and a dedicated server's server copy, which hears them when the server changes its map. A server copy on a dedicated server has no skater, so it hears no skater, physics, chat or music events either. See [client and server copies](/plugins/overview#client-and-server-copies).
 
 ## Events with no permission
 
@@ -105,6 +105,8 @@ end)
 A plugin that loads while a level is already up does not hear `level_loaded` for it. Read `reskate.level.current()` in a `load` handler too.
 </Tip>
 
+On a dedicated server, a server copy hears it when the server changes its map (the console's `map`, a map vote or the rotation), as soon as the server has changed it: players' games load the map after.
+
 ### `level_unloading`
 
 **Permission:** none.
@@ -112,6 +114,8 @@ A plugin that loads while a level is already up does not hear `level_loaded` for
 Fires when the level being played changes or goes away, before `level_loaded` for the next one.
 
 <ResponseField name="name" type="string">The name of the level being left.</ResponseField>
+
+On a dedicated server, a server copy hears it when the server changes its map. Anything the plugin had going on the old map, such as a round or a spawned park, ends there.
 
 ```lua
 reskate.on("level_unloading", function(name)
