@@ -130,6 +130,20 @@ end)
 
 <Note>Needs `session.skaters`.</Note>
 
+On a dedicated server's server copy, `skaters` lists every player in the world who has sent a pose, from the poses the server has: the server has no skater of its own. A server copy can follow players with it, for checkpoints or a game of tag, without trusting what each player's copy reports. `age_ms` grows while a player sends no poses (in a menu, or gone quiet). On a lobby's host, the server copy gets the host's own view, as its client copy does.
+
+```lua
+-- In a server copy: who is within 10 m of the finish.
+local finish = vector.create(120, 4, -36)
+reskate.on("tick", function()
+    for _, s in reskate.session.skaters() do
+        if s.age_ms < 1000 and vector.magnitude(s.position - finish) < 10 then
+            reskate.log(s.id .. " is at the finish")
+        end
+    end
+end)
+```
+
 ### `reskate.session.joint(player, joint)`
 
 Where one of another player's joints is in the world, as your game draws their skater.

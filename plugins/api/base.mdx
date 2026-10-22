@@ -54,6 +54,8 @@ The level being played.
 
 <ResponseField name="level" type="table or nil">`{name = "<level>"}`, or `nil` when no level is being played (the menu, a load).</ResponseField>
 
+On a dedicated server's server copy, it is the map the server runs, named as players' games name it (`"Levels/Game/BAM_LevelRoot/BAM_LevelRoot"` on San Vansterdam).
+
 ```lua
 local level = reskate.level.current()
 if level then reskate.log("in " .. level.name) end
