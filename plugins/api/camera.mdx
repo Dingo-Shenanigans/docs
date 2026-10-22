@@ -145,6 +145,36 @@ end
 
 <Note>Needs the `camera` permission.</Note>
 
+## The camera height cycle
+
+The game's camera height button (the right stick click) steps between its high and low cameras, and ReSkate's first person when that is in the cycle. Your plugin's camera can be a step of it too, last: high, low, first person, your camera, and back to high. The step into your camera keeps the low camera behind it, and the step out of it always lands on the high camera.
+
+### `reskate.camera.cycle(state)`
+
+Puts your camera in the cycle, or takes it out.
+
+<ParamField path="state" type="string or nil" required>`"ready"`: in the cycle, off (the next press past the low camera starts it). `"active"`: in the cycle and on (the next press stops it). `nil`: out of the cycle.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when your camera is in the cycle (or out of it).</ResponseField>
+<ResponseField name="why" type="string">`"<plugin> is in the camera cycle"` when another plugin's camera was in it in the last 300 ms.</ResponseField>
+
+The press asks your plugin to start or stop its camera with the `camera_cycle` event; see [events](/plugins/events). Your plugin does the starting and stopping, as it does when the player uses its own command or bind.
+
+```lua
+local on = false
+reskate.on("camera_cycle", function(step) on = step == "enter" end)
+reskate.on("tick", function()
+    reskate.camera.cycle(on and "active" or "ready")
+    if on then
+        -- show your camera with look or set
+    else
+        reskate.camera.release()
+    end
+end)
+```
+
+<Note>Needs the `camera` permission. Your place in the cycle lasts 300 ms: say it every tick. One plugin's camera is in the cycle at a time. When the plugin stops, its camera leaves the cycle.</Note>
+
 ## The free camera
 
 The game's free camera is ReSkate's Freecam: the player flies it with the flight keys and the mouse, or with the pad. A plugin turns it on for something the player does from the air, such as placing things. It is not a view of your plugin's own: `look`, `set` and `held` do not take part.

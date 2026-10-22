@@ -117,6 +117,11 @@ Only the bone's position and rotation are written; its scale stays as the animat
 Moves a bone out of sight (far below the board), every frame, until you clear it. What hangs on the bone goes with it.
 
 <ParamField path="bone" type="number" required>2 to 15.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="others" type="boolean" default="false">True: hidden from the other players too, in the board your game sends them, not only on your screen. Bone 2 takes the whole board out of sight.</ParamField>
+</Expandable>
+</ParamField>
 
 <ResponseField name="ok" type="boolean">True when the bone is hidden.</ResponseField>
 <ResponseField name="why" type="string">`"<plugin> holds the board"` when another plugin has it.</ResponseField>

@@ -14,7 +14,7 @@ Puts a named action on a key or a pad combo. Each press fires the `action` event
 The player sees your actions on the **Binds** page of ReSkate's settings and can record another combo for any of them, or clear it. The player's choice wins over yours and is kept between sessions.
 
 <ParamField path="action" type="string" required>The action's name, 1 to 48 characters. It is what the `action` event hands your handler. Binding a name again replaces its combo.</ParamField>
-<ParamField path="key" type="string" required>A key, a key combo, or a pad combo, at most 60 characters (see below).</ParamField>
+<ParamField path="key" type="string">A key, a key combo, or a pad combo, at most 60 characters (see below). `nil` (or nothing): no key of its own; the action is on the Binds page for the player to put on one.</ParamField>
 
 <ResponseField name="ok" type="boolean">True when the action is bound.</ResponseField>
 <ResponseField name="why" type="string">`"that is not a key or pad combo"` when `ok` is false.</ResponseField>

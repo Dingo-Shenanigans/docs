@@ -542,6 +542,7 @@ Where the hand goes. `nil` lets the arm go back to the animation.
 <ParamField path="hand" type="string" default='"right"'>`"right"` or `"left"`.</ParamField>
 <ParamField path="rotation" type="table">The hand joint's rotation in the world, `{x, y, z, w}`. It is scaled to a length of 1. Without it, the hand stays turned as the forearm leaves it.</ParamField>
 <ParamField path="weight" type="number" default="1">0 to 1: how far from the animation's arm to the reach. Ease it in and out for an arm that comes up and goes back down.</ParamField>
+<ParamField path="shown" type="string" default='"everyone"'>Who sees the reach: `"everyone"`, `"others"` (the other players, not your own screen) or `"me"` (your screen only).</ParamField>
 </Expandable>
 </ParamField>
 
@@ -594,6 +595,11 @@ Keyed by joint, as `reskate.skater.joint` takes one (a number from 2 to 394, or 
 `nil` (or `{}`) ends your pose.
 </ParamField>
 <ParamField path="weight" type="number" default="1">0 to 1: how far from the animation to your pose.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="shown" type="string" default='"everyone"'>Who sees the pose: `"everyone"`, `"others"` (sent to the other players, not drawn on your screen) or `"me"` (drawn on your screen, not sent). A camera held in your skater's hands is posed for the others while your own screen, looking through it, hides the arm holding it.</ParamField>
+</Expandable>
+</ParamField>
 
 <ResponseField name="ok" type="boolean">True when the joints are posed (or let go).</ResponseField>
 <ResponseField name="why" type="string">`"<plugin> poses the skater"` when another plugin posed it in the last 300 ms.</ResponseField>
@@ -626,6 +632,58 @@ Where one of your skater's joints is in the world, as the pose was last worked o
 </ResponseField>
 
 <Note>Needs the `skater.read` permission. `reskate.session.joint` reads another player's.</Note>
+
+## Carrying something
+
+Your skater holds something out in front of them and aims it, the way a person holds a camera or a phone they point: level, out in front at the chest under the eyes; aimed down, lower and closer, down to the stomach; aimed up, up past the face and over the head. The elbows keep a bend, the arms go round the body, and the other hand can hold it too, from the side and underneath. The body can crouch over it with the feet kept where they are, curl its back over it and look down at it, turn on the spot after it, and step round as it turns. It bends the pose after any [clip](/plugins/api/animation) and `pose`, and before any `reach`.
+
+The thing held is usually a cosmetic worn on the hand (an [outfit](/plugins/api/outfit) item in a hand wear slot, weighted wholly to the hand): with `grip`, the hand turns so it points where you aim it.
+
+### `reskate.skater.carry(goal)`
+
+<ParamField path="goal" type="table or nil" required>
+What is carried and how. `nil` lets it go.
+<Expandable title="fields">
+<ParamField path="at" type="vector" required>Where its front (a lens, a screen) should be, in the world. It is shown held where a person holds what they point, as near that as the arms go; the front ends up out in front of the shoulder, below it when level.</ParamField>
+<ParamField path="rotation" type="table" required>Its rotation in the world, `{x, y, z, w}`: its own -Z is the way it points, +Y its top.</ParamField>
+<ParamField path="front" type="vector" default="(0, 0, 0)">Its front from where the hand grips it, in its own frame (at most 1 m on each axis).</ParamField>
+<ParamField path="grip" type="table">Worn on the hand: `rotation`, its rotation in the hand joint's own frame `{x, y, z, w}`, and `offset`, its grip from the hand joint in that frame (at most 0.5 m on each axis), both from the skeleton's bind pose. Without it, it lies along the palm past the wrist.</ParamField>
+<ParamField path="hand" type="string" default='"right"'>`"right"` or `"left"`: the hand that holds it.</ParamField>
+<ParamField path="both" type="boolean" default="false">True: the other hand holds it too, from its side and underneath.</ParamField>
+<ParamField path="crouch" type="number" default="0">0 to 0.6: metres the hips go down, the knees bending so the feet stay where they are.</ParamField>
+<ParamField path="hunch" type="number" default="0">0 to 1.2: radians the back curls over it as it points down, the head looking down at it; aimed well up, the back straightens and the head tilts back to it.</ParamField>
+<ParamField path="still" type="boolean" default="false">True: the back, neck and head start from a still standing pose, not the animation's (its idle fidgets do not show through). For standing on foot.</ParamField>
+<ParamField path="turn" type="number" default="0">-pi to pi: radians the whole body turns round the upright through the hips, for turning on the spot after it.</ParamField>
+<ParamField path="step" type="number" default="0">0 to 1: how much the feet step round while the body turns.</ParamField>
+<ParamField path="step_phase" type="number" default="0">Where in the stride the feet are, a whole stride for each 1 (one foot, then the other).</ParamField>
+<ParamField path="push_straightens" type="boolean" default="false">True: riding, the knees mostly straighten while a foot is down pushing.</ParamField>
+<ParamField path="weight" type="number" default="1">0 to 1: how far from the animation to carrying. Ease it in and out.</ParamField>
+<ParamField path="shown" type="string" default='"everyone"'>Who sees it: `"everyone"`, `"others"` or `"me"`, as for `pose`.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it is carried (or let go).</ResponseField>
+<ResponseField name="why" type="string">`"<plugin> has the skater carrying"` when another plugin carried in the last 300 ms.</ResponseField>
+
+```lua
+-- A camcorder held out in both hands and aimed where your own camera looks, crouched over it, for the
+-- others to see; on your own screen, looking through it, the forearm holding it is out of sight.
+reskate.on("tick", function()
+    local view = reskate.camera.get()
+    if not view then return end
+    reskate.skater.carry({
+        at = view.position, rotation = rotation_of(view), both = true, front = vector.create(0, -0.143, -0.248),
+        crouch = 0.22, hunch = math.rad(60), shown = "others",
+    })
+    reskate.skater.pose({[48] = {scale = 0}}, 1, {shown = "me"})
+end)
+```
+
+`rotation_of` stands for turning the camera's right, up and back into a quaternion; the Filmer plugin's `plugin/hold.lua` has one (`from_rows`).
+
+<Note>
+Needs the `skater.animation` permission. A carry lasts 300 ms: call it every tick to keep it. One plugin carries at a time; `nil` from another plugin does nothing. A missing `at` or `rotation`, a `hand` that is not `"right"` or `"left"`, a `shown` that is not one of the three, or a number out of its range raises an error. It also works while a throwdown runs. When the plugin stops, it is let go.
+</Note>
 
 ## Launches
 

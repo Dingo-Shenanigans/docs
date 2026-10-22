@@ -11,7 +11,7 @@ Other players see what the skater wears. The player's own outfit is never change
 
 ## How it works
 
-- **Slots.** An item goes in a slot of the skater's outfit, by the slot's name (`"tattoo_legl"`, `"moles"`, `"eyewear"`). Only slots whose name holds `tattoo`, `moles` or `eyewear` are allowed: the face and skin layers, and eyewear. `reskate.outfit.slots()` lists the skater's slots.
+- **Slots.** An item goes in a slot of the skater's outfit, by the slot's name (`"tattoo_legl"`, `"moles"`, `"eyewear"`). Only slots whose name holds `tattoo`, `moles`, `eyewear` or `hand` are allowed: the face and skin layers, eyewear, and hand wear (the game has no menu for hand wear: a camera or a glove your plugin puts in the hand goes there). `reskate.outfit.slots()` lists the skater's slots.
 - **One plugin a slot.** A slot taken by one plugin is refused to the others until it clears it.
 - **Covers.** By default an item goes only in an empty slot: where the player wears something of their own, the player's item stays. With `covers = true` your item goes over theirs.
 - **Placement.** A tattoo's first parameters say where it sits. `placement` writes up to 8 numbers over them; `slots()` shows what the parameters are now.
@@ -33,7 +33,7 @@ Puts `item` in `slot`, over the skater's outfit. The item is put on within a sec
 </ParamField>
 
 <ResponseField name="ok" type="boolean">True when the slot is taken for the item.</ResponseField>
-<ResponseField name="why" type="string">Why not: `"only tattoo, moles and eyewear slots"`, `"<plugin> has that slot"`, `"the paid items are not known yet; try again in a moment"`, `"that is a paid store item"`, `"a placement is at most 8 finite numbers"` or `"asked more than 4 times in a second"`.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"only tattoo, moles, eyewear and hand wear slots"`, `"<plugin> has that slot"`, `"the paid items are not known yet; try again in a moment"`, `"that is a paid store item"`, `"a placement is at most 8 finite numbers"` or `"asked more than 4 times in a second"`.</ResponseField>
 
 ```lua
 -- "my_design" stands for the end of an installed item's name.

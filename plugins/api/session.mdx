@@ -183,6 +183,22 @@ reskate.session.tag(player, nil)
 Needs `session.nametags`. Raises an error for a player that is not one, text over 16 characters or not printable, and a colour that is not a whole number from `0` to `0xFFFFFFFF`. When several plugins tag the same player, one tag shows. Your tags go away when your plugin stops.
 </Note>
 
+### `reskate.session.nametags(shown)`
+
+Holds the names over the other players off on your screen, or gives them back: for a camera that films, say. Chat bubbles still show.
+
+<ParamField path="shown" type="boolean" required>False holds the names off; true gives them back.</ParamField>
+
+Returns nothing.
+
+```lua
+reskate.session.nametags(false) -- while you film
+-- later
+reskate.session.nametags(true)
+```
+
+<Note>Needs `session.nametags`. The names stay off while any plugin holds them off. When the plugin stops, its hold is let go. A `shown` that is not a boolean raises an error.</Note>
+
 ## Touching, hiding and rays at players
 
 For tag, infection or prop hunt: when your skater touches another player's, another player's skater hidden on your screen, and a ray that hits players.
