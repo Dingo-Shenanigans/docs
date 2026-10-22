@@ -259,7 +259,7 @@ Whether a key or a mouse button is held down now. It reads past a pause or a cap
 A key's name, or a Windows virtual key code from 1 to 254. The names (case matters):
 
 - `"A"` to `"Z"` and `"0"` to `"9"`
-- `"Enter"`, `"Backspace"`, `"Escape"`, `"Tab"`, `"Space"`
+- `"Enter"`, `"Backspace"`, `"Escape"`, `"Tab"`, `"Space"`, `"Delete"`
 - `"Shift"`, `"Ctrl"`, `"Alt"`
 - `"Home"`, `"End"`, `"PageUp"`, `"PageDown"`
 - `"Left"`, `"Up"`, `"Right"`, `"Down"`
@@ -405,6 +405,31 @@ A mask that is not a number from 0 to 0xFFFF raises an error.
 
 <Note>
 Needs the `input` permission. One set of masks is kept for every plugin: the latest call wins. The masks last until you change them; when the plugin that called last stops, they are cleared. Unlike `capture`, it needs no camera of your own.
+</Note>
+
+### `reskate.input.game_keys(keys)`
+
+Keeps keys from the game, for a plugin that gives them a job where the game would use them too: Q and E, which step the game's tabs in its menus, say. The game does not see these keys go down, by any of the ways it reads the keyboard. Their releases still reach it, so a key it saw go down before still comes up. Your plugin still reads them with `key`.
+
+<ParamField path="keys" type="table">A list of at most 32 keys, each a name or a virtual key code as `key` takes them. `nil` or `{}` gives every key back.</ParamField>
+
+Returns nothing. Each call replaces the list.
+
+```lua
+-- While the plugin's own tabs show over an item grid, Q and E step them, not the game's.
+reskate.on("tick", function()
+    if over_grid and my_tabs then
+        reskate.input.game_keys({"Q", "E"})
+    else
+        reskate.input.game_keys(nil)
+    end
+end)
+```
+
+A list of more than 32 keys, a name that is not one, `"Escape"` or a mouse button raises an error: Escape and the mouse always reach the game.
+
+<Note>
+Needs the `input` permission. One list is kept for every plugin: the latest call wins. It lasts until you change it; when the plugin that called last stops, the keys are given back.
 </Note>
 
 ## Who has the input

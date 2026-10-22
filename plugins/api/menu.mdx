@@ -421,8 +421,11 @@ The item grid that has the focus in the game's customization menu: the Apparel, 
 <ResponseField name="title" type="string">The highlighted item's name, as the grid shows it.</ResponseField>
 <ResponseField name="category" type="string">The highlighted item's category in the game's catalog.</ResponseField>
 <ResponseField name="items" type="table">Every item's key in the grid, at most 4000.</ResponseField>
-<ResponseField name="shown" type="number">Items the grid shows, after ReSkate's search and filter.</ResponseField>
-<ResponseField name="total" type="number">Items in the grid.</ResponseField>
+<ResponseField name="shown" type="number">Items the grid shows, after ReSkate's search and filter. While your list shows (`grid_show`), the items of it the grid shows.</ResponseField>
+<ResponseField name="total" type="number">Items in the grid. While a list shows, the items in the list.</ResponseField>
+<ResponseField name="showing" type="boolean">True while a plugin's list shows in the grid (`grid_show`).</ResponseField>
+<ResponseField name="held" type="boolean">True while that list has nothing in it that the grid has: the grid keeps one of its own tiles, so the game keeps its highlight, and `focused`, `title` and `category` are left out. Draw over it.</ResponseField>
+<ResponseField name="prompts" type="table">Where the grid's own search bar and key prompts end, as ReSkate last drew them, for your own prompts under them: `left` and `top` in pixels, `width` the search bar's, and `unit` their scale (a keycap is 20 units high). Left out until they have been drawn.</ResponseField>
 </Expandable>
 </ResponseField>
 
@@ -434,6 +437,37 @@ end
 ```
 
 <Note>Needs the `menu` permission.</Note>
+
+### `reskate.menu.grid_show(keys)`
+
+Shows your own list of items in the item grid that has the focus, in place of its tiles: a tab of the player's own, say. The items come from every item grid of the screen, so a list can hold tops, bottoms and shoes together (the game keeps every grid of a screen, one for each of its tabs). ReSkate's search still narrows it. The grid's own tiles come back with `nil`, and when your plugin stops.
+
+<ParamField path="keys" type="table">Items' keys, as `grid().items` and `grid().focused` give them, in the order to show them: at most 4000, each at most 255 characters. An item no grid of the screen has is left out, and an item twice shows once. `nil` gives the grid back.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when your list shows (or the grid is given back).</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"<plugin> shows its list"` while another plugin's list shows.</ResponseField>
+
+A list that is not a table of strings, or is too long, raises an error.
+
+```lua
+local hats = {"hat_beanie_black", "hat_cap_red"}
+reskate.on("tick", function()
+    local grid = reskate.menu.grid()
+    if grid then reskate.menu.grid_show(if showing_hats then hats else nil) end
+end)
+```
+
+<Note>Needs the `menu` permission. One plugin's list shows at a time. Only the grid that has the focus shows it: the game's tabs still step to the others, so keep their keys from the game while yours shows ([`game_keys`](/plugins/api/input), [`game_buttons`](/plugins/api/input)). The game's equip button still equips the highlighted item.</Note>
+
+### `reskate.menu.grid_mark(keys)`
+
+Puts the game's check mark on these items' tiles, where a tile shows its rarity icon: items your plugin has done something with, such as the items worn on top. A check wins over a favorite's star.
+
+<ParamField path="keys" type="table">Items' keys, at most 4000. `nil` or `{}` takes your marks off.</ParamField>
+
+Returns nothing. Each call replaces your list; every plugin's marks show together.
+
+<Note>Needs the `menu` permission. The game's check is drawn from what its menus have loaded; where none is, the tiles show no check. Your marks go when your plugin stops.</Note>
 
 ## Dialogs
 

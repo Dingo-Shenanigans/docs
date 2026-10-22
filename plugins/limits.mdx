@@ -143,6 +143,9 @@ These raise a Lua error. The plugin runs on.
 | Dialogs (`reskate.ui.dialog`) | 120 calls a second | `more than 120 dialog calls in a second` |
 | Saved frames (`reskate.capture.save`) | 1 to 360 a file; a `png` is one | `a capture saves 1 to 360 frames`, `a png is one frame` |
 | Capture cards | a title of 32 bytes; 16 lines, each label and value 64 bytes | `a card's title is at most 32 bytes`, `a card has at most 16 lines` |
+| Keys kept from the game (`reskate.input.game_keys`) | 32 | `at most 32 keys` |
+| Items on top (`reskate.outfit.on_top`) | 32 | `at most 32 items` |
+| An item grid's list or marks (`reskate.menu.grid_show`, `grid_mark`) | 4000 items | `at most 4000 items` |
 
 ## Limits that refuse a call with false
 
@@ -151,7 +154,7 @@ These return `false` and a reason, and raise nothing. Check the result.
 | What | Limit | Reason |
 | --- | --- | --- |
 | `reskate.skater.teleport`, `reskate.trainer.back` | 2 a second, together | `asked more than twice in a second` |
-| `reskate.skater.noclip`, `boost`, `freeze`; `reskate.camera.follow`; `reskate.ai.spawn`; `reskate.animation.play`; `reskate.board.toss`; `reskate.outfit.set`; `reskate.capture.start` | 4 a second, together | `asked more than 4 times in a second` |
+| `reskate.skater.noclip`, `boost`, `freeze`; `reskate.camera.follow`; `reskate.ai.spawn`; `reskate.animation.play`; `reskate.board.toss`; `reskate.outfit.set`; `reskate.outfit.on_top`; `reskate.capture.start` | 4 a second, together | `asked more than 4 times in a second` |
 | `reskate.skater.wipeout` | 1 every 2 s | `one wipeout every 2 s` |
 | `reskate.skater.reach` | one plugin at a time, for 300 ms after its last call | `<plugin> holds the skater's arm` |
 | `reskate.skater.pose` | one plugin at a time, for 300 ms after its last call | `<plugin> poses the skater` |
@@ -163,6 +166,7 @@ These return `false` and a reason, and raise nothing. Check the result.
 | `reskate.travel.go`, `reskate.travel.load` | 1 every 5 s | `one trip every 5 s` |
 | `reskate.voice.set_volume` | 10 a second | `more than 10 changes in a second` |
 | `reskate.files.reveal` | 1 a second | `once a second` |
+| `reskate.menu.grid_show` | one plugin's list at a time | `<plugin> shows its list` |
 | `reskate.capture.start` | one plugin at a time, while its capture records or saves | `<plugin> is capturing` |
 | `reskate.files.write` | 1 MB a file, 1000 files in the data folder | `a file is at most 1 MB`, `the data folder holds 1000 files already` |
 | `reskate.entities.set` | 512 objects a plugin, 1024 in the world | `at most 512 objects`, `the world holds as many objects as ReSkate keeps` |

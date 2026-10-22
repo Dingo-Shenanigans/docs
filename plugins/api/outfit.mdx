@@ -149,6 +149,39 @@ end
 
 <Note>Needs the `outfit` permission.</Note>
 
+### `reskate.outfit.on_top(items)`
+
+Wears items on top of the outfit: more than one where the outfit has one, such as a second chain, rings on both hands, or five hats. Each goes into a slot the outfit leaves empty: its own kind's when that one is free, else one of the accessory slots, then the tattoo and face slots. The item is given that slot's category besides its own, in memory, for this run of the game, so the game builds it from there.
+
+Not every item loads from every slot: a top in the left hand's slot leaves the skater with no body. So an item never tried in a slot goes on alone, and if the game reports a failed load within 0.9 s, it comes off and the next slot is tried. What loads where is kept in `ReSkate.layer_slots.txt` beside `Skate.exe`, so it is not tried again.
+
+<ParamField path="items" type="table">Items' names, as `find` and an item grid's keys give them, in the order they go on: at most 32, each at most 200 characters. It replaces your plugin's list. `nil` or `{}` takes them all off.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the list is taken.</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"<item> is a paid store item"` for an item sold in the game's store, whoever owns it; `"the paid items are not known yet; try again in a moment"`; or `"asked more than 4 times in a second"`.</ResponseField>
+
+```lua
+reskate.outfit.on_top({"chain_gold_thin", "ring_silver_left", "ring_silver_right"})
+```
+
+An empty name, or more than 32 items, raises an error.
+
+<Note>Needs the `outfit` permission. At most 4 calls a second, a budget shared with the plugin's other control calls. Like `set`, the items go on the skater in the world: while one of the game's menus is up the skater is the game's own, and the menus' preview skater never shows them. Other players do not see them, as their game holds items to their slots. When your plugin stops, its items come off.</Note>
+
+### `reskate.outfit.on_top_state()`
+
+How your items on top are doing.
+
+<ResponseField name="state" type="table">
+<Expandable title="fields">
+<ResponseField name="items" type="table">Your list, as `on_top` was last given it.</ResponseField>
+<ResponseField name="worn" type="table">Those of them on the skater now.</ResponseField>
+<ResponseField name="note" type="string">Why some are not, when they are not: such as `"not worn: hat_x (not installed), ring_y (no free slot); 2 more to try on"`.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `outfit` permission.</Note>
+
 ### `reskate.outfit.title(key)`
 
 An item's name as the game shows it. It is the item's title in the game's catalog. A mod's item has no catalog entry, so for one it is the title an item grid showed this session. Failing both, it is the key made readable: without an `Own_` at its start, and with spaces for underscores.

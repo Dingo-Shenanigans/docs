@@ -158,9 +158,9 @@ A picture is loaded the first time you draw it, and shows a few frames later. A 
 
 ### `d:game_image(name, top_left, bottom_right, style)`
 
-One of skate.'s own pictures, by name: its scoring icons, the THRASHER wordmark, and the brush strokes and tiles its menus are built from. ReSkate reads them from the installed game, so your package ships none of them.
+One of skate.'s own pictures, by name: its scoring icons, the THRASHER wordmark, the brush strokes and tiles its menus are built from, and its customization menu's category icons. ReSkate reads them from the installed game, so your package ships none of them.
 
-<ParamField path="name" type="string" required>One of the 14 names below. Any other name raises an error that lists them.</ParamField>
+<ParamField path="name" type="string" required>One of the 31 names below. Any other name raises an error that lists them.</ParamField>
 <ParamField path="top_left" type="vector" required>Pixels.</ParamField>
 <ParamField path="bottom_right" type="vector" required>Pixels.</ParamField>
 <ParamField path="style" type="table">`colour` tints it: the pictures are white or grey, so the colour you give is the colour they show (`loading_board` keeps its own colours, and `colour` fades it). `fit` and `edge` (below) say how it goes onto the box; `frame` picks a flipbook's picture. `rounding` and `uv` do nothing here.</ParamField>
@@ -191,6 +191,7 @@ One of skate.'s own pictures, by name: its scoring icons, the THRASHER wordmark,
 | `scratches` | A film's scratches and dust, light marks drawn by their brightness: lay it over a panel. |
 | `streak` | A long brush streak, thick on the left and tapering to the right. |
 | `loading_board` | The board doing kickflips beside skate.'s own "Loading...", in its own colours: 27 frames (`frame`), 30 a second. |
+| `cas_tops`, `cas_bottoms`, `cas_shoes`, `cas_outfit`, `cas_fullbody`, `cas_headwear`, `cas_headaccessories`, `cas_eyewear`, `cas_handwear`, `cas_socks`, `cas_deck`, `cas_trucks`, `cas_wheels`, `cas_gripcolor`, `cas_grippattern`, `cas_sticker`, `cas_decorator_vfxcosmetic` | The customization menu's category icons, as its tabs show them: white on clear. Always fitted (`fit` does nothing). |
 
 The scoring icons and the stopwatch are about 64 pixels in the game, so they look best drawn small; the others are larger.
 
