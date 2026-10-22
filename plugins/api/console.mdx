@@ -20,15 +20,23 @@ reskate.console.print("error: that spot is taken")
 Needs `console`. Shares a budget of 50 lines a second with `reskate.log` and `print`; past it, the rest of that second's lines are left out. A line longer than 2000 characters is cut short.
 </Note>
 
-### `reskate.console.command(name, help, fn)`
+### `reskate.console.command(name, help, fn, subcommands)`
 
-Adds a console command. When the player types a line that starts with its name, `fn` runs with the words after the name.
+Adds a console command. When the player types a line that starts with its name, `fn` runs with the words after the name. The console's lookup suggests it as the player types, with its help, beside ReSkate's own commands.
 
 <ParamField path="name" type="string" required>
 1 to 3 words of lowercase letters `a-z`, digits `0-9`, `_` and `-`, with one space between them: `"spots"`, `"spots save"`, `"my-mode start now"`. At most 48 characters, no leading or trailing space.
 </ParamField>
 <ParamField path="help" type="string" required>One line saying what it does. `plugin commands` lists it. Cut to 200 characters.</ParamField>
 <ParamField path="fn" type="function" required>Called with one argument: a list of the words typed after the name (possibly empty).</ParamField>
+<ParamField path="subcommands" type="table">
+The words your function takes after the name, so the console's lookup suggests them after the name and `plugin commands` lists them. At most 32. Your function still runs them all: the first word after the name is its `args[1]`.
+<Expandable title="fields">
+<ParamField path="name" type="string" required>One lowercase word of `a-z`, `0-9`, `_` and `-`.</ParamField>
+<ParamField path="args" type="string">What it takes, as help shows it, such as `"[start]"` or `"on|off"`. At most 80 characters.</ParamField>
+<ParamField path="help" type="string">What it does. At most 200 characters.</ParamField>
+</Expandable>
+</ParamField>
 
 ```lua
 reskate.console.command("spots save", "Saves where you stand as a spot: spots save <name>", function(args)
@@ -39,6 +47,16 @@ reskate.console.command("spots save", "Saves where you stand as a spot: spots sa
     end
     reskate.console.print("saved " .. name)
 end)
+```
+
+```lua
+-- One function for several words: the lookup shows "list" and "add" after "spots ".
+reskate.console.command("spots", "Your saved spots", function(args)
+    if args[1] == "list" then reskate.console.print("no spots yet") end
+end, {
+    {name = "list", help = "Every spot you saved"},
+    {name = "add", args = "<name>", help = "Saves where you stand"},
+})
 ```
 
 Typing `spots save ledge` runs the function with `{"ledge"}`. Names are matched without regard to case, and the longest name the line starts with wins, so one plugin can have `spots` and `spots save` side by side.

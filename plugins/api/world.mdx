@@ -5,7 +5,7 @@ description: "reskate.world, reskate.objects, reskate.entities, reskate.travel a
 
 These tables read and change the world the local skater is in. Each function needs a permission, named in its section:
 
-- `world.raycast`: `reskate.world.raycast`.
+- `world.raycast`: `reskate.world.raycast` and `pick`.
 - `world.environment`: `reskate.world.set_time`, `set_control` and `set_park`.
 - `world.objects`: `reskate.objects.*`.
 - `world.entities`: `reskate.entities.*`.
@@ -36,6 +36,44 @@ end
 
 <Note>
 Needs the `world.raycast` permission. A ray longer than 1000 m, or more than 64 raycasts in one tick, raises an error. Collision is loaded only near the skater: far from it, a ray meets nothing and returns `nil`.
+</Note>
+
+### `reskate.world.pick(from, to)`
+
+Like `raycast`, and also the world object the ray meets: what it is and where it stands. A prop hunt uses it to let a hider become the prop they look at.
+
+<ParamField path="from" type="vector" required>The ray's start.</ParamField>
+<ParamField path="to" type="vector" required>The ray's end, at most 1000 m from `from`.</ParamField>
+
+<ResponseField name="hit" type="table or nil">
+`nil` when the ray meets nothing. Otherwise:
+<Expandable title="fields">
+<ResponseField name="position" type="vector">Where the ray first meets the world.</ResponseField>
+<ResponseField name="object" type="table or nil">The object it met, or `nil` for the ground and the level's own shapes that are not objects.
+<Expandable title="fields">
+<ResponseField name="blueprint" type="string or nil">The world object blueprint it was made from, as `reskate.entities.set` takes it (see [your own world objects](#your-own-world-objects)). `nil` when ReSkate cannot tell.</ResponseField>
+<ResponseField name="position" type="vector or nil">Where the object stands.</ResponseField>
+<ResponseField name="heading" type="number or nil">How it is turned about world up, in radians.</ResponseField>
+<ResponseField name="transform" type="table or nil">Its whole transform in the matrix form `entities.set` takes, `{matrix = {...}}`: its rotation and scale as well as its position.</ResponseField>
+</Expandable>
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+-- Become the prop you look at (camera.get needs the camera permission).
+local view = reskate.camera.get()
+local hit = view and reskate.world.pick(view.position, view.position + view.forward * 30)
+if hit and hit.object and hit.object.blueprint then
+    local low = reskate.entities.bounds(hit.object.blueprint)
+    reskate.entities.set(1, hit.object.blueprint, {position = vector.create(0, low and -low.y or 0, 0), yaw = math.deg(hit.object.heading or 0)},
+        false, {joint = "root", turn = false})
+    reskate.skater.hide(true)
+end
+```
+
+<Note>
+Needs the `world.raycast` permission, and counts towards its 64 raycasts a tick. A ray longer than 1000 m raises an error. As with `raycast`, collision is loaded only near the skater.
 </Note>
 
 ## Time of day and world controls
@@ -264,8 +302,10 @@ Makes, moves or changes one of your objects.
 <ParamField path="attach" type="table">
 Keeps the object on a joint of a skater, moved with it every frame: a camera in a hand, a hat on a head. The `transform` is then in the joint's frame: its position is along the joint's own axes, from the joint.
 <Expandable title="fields">
-<ParamField path="joint" type="number or string" required>The joint: a number from 0 to 394 (the skater's animation skeleton), or one of `"right_hand"` (49), `"left_hand"` (278), `"head"` (103), `"hips"` (7) and `"spine"` (42).</ParamField>
+<ParamField path="joint" type="number or string" required>The joint: a number from 0 to 394 (the skater's animation skeleton), or one of `"right_hand"` (49), `"left_hand"` (278), `"head"` (103), `"hips"` (7), `"spine"` (42) and `"root"` (1: where the skater stands, at its feet, without the body's sway).</ParamField>
 <ParamField path="player" type="string or table">Another player in your session, by id or [player table](/plugins/api/session). Nothing for your own skater. Their joint is where your game draws their skater.</ParamField>
+<ParamField path="upright" type="boolean" default="false">True keeps the object standing level at the joint, turned only about world up as the joint turns, instead of leaning with it: a prop worn by a hider stays upright whatever the skater's body does. The `transform` is then in that level frame.</ParamField>
+<ParamField path="turn" type="boolean" default="true">False makes the object follow only the joint's position: its rotation is the `transform`'s, in the world, whatever the skater does, and its position is an offset along the world's axes. Turn it yourself by setting it again with another `yaw`. A prop hunt's disguise uses it so the prop turns only when the player says.</ParamField>
 </Expandable>
 </ParamField>
 
@@ -336,6 +376,47 @@ Where one of your objects is.
 ```lua
 if reskate.entities.status(1) == "missing" then
     reskate.log("this map has no traffic cone loaded")
+end
+```
+
+<Note>Needs the `world.entities` permission.</Note>
+
+### `reskate.entities.blueprints(start, meshes)`
+
+The world object blueprints the game has loaded now: what `set` can make on this map. Pick one at random, or offer a list.
+
+<ParamField path="start" type="string">Only names starting with this, ASCII case ignored, such as `"World/Props/"`. At most 200 characters. Nothing for all of them.</ParamField>
+<ParamField path="meshes" type="boolean" default="false">True lists only the blueprints with a loaded mesh: the ones that show when made. Others are logic objects, widgets and the like, which `set` makes but nobody sees.</ParamField>
+
+<ResponseField name="names" type="table">The names, sorted, at most 4096. Empty before a level is loaded.</ResponseField>
+
+```lua
+-- A random prop this map has.
+local props = reskate.entities.blueprints("World/Props/", true)
+if #props > 0 then
+    local prop = props[math.random(1, #props)]
+    local low = reskate.entities.bounds(prop)
+    -- At your feet, standing on its base, turned only as you set it.
+    reskate.entities.set(1, prop, {position = vector.create(0, -low.y, 0), yaw = 0}, false, {joint = "root", turn = false})
+end
+```
+
+<Note>Needs the `world.entities` permission. The list follows what is loaded: it changes as the map streams parts in and out, and with the level. It is read again at most every 2 seconds; calling more often gives the same list.</Note>
+
+### `reskate.entities.bounds(blueprint)`
+
+The box a blueprint's mesh fills, in the object's own frame: its size, and where its base is. Most props have their origin at their base, so `min.y` is 0; one that is not stands on its base when you set it `-min.y` higher.
+
+<ParamField path="blueprint" type="string" required>The blueprint's name, at most 200 characters.</ParamField>
+
+<ResponseField name="min" type="vector or nil">The box's lowest corner. `nil` (and no `max`) when the blueprint has no mesh, or its mesh is not loaded.</ResponseField>
+<ResponseField name="max" type="vector">Its highest corner.</ResponseField>
+
+```lua
+local low, high = reskate.entities.bounds("World/Props/Common/Trash/CMN_PRP_TrashBags_01/CMN_PRP_TrashBags_01_single")
+if low then
+    local size = high - low
+    reskate.log(string.format("%.2f x %.2f x %.2f m", size.x, size.y, size.z))
 end
 ```
 

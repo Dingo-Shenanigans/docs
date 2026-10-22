@@ -64,7 +64,7 @@ Every plugin has these without asking:
 | `events.physics` | The `physics_step` event ([events](/plugins/events)) | Nothing. |
 | `skater.read` | [`reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`, `telemetry`, `goofy`, `hand`, `joint`; `reskate.physics.tuning`, `find`](/plugins/api/skater); [`reskate.board.motion`](/plugins/api/board) | Nothing. |
 | `skater.teleport` | [`reskate.skater.teleport`](/plugins/api/skater) | Your skater where it lands, as with the console's teleport. Refused in a session whose host turned teleporting off. |
-| `skater.control` | [`reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `shape_launch`, `push`, `push_wait`, `push_reset`, `hold`, `cruise`, `set_velocity`; `reskate.physics.tune`, `competition`, `stock_ready`, `prepare`; `reskate.tricks.record_as`](/plugins/api/skater) | Your skater as it moves and bails, the side it pops out of a grind to, the speed a push gives it and the board held still. While you compete, your skater rides the game's stock physics. A trick recorded as another is your game's. Noclip and boosts follow the host's rules. |
+| `skater.control` | [`reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `shape_launch`, `hide`, `push`, `push_wait`, `push_reset`, `hold`, `cruise`, `set_velocity`; `reskate.physics.tune`, `competition`, `stock_ready`, `prepare`; `reskate.tricks.record_as`](/plugins/api/skater) | Your skater as it moves and bails, the side it pops out of a grind to, the speed a push gives it and the board held still. While you compete, your skater rides the game's stock physics. A trick recorded as another is your game's. Noclip and boosts follow the host's rules. |
 | `trainer` | [`reskate.trainer.set_point`, `reskate.trainer.back`](/plugins/api/skater) | Your skater going back to the point, as a teleport. Refused when the host turned teleporting off. |
 | `skater.animation` | [`reskate.animation.play`, `stop`, `playing`, `seek`, `pause`, `time`, `replace`, `record`, `recorded`, `forget`, `trick`, `info`, `sample`, `joints`, `trim`, `edit`, `save`, `game_clips`, `mirror`](/plugins/api/animation) (`save` and `"data:"` clips need `files` too); [`reskate.skater.reach`, `pose`](/plugins/api/skater#arm-reach) | The clips your skater plays and the arm it reaches with: other players see your body as your game draws it. |
 | `outfit` | [`reskate.outfit.set`, `clear`, `find`, `slots`, `status`, `worn`, `board`, `title`, `on_top`, `on_top_state`](/plugins/api/outfit) | What your skater wears over the outfit (tattoos, moles, eyewear; never a paid store item). |
@@ -75,9 +75,9 @@ Every plugin has these without asking:
 
 | Permission | Unlocks | What other players see |
 | --- | --- | --- |
-| `world.raycast` | [`reskate.world.raycast`](/plugins/api/world) | Nothing. |
+| `world.raycast` | [`reskate.world.raycast` and `pick`](/plugins/api/world) | Nothing. |
 | `world.objects` | [`reskate.objects.catalog`, `list`, `place`, `move`, `remove`](/plugins/api/world) | The objects you place, as any park editor object, under the session's object rules and its limit on your objects. |
-| `world.entities` | [`reskate.entities.set`, `remove`, `clear`, `status`, `ready`](/plugins/api/world#your-own-world-objects) | Nothing: the objects show on your game only. |
+| `world.entities` | [`reskate.entities.set`, `remove`, `clear`, `status`, `ready`, `blueprints`, `bounds`](/plugins/api/world#your-own-world-objects) | Nothing: the objects show on your game only. |
 | `world.environment` | [`reskate.world.set_time`, `set_control`, `set_park`](/plugins/api/world) | Your game's time of day, world controls and parks. In a session, only the host chooses the parks. |
 | `world.ai` | [`reskate.ai.spawn`, `clear`, `count`](/plugins/api/world) | Nothing: spawning is refused in a session, where the other players would never see the AI skaters. |
 | `travel` | [`reskate.travel.locations`, `levels`, `go`, `load`](/plugins/api/world) | In a session only the host can travel, and the host's travel changes where everyone is. |

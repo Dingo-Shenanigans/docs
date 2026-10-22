@@ -8,7 +8,7 @@ These tables work on the local skater: the player's own, on their own game. Each
 - `skater.read`: `reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`, `telemetry` and `goofy`.
 - `skater.teleport`: `reskate.skater.teleport`.
 - `events.skater`: `reskate.skater.state`.
-- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `shape_launch`, `push`, `push_wait`, `push_reset` and `hold`; `reskate.physics.competition`, `stock_ready` and `prepare`.
+- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `shape_launch`, `hide`, `push`, `push_wait`, `push_reset` and `hold`; `reskate.physics.competition`, `stock_ready` and `prepare`.
 - `overlay`: `reskate.skater.xray`.
 - `camera`: `reskate.skater.bone_cam`.
 - `events.tricks`: `reskate.score.current`, `reskate.tricks.feed` and `reskate.tricks.gesture`.
@@ -613,7 +613,7 @@ Needs the `skater.animation` permission. A pose lasts 300 ms: call it every tick
 
 Where one of your skater's joints is in the world, as the pose was last worked out (after any clip and reach). For a hat on the head, a light on the board's nose, a trail from a hand.
 
-<ParamField path="joint" type="number or string" required>A joint of the skater's animation skeleton, 0 to 394, or one of `"right_hand"` (49), `"left_hand"` (278), `"head"` (103), `"hips"` (7) and `"spine"` (42). Anything else raises an error.</ParamField>
+<ParamField path="joint" type="number or string" required>A joint of the skater's animation skeleton, 0 to 394, or one of `"right_hand"` (49), `"left_hand"` (278), `"head"` (103), `"hips"` (7), `"spine"` (42) and `"root"` (1). Anything else raises an error.</ParamField>
 
 <ResponseField name="joint" type="table or nil">
 `nil` without a skater, and on the first call for a joint: asking keeps that joint read for 2 seconds, so call it every tick. ReSkate reads at most 32 of your skater's joints at once, for every plugin together; past that, a joint not already read gives `nil`.
@@ -662,6 +662,25 @@ A `from` not one of the four, a shape that is not a table or sets nothing, or a 
 <Note>
 Needs the `skater.control` permission (and `events.skater` to hear the `launch` event). One plugin shapes each kind of launch at a time: the first to call this with a shape, until it calls it with `nil` or stops. It works in any session; other players see the launch as your skater makes it. The [grind-exits](/plugins/examples) mod picks the side of a pop out of a grind with it, from `right` and `switch` in `reskate.skater.get()`.
 </Note>
+
+## Hiding your skater
+
+### `reskate.skater.hide(on)`
+
+Stops your own skater being drawn on your screen, or draws it again. Only your game changes: other players still see you unless their own plugin hides you ([`reskate.session.hide`](/plugins/api/session)). Your skater still skates, collides and can be hit as before. A prop hunt hides a hider's skater on their own screen, so they see only the prop they wear.
+
+<ParamField path="on" type="boolean" default="true">True (or nothing) hides your skater; false draws it again.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it was done.</ResponseField>
+<ResponseField name="why" type="string">`"hiding the skater is unavailable for this game build"`.</ResponseField>
+
+```lua
+reskate.skater.hide(true)
+-- The board is drawn on its own: hide its parts too (board permission).
+for bone = 2, 15 do reskate.board.hide(bone) end
+```
+
+<Note>Needs the `skater.control` permission. Your skater stays hidden while any plugin hides it, and your plugin's hide goes when it stops. While it is hidden, the x-ray (`reskate.skater.xray`) has no picture of the skater.</Note>
 
 ## X-ray
 
