@@ -65,6 +65,8 @@ ReSkate notices when any file of a plugin's folder changes (a name, a size or a 
 Plugin my-plugin reloading: its files changed.
 ```
 
+ReSkate looks for changes every 2 seconds. A change made while the game window does not have the focus waits until it does, so a plugin you edit in another window reloads once, when you come back to the game, and not at every save. The log says `Plugins: a change waits for the game to have the focus.` meanwhile. When the game starts, the plugins load at once, focused or not.
+
 A plugin you switched off with `plugin off` stays off when its files change.
 
 ### Packages that are refused
