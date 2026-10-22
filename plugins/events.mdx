@@ -302,26 +302,27 @@ reskate.on("bail_end", function(fall)
 end)
 ```
 
-### `grind_exit`
+### `launch`
 
-**Permission:** `events.skater`, and `skater.control` to call `reskate.skater.grind_exit`.
+**Permission:** `events.skater`.
 
-Fires for each pop out of a grind while your plugin holds the grind exits: once it has called [`reskate.skater.grind_exit`](/plugins/api/skater#grind-exits), with a wish or `nil`. It tells you what the pop did with the side you asked for. Other plugins hear nothing of it. At most 32 pops wait between two ticks.
+Fires for each launch of the local skater into the air: ollies, pops out of grinds, no complies and boneless, as the game made them and as they left after any plugin's [`reskate.skater.shape_launch`](/plugins/api/skater#launches). Launches are followed from the first tick a plugin with `events.skater` runs, and at most 32 wait between two ticks.
 
-<ResponseField name="e.applied" type="boolean">Whether the pop's side was set as you asked.</ResponseField>
-<ResponseField name="e.reason" type="string">`"applied"` (set), `"kept"` (at full strength, the game's own exit already went that way, so it was left as it was), `"none"` (your wish was `nil`: the game's own exit), `"slow"` (under 0.5 metres per second along the rail, too slow to tell the rail's direction) or `"not_ours"` (the launch did not match the skater's grind).</ResponseField>
-<ResponseField name="e.basis" type="string">How the side was worked out. Only present with `"applied"` and `"kept"`: `"toe_heel"` (from your stance and the way the skater faces), `"slide"` (the toes pointed along the rail, so toe is the left of travel and heel the right), `"no_stance"` (toe or heel asked without a stance: the same), `"no_facing"` (the way the skater faces was not known: the same) or `"travel"` (you asked for left or right).</ResponseField>
-<ResponseField name="e.side" type="string">The side the pop went to, `"left"` or `"right"` of the direction of travel. Empty when the game's own exit was left alone (`"none"`, `"slow"`, `"not_ours"`).</ResponseField>
-<ResponseField name="e.before" type="number">The launch's sideways speed across the rail before, in metres per second. Positive is the left of travel.</ResponseField>
-<ResponseField name="e.after" type="number">The sideways speed after. The same as `before` unless `applied`.</ResponseField>
+<ResponseField name="e.from" type="string">What it came out of: `"grind"`, `"ollie"`, `"no_comply"`, `"boneless"` or `"other"`.</ResponseField>
+<ResponseField name="e.velocity" type="vector">The velocity it left with, in metres per second.</ResponseField>
+<ResponseField name="e.game" type="vector">The velocity the game gave it, before any shape.</ResponseField>
+<ResponseField name="e.travel" type="vector or nil">The direction of travel before it, level and one long. `nil` under 0.5 metres per second.</ResponseField>
+<ResponseField name="e.travel_speed" type="number">The speed of that travel, in metres per second.</ResponseField>
+<ResponseField name="e.shaped" type="boolean">Whether a plugin's shape changed it.</ResponseField>
+<ResponseField name="e.reason" type="string">`"applied"` (shaped), `"none"` (no plugin shapes these launches), `"slow"` (too slow to tell the direction of travel) or `"not_ours"` (it did not go along its travel at about the skater's speed, so `across` and `along` were left alone).</ResponseField>
+<ResponseField name="e.by" type="string or nil">The id of the plugin whose shape changed it.</ResponseField>
 
 ```lua
-reskate.on("grind_exit", function(pop)
-    if pop.applied then
-        reskate.log(string.format("out to the %s (%s), %+.2f -> %+.2f m/s", pop.side, pop.basis, pop.before, pop.after))
-    else
-        reskate.log("the game's own exit: " .. pop.reason)
-    end
+reskate.on("launch", function(e)
+    if e.from ~= "grind" or not e.travel then return end
+    -- Across the travel, positive to its left: (x, z) against (z, -x).
+    local across = e.velocity.x * e.travel.z - e.velocity.z * e.travel.x
+    reskate.log(string.format("out of the grind %s at %.1f m/s across", across >= 0 and "left" or "right", math.abs(across)))
 end)
 ```
 

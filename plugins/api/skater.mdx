@@ -8,7 +8,7 @@ These tables work on the local skater: the player's own, on their own game. Each
 - `skater.read`: `reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`, `telemetry` and `goofy`.
 - `skater.teleport`: `reskate.skater.teleport`.
 - `events.skater`: `reskate.skater.state`.
-- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `grind_exit`, `push`, `push_wait`, `push_reset` and `hold`; `reskate.physics.competition`, `stock_ready` and `prepare`.
+- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `shape_launch`, `push`, `push_wait`, `push_reset` and `hold`; `reskate.physics.competition`, `stock_ready` and `prepare`.
 - `overlay`: `reskate.skater.xray`.
 - `camera`: `reskate.skater.bone_cam`.
 - `events.tricks`: `reskate.score.current`, `reskate.tricks.feed` and `reskate.tricks.gesture`.
@@ -46,6 +46,8 @@ The local skater as the game has it this tick. Use it when you need more than on
 <ResponseField name="vertical_speed" type="number">Metres per second, up.</ResponseField>
 <ResponseField name="airborne" type="boolean">True while it is in the air.</ResponseField>
 <ResponseField name="air_time" type="number">Seconds into the jump going on.</ResponseField>
+<ResponseField name="right" type="vector or nil">The skater's right axis, as its body faces: across the board for a skater riding. `nil` while it is not known yet (the first moments after you first ask).</ResponseField>
+<ResponseField name="switch" type="boolean or nil">True while it rides switch. With `reskate.skater.goofy()` it tells which foot leads: the right foot for goofy riding normal or fakie, and for regular riding switch. Present with `right`.</ResponseField>
 </Expandable>
 </ResponseField>
 
@@ -189,7 +191,7 @@ The stance the player chose in the game.
 
 ```lua
 local stance = reskate.skater.goofy() and "goofy" or "regular"
-reskate.skater.grind_exit({side = "toe", stance = stance})
+reskate.log("riding " .. stance)
 ```
 
 <Note>Needs the `skater.read` permission.</Note>
@@ -625,52 +627,40 @@ Where one of your skater's joints is in the world, as the pose was last worked o
 
 <Note>Needs the `skater.read` permission. `reskate.session.joint` reads another player's.</Note>
 
-## Grind exits
+## Launches
 
-### `reskate.skater.grind_exit(wish)`
+### `reskate.skater.shape_launch(from, shape)`
 
-Picks the side the skater pops out of a grind to, whatever the trick and the body's rotation. The wish stands for every pop out of a grind until you change it. Each pop is told to your plugin as the [`grind_exit` event](/plugins/events).
+Sets the speed of the local skater's launches into the air out of `from`: across its direction of travel, along it, or up. The shape stands for every such launch until you change it. Each launch is told to every plugin with `events.skater` as the [`launch` event](/plugins/events#launch), with what the game made of it and what it left with.
 
-At the pop only the launch's sideways part, across the rail, is changed: the game's own sideways speed when it had one (1 metre per second or more), turned to the chosen side, else 1.8 metres per second (the game's usual), times `strength`. The speed along the rail, the pop's height, the trick, the flip and the rotation stay the game's. A pop slower than 0.5 metres per second along the rail is left alone.
+The direction of travel is the board's over the last few physics steps before the launch. Only the parts you give change; the rest stay the game's, as do the trick, the flip and the rotation.
 
-<ParamField path="wish" type="table or nil" required>
-What the pops do. `nil` gives the exits back to the game, while your plugin keeps holding them.
+<ParamField path="from" type="string" required>What the launches come out of: `"grind"` (a pop out of a grind or a slide), `"ollie"` (riding or out of a manual), `"no_comply"` or `"boneless"`.</ParamField>
+<ParamField path="shape" type="table or nil" required>
+The speeds, in metres per second, each set if given; at least one. `nil` gives these launches back to the game.
 <Expandable title="fields">
-<ParamField path="side" type="string" required>`"toe"` or `"heel"` (the skater's toe or heel side), or `"left"` or `"right"` of the direction of travel.</ParamField>
-<ParamField path="stance" type="string">The player's stance, `"regular"` or `"goofy"`. Toe and heel need it: with it and the way the skater faces they follow the foot that leads, riding normal, fakie or switch. Without it, and on slides (where the toes point along the rail), toe is the left of travel and heel the right.</ParamField>
-<ParamField path="strength" type="number" default="1">0.1 to 1: how much of the full sideways speed the pop gets. At 1, a pop the game already sends to that side is kept as it is.</ParamField>
+<ParamField path="across" type="number">Across the direction of travel. Positive is its left. -50 to 50.</ParamField>
+<ParamField path="along" type="number">Along the direction of travel. -50 to 50.</ParamField>
+<ParamField path="up" type="number">Up. -50 to 50.</ParamField>
 </Expandable>
 </ParamField>
 
-<ResponseField name="ok" type="boolean">True when your plugin holds the grind exits with this wish.</ResponseField>
-<ResponseField name="why" type="string">Why not: `"<plugin> picks the grind exits"` (another plugin holds them) or `"grind exits are unavailable for this game build"`.</ResponseField>
+<ResponseField name="ok" type="boolean">True when your plugin shapes these launches.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"<plugin> shapes <from> launches"` (another plugin does) or `"launches are unavailable for this game build"`.</ResponseField>
+
+A launch that `across` or `along` cannot apply to is left as the game made it: one slower than 0.5 metres per second over the ground (there is no direction of travel to measure against), or one that does not go along its travel at about the skater's speed (`"not_ours"` in the `launch` event). `up` applies to every launch.
 
 ```lua
--- LT pops out to the toe side, RT to the heel side.
-local held = false
-reskate.on("load", function()
-    local ok, why = reskate.skater.grind_exit(nil) -- hold the exits, the game's own for now
-    held = ok
-    if not ok then reskate.log("no grind exits: " .. why, "warn") end
-end)
-
-reskate.on("tick", function()
-    if not held then return end
-    local pad = reskate.input.gamepad() -- needs input
-    local wish = nil
-    if pad and pad.left_trigger > 0.5 then
-        wish = {side = "toe", stance = "goofy", strength = 0.8}
-    elseif pad and pad.right_trigger > 0.5 then
-        wish = {side = "heel", stance = "goofy", strength = 0.8}
-    end
-    reskate.skater.grind_exit(wish)
-end)
+-- Pop out of every grind to the left of travel, at the game's usual sideways speed.
+reskate.skater.shape_launch("grind", {across = 1.8})
+-- And back to the game's own exits.
+reskate.skater.shape_launch("grind", nil)
 ```
 
-A wish that is not a table, a `side` missing or not one of the four, another `stance`, or a `strength` out of range raises an error.
+A `from` not one of the four, a shape that is not a table or sets nothing, or a speed out of range raises an error.
 
 <Note>
-Needs the `skater.control` permission (and `events.skater` to hear the `grind_exit` event). One plugin holds the grind exits at a time: the first to call this, until it stops. Calling with `nil` does not let go of them. It works in any session; other players see the pop as your skater makes it. [`reskate.input.hide`](/plugins/api/input) keeps the triggers you pick with from the game.
+Needs the `skater.control` permission (and `events.skater` to hear the `launch` event). One plugin shapes each kind of launch at a time: the first to call this with a shape, until it calls it with `nil` or stops. It works in any session; other players see the launch as your skater makes it. The [grind-exits](/plugins/examples) mod picks the side of a pop out of a grind with it, from `right` and `switch` in `reskate.skater.get()`.
 </Note>
 
 ## X-ray
