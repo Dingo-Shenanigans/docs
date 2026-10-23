@@ -1,0 +1,74 @@
+---
+title: "Plugins"
+description: "Run plugins on a dedicated server: the Plugins folder, which plugins run there, what players need, reloading, storage and logs, the server's plugin commands, and what a server plugin can do."
+---
+
+A dedicated server runs [plugins](/plugins/overview): game modes, rules, chat tools and the like, written in Luau and sandboxed. On the server a plugin is the session's authority. It can kick, ban and move players, speak in chat, show cards and polls, set what each player may do, read their roles and spawn park mods. This is its **server copy**.
+
+## Installing a plugin
+
+Put each plugin in a `Plugins` folder beside `ReSkateServer.exe`, beside its `Mods` folder:
+
+```text
+ReSkateServer.exe
+ReSkateServer.json
+Mods/
+Plugins/
+  Trick_Race/
+    manifest.json
+    reskate-plugin.json
+    plugin/
+      main.lua
+      server.lua
+```
+
+- A plugin is a folder with its `reskate-plugin.json` at the top.
+- Only plugins whose `"side"` is `"server"` or `"both"` run on a server. A plugin for players' games alone (`"side": "client"`, the default) does nothing there.
+- Copy the whole mod folder, `manifest.json` included, so the server's messages to players go under the same name as their copies of the plugin.
+
+A plugin for `"both"` sides also has a copy on each player's game, and players need the same mod installed for that copy: the server sends them nothing to install. Tell your players which mods the server uses.
+
+The server refuses a plugin whose folder holds a program or a script Windows runs, as the game does: see [plugins that ship programs](/mods/rules#plugins-that-ship-programs).
+
+## Reloading
+
+The server checks the `Plugins` folder every 2 seconds. A new plugin loads, a changed one reloads, and a removed one unloads, without a restart.
+
+## Storage and logs
+
+- A server copy keeps its [storage](/plugins/api/storage) in `data/plugins`, beside the server's config file.
+- What plugins log and print goes to the server's log, `ReSkateServer.log`.
+
+## Commands
+
+Type these in the server's window:
+
+| Command | What it does |
+| --- | --- |
+| `plugin` or `plugin list` | The server plugins: running, with their memory and time a tick, or stopped and why. |
+| `plugin commands` | The console commands the server plugins added. |
+| `plugin reload <id>` | Unload a plugin and load it again from its files. `<id>` is its folder's name. |
+| `plugin off <id>` | Switch a plugin off until `plugin on`, or until the server restarts. |
+| `plugin on <id>` | Start a plugin that was switched off or stopped. |
+
+A plugin's own console command, such as `trickrace reset`, runs from the window only for a line the server does not know itself, so a plugin can never hide one of the server's commands. The server answers `Ran by a plugin.` when one ran.
+
+With no plugins, `plugin list` says where it looks: `No server plugins. A plugin is a folder in <folder> with a reskate-plugin.json ("side" "server" or "both").`
+
+## What a server plugin can do
+
+A plugin asks for what it uses with [permissions](/plugins/permissions) in its manifest. On a dedicated server:
+
+- **Players.** `reskate.session.players()` lists everyone on the server; the server is not one of them. With the `server` permission, a plugin [kicks, bans and moves](/plugins/api/server#players) players, speaks in chat as itself (`[Its name] ...`) or to one player, and reads and sets [what each player may do](/plugins/api/server#player-permissions), as `lock` does.
+- **Roles.** It reads each player's [role](/plugins/api/server#player-roles), so its own commands can follow the server's [roles](/servers/roles).
+- **Cards and polls.** It shows players [cards and polls](/plugins/api/server#cards-and-polls) of its own, and hears the answers.
+- **Parks.** With `server.parks`, it lists, spawns and removes the server's [park mods](/plugins/api/server#park-mods).
+- **Mods.** With `mods.read`, it [reads the content](/plugins/api/mods#shared-content) of every mod in the server's `Mods` folder, such as a park mod's parks.
+
+A server has no world of its own: no skater, camera or HUD. Functions for those say they are unavailable there. Some `reskate.server` functions also work differently on a lobby's host: see [lobby host and dedicated server](/plugins/api/server#lobby-host-and-dedicated-server).
+
+A server copy makes at most 20 `reskate.server` calls a second, and one `say` line a second. See [limits](/plugins/limits).
+
+## Writing one
+
+[Game modes](/plugins/guides/game-modes) builds a plugin with a server copy step by step, and shows how to try it on a lobby you host before you put it on a server.

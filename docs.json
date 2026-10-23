@@ -71,6 +71,7 @@
               "servers/roles",
               "servers/moderation",
               "servers/votes",
+              "servers/plugins",
               "servers/commands"
             ]
           }
