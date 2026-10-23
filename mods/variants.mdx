@@ -1,0 +1,74 @@
+---
+title: "Variants"
+description: "A mod that ships several versions of its content, such as a deck pack's decks, and loads one at a time: the variants block of reskate-plugin.json, what it sets aside, and how its plugin chooses."
+---
+
+A mod can ship several versions of its game data, of which one is in the game at a time: the decks of a deck pack, a map's seasons. Each version is a variant. The mod's plugin lets the player choose.
+
+```text
+Mods\
+  Team-Deck_Pack\
+    manifest.json
+    reskate-plugin.json
+    plugin\main.lua
+    decks\
+      standard\layout.toc ...
+      wide\layout.toc ...
+```
+
+## The variants block
+
+Variants are declared in the mod's [`reskate-plugin.json`](/plugins/manifest):
+
+```json
+{
+    "api": 1,
+    "entry": "plugin/main.lua",
+    "permissions": ["variants", "menu"],
+    "variants": {
+        "folder": "decks",
+        "order": ["standard", "wide"],
+        "displaces": ["deck_gen_popsicle_cas_main_bundlereftable"]
+    }
+}
+```
+
+<ParamField path="variants.folder" type="string" required>
+  The folder that holds the variants: 1 to 64 lowercase letters, digits, `_` and `-`. Each folder in it with its own `layout.toc` is a variant, laid out like a mod folder, and named after its folder.
+</ParamField>
+
+<ParamField path="variants.order" type="string[]">
+  At most 64 variant names, in the order the plugin lists them. The first is the one loaded until the player chooses.
+</ParamField>
+
+<ParamField path="variants.displaces" type="string[]">
+  At most 16 names of the game's bundles that every variant replaces. Other mods that change them are set aside while a variant is in the game.
+</ParamField>
+
+A block that cannot be read is noted in the log, and the mod then loads as an ordinary mod.
+
+## Which variant loads
+
+One variant is in the game: the player's choice, else the first in `order`, else the first one there. It loads above every other mod, whatever the load order says.
+
+For that run, ReSkate sets aside:
+
+- the mod's other variants;
+- every other enabled mod that changes a bundle named in `displaces`.
+
+A set-aside mod's tile says **SET ASIDE**. Nothing is turned off: `mods.json` stays as it was, and the mod loads again when nothing displaces it.
+
+Variants carry the mod's own [build stamp](/mods/mod-folder#the-build-stamp), so build them with the same ReSkate Studio.
+
+## Choosing one
+
+The player chooses in the mod's plugin, which calls [`reskate.package`](/plugins/api/package#variants):
+
+- `reskate.package.variants()` returns the variants there are, the one chosen and the one in the game, or `nil` for a mod without variants.
+- `reskate.package.choose(name)` saves the choice, applies the mods and loads the level again with it. It needs the `variants` permission.
+
+The choice is kept in `%LOCALAPPDATA%\ReSkate\variants.json`. The launcher has no menu of its own for variants.
+
+## Deck packs
+
+A deck pack is a mod whose variants are decks, each replacing the game's deck model. Board Break's pack is one: its plugin's **DECK** card, and its `boardbreak deck` command, pick the deck every board in the game has. Its decks can carry a `deck.ini` with a `label` for the menu and an `axle` for how far apart the wheels sit (0.8 to 1.6); its plugin reads them, and fits every board with [`reskate.board.fit`](/plugins/api/board#fitting-every-board).

@@ -1,0 +1,91 @@
+---
+title: "Parks"
+description: "Park mods: layouts of Build Kit objects for a map, made in the Park Editor, loaded in game, and spawned on dedicated servers. The reskate-park file format and its limits."
+---
+
+A park mod is a layout of Build Kit objects (ramps, rails, pads) for one of the game's maps. It needs no ReSkate Studio and no build stamp: it is a JSON file per map, in the mod's `parks` folder.
+
+```text
+Mods\
+  Popular Street Park\
+    manifest.json
+    icon.png
+    parks\
+      bam.park.json
+      grom.park.json
+```
+
+## Making one in the Park Editor
+
+The Park Editor saves your layout as a park mod.
+
+1. Build the park.
+2. Press **+ NEW PARK MOD**, fill in **Name**, **Author**, **Version** and **Description**, and press **CREATE AND SAVE LAYOUT**.
+3. Later, **SAVE LAYOUT HERE** (or **Ctrl+S**) saves your changes into it, and **SAVE DETAILS** its name and description.
+
+The details go into the mod's `manifest.json`. The name is required, at most 64 characters; the author at most 64, the version 32 and the description 512. The mod's folder is named after it.
+
+A park saved before park mods existed can be turned into one with **Convert**; the old file stays where it was.
+
+## Loading a park
+
+The **PARK MODS** tab of the build tabs lists every enabled park mod with a park for the map you are on. **LOAD** puts it in place of your layout, and **Undo** brings your layout back. **Edit** opens it in the Park Editor.
+
+In multiplayer, only the host can load park mods.
+
+## The file
+
+`parks/<map>.park.json` holds one map's park. `<map>` is the map's key: `bam` (San Vansterdam), `grom` (Isle of Grom), `mpr` (Super Ultra Mega Resort), `stadium_1`, `stadium_2` or `ftue`. A mod has at most one park per map, and 16 maps.
+
+```json
+{
+    "format": "reskate-park",
+    "schema_version": 1,
+    "revision": 0,
+    "maps": {
+        "bam": [
+            {"id": 86, "item": "own_bkpads_generic_padlow_00001",
+             "position": [-583.0, 1948.35, 1651.0], "rotation": [0.0, 0.3827, 0.0, 0.9239]}
+        ]
+    },
+    "object_scales": {"bam": {"86": 1.5}}
+}
+```
+
+| Field | Rule |
+| --- | --- |
+| `format` | `"reskate-park"`. |
+| `schema_version` | `1`. |
+| `revision` | A whole number, 0 or more. |
+| `maps` | Exactly one map, named by the same key as the file. |
+| `maps.<map>[]` | At most 1024 objects. Each has exactly `id`, `item`, `position` and `rotation`. |
+| `id` | A number other than 0, not used twice. |
+| `item` | A Build Kit object's key: starts with `own_bk`, at most 255 bytes. |
+| `position` | Three numbers, each between -100000 and 100000. |
+| `rotation` | A quaternion `[x, y, z, w]`, of length 1 (0.98 to 1.02). |
+| `object_scales` | Optional. An object's size by its `id`, 0.01 to 100, only for sizes other than 1. |
+
+The file can be 2 MB. A file that breaks a rule is refused with what is wrong, such as `Expected a ReSkate park containing exactly one base map.` or `Invalid or duplicate placed object`.
+
+## Parks on dedicated servers
+
+A dedicated server spawns park mods for everyone, for a time, from the mods in its own `Mods` folder. Its settings name each park:
+
+```json
+"maps": {
+    "park_mods": [
+        {"name": "street", "folder": "Popular Street Park", "map": "San Vansterdam", "key": "bam"}
+    ],
+    "park_limits": {"parks": 3, "objects": 512}
+}
+```
+
+- `name`: what admins and votes call it, 1 to 16 lowercase letters, digits, `-` and `_`.
+- `folder`: the mod's folder in the server's `Mods`.
+- `map`: the map it is for.
+- `key`: which of the mod's parks, or empty when it has just one.
+- `park_limits`: how many parks can be out at once (1 to 16) and how many objects they hold together (1 to 1024).
+
+Admins spawn and remove them with `park-mod add <name> [minutes]` and `park-mod remove <name>`. The server's parks are its own: they count toward nobody's object limit, and go when the map changes. Objects players' games cannot show are skipped. See the server's README for every command, and [server plugins](/plugins/api/server) for spawning parks from a plugin.
+
+Plugins read any mod's `parks` folder with [`reskate.mods.content`](/plugins/api/mods).

@@ -119,7 +119,8 @@ What the player chose for their skater, read from the selected skater preset (th
 
 The skater's clothes and accessories, from head to foot. The body, hair, tattoos, gestures and the board are left out.
 
-<ResponseField name="items" type="table">A list of `{slot, item, title}`, empty when the preset cannot be read.
+<ResponseField name="items" type="table">
+A list of `{slot, item, title}`, empty when the preset cannot be read.
 <Expandable title="fields">
 <ResponseField name="slot" type="string">The kind of item: `"Headwear"`, `"Eyewear"`, `"Face"`, `"Neckwear"`, `"Jewellery"`, `"Earrings"`, `"Costume"`, `"Outfit"`, `"Outerwear"`, `"Top"`, `"Gloves"`, `"Wrist"`, `"Bag"`, `"Bottoms"`, `"Socks"` or `"Shoes"`. For a category ReSkate does not know, the category's name made readable.</ResponseField>
 <ResponseField name="item" type="string">The item's key.</ResponseField>

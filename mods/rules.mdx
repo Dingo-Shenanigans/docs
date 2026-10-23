@@ -1,0 +1,64 @@
+---
+title: "What ReSkate refuses"
+description: "Why a mod is left out: outdated builds, mods that cannot be merged, conflicts, copies of store items, custom scripts, plugins that ship programs, and what happens to mods that change scoring or physics."
+---
+
+ReSkate leaves a mod out whole, never half of it, and loads the rest. Each case below says what you see and what to do. The full messages are in `logs\ReSkate.log`.
+
+## Built for another version of skate.
+
+ReSkate supports one game build. A mod with game data carries a [build stamp](/mods/mod-folder#the-build-stamp), and one built for another version does not load.
+
+- The launcher marks it **OUTDATED**: **Made for another version of Skate**.
+- In game, a message box **ReSkate: outdated mods disabled** names it.
+- The log says why, for example `it was built for another game version`, or `it ships game data without a ReSkate Studio game version stamp`.
+
+Get an updated version from its author, or rebuild it with the latest ReSkate Studio.
+
+When the log says a mod was `made for game build ...` and adds that your game files are not the version ReSkate supports, the problem is your game: open the launcher's **Settings** and press **Verify game files**.
+
+## Cannot be merged cleanly
+
+A mod whose files cannot be read, or that points at files it does not have (an incomplete folder, or parts of two versions), is left out.
+
+- On **PLAY**, the launcher says **A MOD COULD NOT BE MERGED**, and offers **SWITCH IT OFF AND PLAY**, **Open Mod Manager** and **Play anyway**.
+- In game, the tile says **NOT LOADED**.
+- The log says `Mod <name> was not loaded because it could not be merged cleanly`, with what went wrong.
+
+Reinstall the whole mod folder, or rebuild it with a current ReSkate Studio. ReSkate remembers the mod as left out until its files change.
+
+## Conflicts
+
+Two mods that change the same parts of the game in ways that cannot be combined conflict, and only the higher one loads. See [the load order](/mods/overview#the-load-order). To load the other one, move it above, or turn one of them off.
+
+## Copies of store items
+
+Every cosmetic the game sells in its store stays sold: ReSkate does not hand out store items, and a mod cannot either. A mod that adds an item copying a store item is left out whole, and is told only `merge error 0x5343`.
+
+An item counts as a copy when it:
+
+- uses a look (an appearance, a decal, a player card picture, an object or a gesture) that only a store item has;
+- is fitted on a shape only a store item has, such as a whole costume;
+- has item data that matches a store item's, field for field;
+- ships a mesh that matches one of the store's costumes.
+
+Anything that a free item also has belongs to nobody, and mods may use it. Make cosmetics from items the game gives away.
+
+## Custom scripts
+
+Custom Lua scripts (`scripts/Custom`) are switched off: nothing in that folder is read or run. Mods with code are [plugins](/plugins/overview), which run sandboxed.
+
+## Plugins that ship programs
+
+A plugin is not loaded when its folder holds a program or a script Windows runs: a file ending in `.exe`, `.dll`, `.sys`, `.scr`, `.com`, `.cpl`, `.msi`, `.msp`, `.bat`, `.cmd`, `.ps1`, `.psm1`, `.vbs`, `.vbe`, `.js`, `.jse`, `.wsf`, `.wsh`, `.hta`, `.lnk`, `.pif` or `.reg`, or any file that is a Windows program. A plugin folder can hold at most 20000 files. See [the plugin manifest](/plugins/manifest).
+
+## Mods that change scoring or physics
+
+A mod that changes how tricks score, the skater's physics, tuning or gestures, throwdowns or leaderboards is not refused: it loads. ReSkate warns you that it **changes scoring or physics**.
+
+In multiplayer, such a player is kept out of throwdowns and co-op challenges. The chat says: `Your mods change scoring or physics (<mods>), so throwdowns and coop challenges are off for you in this session. Turn them off and restart Skate to take part.`
+
+- A lobby host turns the check off with the console's `score-check off`.
+- A dedicated server's `anti_cheat.modified_scoring` is `off`, `warn` (the default) or `kick`, and `allowed_scoring_mods` lets chosen mods through. See the server's README.
+
+Mods that only add new files, which the game does not have, do not count.

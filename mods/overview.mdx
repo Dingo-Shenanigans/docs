@@ -1,0 +1,89 @@
+---
+title: "Mods"
+description: "What a ReSkate mod is, where mods live, the load order, how mods are merged into the game at launch, and what applies while the game runs."
+---
+
+A mod is a folder in `Mods`. ReSkate merges every enabled mod into the game when it starts: new maps, parks, cosmetics, loading screens, music playlists, Quick Drop objects, changed game files, and plugins with Luau code.
+
+You never change the game's own files. Mods stay in their folders, and you can turn each one off again.
+
+## Where mods live
+
+Mods go in `Mods\<mod name>\`, beside `Skate.exe` in the folder ReSkate installed the game into. The launcher's **MODS** page installs them there for you: see [installing mods](/mods/installing).
+
+`Mods\mods.json` keeps which mods are on, and their order. The launcher and the in-game **MODS** tab write it; you rarely edit it by hand. See [mods.json](/mods/mod-folder#modsjson).
+
+## What a mod can hold
+
+A mod folder can hold any of these, and several at once:
+
+| What | How ReSkate knows it | Page |
+| --- | --- | --- |
+| Game data: cosmetics, changed game files, maps | `layout.toc`, built by ReSkate Studio | [ReSkate Studio](/mods/studio) |
+| Custom maps | `reskate-levels.json` | [Maps](/mods/maps) |
+| Parks of Build Kit objects | `parks/<map>.park.json` | [Parks](/mods/parks) |
+| Names and families for Quick Drop objects | `reskate-objects.json` | [Quick Drop objects](/mods/objects) |
+| Music playlists | `reskate-music.json` | [Music](/mods/music) |
+| Choices of content, such as decks | `"variants"` in `reskate-plugin.json` | [Variants](/mods/variants) |
+| A plugin, with Luau code | `reskate-plugin.json` | [Plugins](/plugins/overview) |
+| A title, author, version and picture | `manifest.json`, `icon.png`, `README.md` | [The mod folder](/mods/mod-folder) |
+
+## The load order
+
+Mods are in an order, highest first. The launcher's **MY MODS** page sets it: drag a mod by its handle, type a position, or use **Move up**, **Move down**, **Move to top** and **Move to bottom**.
+
+The order decides which mod wins when two change the same thing:
+
+- **Game files the game has.** When two mods change the same file, ReSkate combines both changes onto the game's copy. Only changes that cannot be combined are a conflict.
+- **Looks** (appearances, textures and meshes) never conflict: the higher mod's copy is used.
+- **New files** two mods both add under the same name: the higher mod's copy is used, and both mods load.
+- **The game's Lua scripts**: only the highest mod's version runs.
+
+When two mods conflict, the lower one is left out whole, so you never get half of a mod. The launcher marks it **CONFLICT** or **LEFT OUT**, and its **Load this one** button moves it above the mod it clashes with. In game, its tile on the **MODS** tab says **LEFT OUT**.
+
+## The merge
+
+The launcher merges the enabled mods into one patch before it starts the game, in `Mods\.reskate`. The next launch reuses that patch when nothing changed.
+
+A mod is left out of the merge, with a message naming it, when:
+
+- it was built for another version of skate. (**OUTDATED** in the launcher);
+- it cannot be merged cleanly, for example a mod folder that is incomplete;
+- it conflicts with a mod above it;
+- it copies an item the game's store sells.
+
+The other mods still load. See [what ReSkate refuses](/mods/rules) for each case and its message.
+
+When the mods change, the launcher empties the game's shader cache before the next launch, so the game builds its shaders again for the new set.
+
+## Applying mods while the game runs
+
+The **MODS** tab of the ReSkate menu (**Insert**) lists every mod with its state, and turns mods on and off. After a change it shows how many changes are waiting, and one button to apply them: **Apply**, **Apply and reload level**, or **Apply and go to San Van**. The console's `mods apply` does the same.
+
+What applies without a restart:
+
+- maps, loading screens and cosmetics, at the next level load;
+- a mod that only adds maps, without reloading the level at all;
+- mods installed since the game started.
+
+What needs a restart:
+
+- changes to the game's interface and language;
+- turning off a mod that changes scoring or physics.
+
+The load order itself is set in the launcher. In game, a mod keeps the place it had at launch.
+
+## Status in game
+
+Each tile on the **MODS** tab shows one of these:
+
+| Status | Meaning |
+| --- | --- |
+| **LOADED** | In the game. |
+| **DISABLED** | Off. |
+| **APPLY TO LOAD** / **APPLY TO UNLOAD** | Switched on or off, waiting for **Apply**. |
+| **NOT LOADED** | On, but left out: outdated, or it could not be merged. |
+| **LEFT OUT** | On, but a mod higher in the order changes the same parts of the game. |
+| **SET ASIDE** | On, but another mod's chosen [variant](/mods/variants) replaces what it changes. |
+
+<Warning>Only install mods you trust. Mods change game data, and plugins run code, even though plugins are sandboxed.</Warning>

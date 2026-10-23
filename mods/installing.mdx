@@ -1,0 +1,62 @@
+---
+title: "Installing mods"
+description: "Get mods from Thunderstore in the launcher, install a .zip or a folder, keep mods up to date, filter them by category, save sets of mods as profiles, and uninstall them."
+---
+
+The launcher's **MODS** page installs and manages mods. It has two lists: **GET MODS**, the mods on [Thunderstore](https://thunderstore.io/c/reskate/), and **MY MODS**, the ones you have.
+
+## From Thunderstore
+
+On **GET MODS**, pick a mod and press **INSTALL**. The launcher downloads it, installs anything it depends on first, and puts it in `Mods\<Owner>-<Name>`.
+
+- The list is read from Thunderstore once each time the launcher starts.
+- A mod's page shows its description, version, size, downloads, last update and its `README.md`. **Website** opens the author's site when it has one.
+- A package in Thunderstore's **Tools** category, and not in **Mods**, cannot be installed from here: its button opens it on Thunderstore instead.
+- Packages marked NSFW are never listed. A deprecated package is hidden, unless you have it installed, and its page says its author no longer supports it.
+
+<Note>
+**GET MODS** installs only packages with something for the game to load: game data built with ReSkate Studio (`layout.toc`), a map (`reskate-levels.json`) or parks (a `parks` folder). A package with only a plugin, or a pack that only lists other mods, is refused there for now. Download it from Thunderstore and use **Install .zip** instead.
+</Note>
+
+## From a .zip or a folder
+
+On **MY MODS**, use **Install .zip** or **Install folder**, or drag a `.zip` or a folder onto the launcher's window. **Open Mods folder** opens the folder itself.
+
+The launcher finds the mod inside what you give it: the shallowest folder holding game content (`layout.toc`, `reskate-levels.json` or `parks/*.park.json`), or else the shallowest holding a `manifest.json`. A Thunderstore package's `manifest.json`, `icon.png`, `README.md` and `CHANGELOG.md` at the top of the zip go into the mod's folder with it.
+
+The mod's folder is named after:
+
+- the zip, without a version at its end (`Team-Map-1.2.3.zip` installs as `Team-Map`), when the mod is at the zip's top;
+- the folder holding the mod, when it is deeper.
+
+Characters other than letters, digits, spaces, `_`, `-` and `.` become `_`, and the name is cut to 64 characters. When that name is taken, the launcher asks before it replaces the mod; the copy you had is deleted.
+
+The launcher refuses a zip with unsafe paths in it (absolute paths, `..` or drive letters), a folder with links in it, and an install that would leave less than 1 GB free.
+
+## Updates
+
+A mod installed from Thunderstore shows **UPDATE TO v&lt;version&gt;** when a newer version is out, and **UPDATE ALL** updates every one. When enabled mods have updates, **PLAY** asks first. An update replaces the old copy.
+
+Only folders named `<Owner>-<Name>`, as Thunderstore installs make them, are checked for updates. A mod you installed by hand under another name is not.
+
+## Finding mods
+
+Both lists have a category menu. Click a category once to show only mods in it, again to hide mods in it, and again to show either. **GET MODS** uses Thunderstore's categories. **MY MODS** uses the categories of each installed mod's package, or **No category**.
+
+**MY MODS** also filters by **All mods**, **Enabled**, **Disabled**, **Maps**, **Game data**, **Updates**, **Problems** and **Conflicts**, and sorts by **Load order**, **Name** or **Largest first**. Drag a mod to move it in the [load order](/mods/overview#the-load-order) only while it sorts by load order.
+
+## Profiles
+
+**PROFILES** saves which mods are on, and in what order, under a name.
+
+- Loading a profile turns on its mods in its order and turns every other mod off. Mods it names that you do not have are downloaded. Every mod stays installed once.
+- **COPY CODE** and **SAVE FILE** share a profile, and **IMPORT CODE** and **IMPORT FILE** take one in. The codes and `.r2z` files are r2modman's, so the two managers read each other's profiles. Thunderstore keeps codes for a limited time.
+- You can have 64 profiles.
+
+## Uninstalling
+
+**Uninstall** moves a mod's folder to the Recycle Bin, so you can get it back.
+
+## While the game runs
+
+The launcher says **Skate is running: restart it to apply changes.** Changes you make there apply at the next launch. To turn mods on and off in game, use the **MODS** tab of the ReSkate menu: see [applying mods while the game runs](/mods/overview#applying-mods-while-the-game-runs).

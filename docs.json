@@ -23,6 +23,37 @@
         ]
       },
       {
+        "tab": "Mods",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "mods/overview",
+              "mods/installing",
+              "mods/mod-folder",
+              "mods/rules"
+            ]
+          },
+          {
+            "group": "Making mods",
+            "pages": [
+              "mods/studio",
+              "mods/maps",
+              "mods/parks",
+              "mods/objects",
+              "mods/music",
+              "mods/variants"
+            ]
+          },
+          {
+            "group": "Sharing",
+            "pages": [
+              "mods/thunderstore"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Plugins",
         "groups": [
           {

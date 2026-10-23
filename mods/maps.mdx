@@ -1,0 +1,82 @@
+---
+title: "Maps"
+description: "reskate-levels.json, the file that lists a mod's maps: its fields and limits, where custom maps appear, their loading screens, and how players in multiplayer get a map the host is on."
+---
+
+A mod adds maps with `reskate-levels.json` at the top of its folder, beside the map's game data. ReSkate Studio writes it when it builds a map. You only write one yourself to rename a map or to add start points.
+
+## reskate-levels.json
+
+```json
+{
+    "schema": 1,
+    "levels": [
+        {
+            "asset": "levels/game/dingolevel_reskate_my_park/dingolevel_reskate_my_park",
+            "displayName": "My Park",
+            "startPoints": ["spawn"]
+        }
+    ]
+}
+```
+
+The file is strict: it holds exactly `schema` and `levels`, and each level holds exactly these three fields. A file that breaks any rule adds no map, and the log says why (`Custom-level manifest ignored: ...`). Other mods' maps still load.
+
+<ParamField path="schema" type="integer" required>
+  `1`.
+</ParamField>
+
+<ParamField path="levels" type="object[]" required>
+  At most 64 maps a file.
+</ParamField>
+
+<ParamField path="levels[].asset" type="string" required>
+  The map's level asset: `levels/game/` and at least two more parts, such as `levels/game/<name>/<name>`. Each part is letters, digits, `_`, `.` and `-`; at most 255 characters. No two maps in a file share it.
+</ParamField>
+
+<ParamField path="levels[].displayName" type="string" required>
+  The map's name in the menus: 1 to 96 bytes, no control characters.
+</ParamField>
+
+<ParamField path="levels[].startPoints" type="string[]" required>
+  The names of the map's start points, at most 64, each 1 to 127 characters of letters, digits, spaces, `/`, `_`, `-` and `.`, no two the same. With exactly one, it is used without asking. It can be empty.
+</ParamField>
+
+The file can be 64 KB. All mods together can add 256 maps. When two mods list the same `asset`, the higher one in the [load order](/mods/overview#the-load-order) wins. A row naming one of the game's own maps renames it and adds its start points.
+
+The log says `Custom-level manifest accepted: N destination(s)` for each file it takes.
+
+## Where custom maps appear
+
+- The ReSkate menu's **MAP** page: **OFFICIAL MAPS**, then **CUSTOM MAPS**, by name, with a search box.
+- The pause menu's map grid, under **CUSTOM MAPS**.
+- The **Custom Maps** section of **MOD OPTIONS**.
+- The launcher's start map, in **Settings**, **GAME**.
+
+A map's card shows the mod's `icon.png`. Custom maps are not fast travel destinations: fast travel goes to the game's own maps.
+
+Maps you install while the game runs can be loaded at once. When a mod apply takes away the map you are on, the game takes you to San Van.
+
+## Loading screens
+
+ReSkate Studio gives each map its own loading screen. A custom map never shows the loading screen of the map before it: without one of its own, it shows the game's default.
+
+## Maps in multiplayer
+
+Players who join you on a map they do not have can download it in the game, from Thunderstore, without leaving the session.
+
+For that, the host needs the map installed from Thunderstore, or in a folder named the way Thunderstore names one: `<Owner>-<Name>`, or `<Owner>-<Name>-<version>`. A dedicated server's map works the same: copy the mod folder into `Mods` beside the server, keeping that name.
+
+The package on Thunderstore must be:
+
+- listed for ReSkate, in the **Maps** category;
+- not deprecated, not rejected by Thunderstore's moderators, and not marked NSFW;
+- only a map: `reskate-levels.json`, with no game data beyond the map itself. A package holding more than a map is not installed in the game; the player is told to install it from the launcher.
+
+Joining, the player sees a card, **MAP NEEDED**, **MAP CHANGED** or **MAP VERSION**, and confirms within two minutes. The game downloads the host's version, at most 8 GB, applies it and joins. A player who already has the map, switched off, is offered to switch it on instead. A player on a newer version than the host keeps theirs.
+
+A map in any other folder still works, but players have to install it themselves. They see `The host is on <map>, which is not installed on this PC. Install its map mod and join again.`
+
+<Tip>
+A dedicated server's `maps.latest_versions` setting, and its `maps update` command, keep its maps at Thunderstore's newest version, so players download the newest. See the server's README.
+</Tip>

@@ -1,0 +1,102 @@
+---
+title: "The mod folder"
+description: "The files every mod folder can have: manifest.json, icon.png and README.md, the build stamp ReSkate Studio writes, folder names, and mods.json, the load order."
+---
+
+Each mod is one folder in `Mods`. This page covers the files that describe a mod, and `Mods\mods.json`. The files with content are on their own pages: see [what a mod can hold](/mods/overview#what-a-mod-can-hold).
+
+```text
+Mods\
+  mods.json
+  Team-Mod\
+    manifest.json
+    icon.png
+    README.md
+    layout.toc               (game data, from ReSkate Studio)
+    .reskate-studio-patch    (its build stamp)
+    Win32\...
+    reskate-levels.json      (maps)
+    parks\bam.park.json      (parks)
+    reskate-plugin.json      (a plugin)
+```
+
+## Folder names
+
+A mod's folder name:
+
+- is 1 to 64 characters: ASCII letters, digits, spaces, `_`, `-` and `.`;
+- does not start with `.` (folders such as `.reskate` are ReSkate's own);
+- has at least one file at its top, or a `parks` folder.
+
+A folder that breaks these rules is not a mod, and is skipped without a message.
+
+## manifest.json
+
+The Thunderstore manifest names the mod. ReSkate reads four fields and ignores the rest:
+
+```json
+{
+    "name": "Shoebox_Pads",
+    "author": "Someone",
+    "version_number": "1.2.0",
+    "description": "Shoebox manual pads in five brands.",
+    "website_url": "https://example.com",
+    "dependencies": []
+}
+```
+
+| Field | Use | Most |
+| --- | --- | --- |
+| `name` | The mod's title, with `_` shown as spaces in the launcher | 64 characters |
+| `author` | Shown with the mod. A Thunderstore install fills it with the package's owner when it is missing. | 64 characters |
+| `version_number` | The version | 32 characters |
+| `description` | Shown with the mod | 1024 characters |
+
+The file can be 32 KB. Without a `manifest.json`, ReSkate reads `reskate-mod.json`, an older name with the same fields (where `version` is used instead of `version_number`). [Publishing on Thunderstore](/mods/thunderstore) has the rules Thunderstore adds.
+
+A plugin's [message channel](/plugins/manifest) is named after the manifest's `name`.
+
+## icon.png
+
+The mod's picture. ReSkate shows it:
+
+- on a map's card in the map grid;
+- on the card of an item the mod adds, beside the mod's title;
+- on the card asking a player to download a map in multiplayer.
+
+Make it a 256 by 256 pixel PNG, as Thunderstore wants. A map's picture can be at most 4 MB.
+
+## README.md
+
+Shown on the mod's page in the launcher, as plain text without pictures or HTML. The launcher reads up to 512 KB of it. For a mod from Thunderstore that is not installed yet, it shows the package's README from Thunderstore.
+
+## The build stamp
+
+A mod with game data (`layout.toc`) has to say which version of skate. it was built for. ReSkate Studio writes this into `.reskate-studio-patch` when it builds the mod. ReSkate compares it with the game it supports, and a mod built for another version does not load: the launcher marks it **OUTDATED**.
+
+A mod with `layout.toc` and no stamp counts as outdated too. Mods without game data (parks, plugins, `reskate-music.json` and the like) need no stamp.
+
+ReSkate Studio also writes `reskate-build.json` for maps: which Studio built it, and when. It is for your information only.
+
+## mods.json
+
+`Mods\mods.json` holds the load order and which mods are on:
+
+```json
+{
+    "schema": 1,
+    "mods": [
+        {"name": "Team-Map", "enabled": true},
+        {"name": "Team-Outfits", "enabled": false}
+    ]
+}
+```
+
+- Mods are listed highest first: earlier rows win over later ones.
+- `schema` is `1`, each row holds exactly `name` (the folder's name) and `enabled` (`true` or `false`), and no folder is listed twice. No other fields are allowed.
+- Folders in `Mods` that the file does not list are on, and come after the listed ones, by name.
+- A row for a folder that is not there is noted in the log, and the launcher says so.
+
+<Warning>
+When `mods.json` cannot be read, no mod loads at all, plugins included. The game says **Mods folder ignored**, and the launcher says why and rewrites the file at your next change. Let the launcher and the in-game **MODS** tab write it.
+</Warning>

@@ -49,7 +49,8 @@ Like `raycast`, and also the world object the ray meets: what it is and where it
 `nil` when the ray meets nothing. Otherwise:
 <Expandable title="fields">
 <ResponseField name="position" type="vector">Where the ray first meets the world.</ResponseField>
-<ResponseField name="object" type="table or nil">The object it met, or `nil` for the ground and the level's own shapes that are not objects.
+<ResponseField name="object" type="table or nil">
+The object it met, or `nil` for the ground and the level's own shapes that are not objects.
 <Expandable title="fields">
 <ResponseField name="blueprint" type="string or nil">The world object blueprint it was made from, as `reskate.entities.set` takes it (see [your own world objects](#your-own-world-objects)). `nil` when ReSkate cannot tell.</ResponseField>
 <ResponseField name="position" type="vector or nil">Where the object stands.</ResponseField>

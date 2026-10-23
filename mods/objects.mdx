@@ -1,0 +1,58 @@
+---
+title: "Quick Drop objects"
+description: "reskate-objects.json: names, Object Browser categories and families for the Build Kit objects a mod adds, so its sizes and colours share one tile as the game's own do."
+---
+
+A mod that adds Build Kit objects can name them, and group them into families, with `reskate-objects.json` at the top of its folder. A family is one tile in the Object Browser, and **X** / **Square** on it picks between its objects, the way the game's own Manual Pad offers its sizes and colours.
+
+Without the file, every object a mod adds gets a tile of its own, titled with its key.
+
+```json
+{
+    "schema": 1,
+    "categories": [{"id": "category_shoebox", "title": "Shoebox Pads"}],
+    "families": [{"id": "qdparent_shoebox_dc", "title": "DC Shoebox", "category": "category_shoebox"}],
+    "objects": [
+        {"key": "own_bkrails_shoebox_dc_12m", "title": "DC Shoebox 12m", "family": "qdparent_shoebox_dc"},
+        {"key": "own_bkrails_shoebox_dc_6m_red", "title": "DC Shoebox 6m, Red", "family": "qdparent_shoebox_dc"}
+    ]
+}
+```
+
+ReSkate reads the file of each enabled mod when the game starts, highest mod first. A mod switched on while the game runs gets its families at the next start.
+
+## Fields
+
+<ParamField path="schema" type="integer" required>
+  `1`.
+</ParamField>
+
+<ParamField path="categories" type="object[]">
+  New Object Browser categories, at most 64. Each has an `id` (required), a `title` (the id when missing) and a `priority`. A new category has no icon of its own: the browser shows its first tile's picture.
+</ParamField>
+
+<ParamField path="families" type="object[]">
+  Families, at most 1024. Each has an `id` and a `category` (both required), a `title` and a `priority`. The category can be one of the game's (`category_ramp`, `category_rail`, ...) or one this or an earlier mod adds.
+</ParamField>
+
+<ParamField path="objects" type="object[]">
+  The mod's objects, at most 8192. Each has a `key`, the object's asset key, starting with `own_` (required), and a `title`, a `description` or a `family`: at least a title or a family. The family can be one of the game's, to add a colour to the game's Manual Pad, say.
+</ParamField>
+
+- Text is at most 255 bytes, without control characters. A text field that breaks this counts as missing.
+- `priority` is a whole number: lower comes first. Without one, an entry goes after those already there.
+- `categories`, `families` and `objects` are each optional, but a field that is there must be a list.
+
+## What is refused
+
+The file only adds. Each entry below is left out, with a line in the log (`Mod objects: <mod>: ...`), and the rest of the file is kept:
+
+- a category or family whose `id` is already taken, by the game or a mod;
+- a family whose category does not exist;
+- an object whose key does not start with `own_`, or whose family does not exist;
+- an object the game has: a mod cannot rename or regroup the game's objects;
+- an object an earlier mod already named: the first mod wins.
+
+A file that is not valid JSON, not `schema` 1, larger than 4 MB, or with a list field that is not a list adds nothing. The log says how many objects the mods named: `Mod objects: N named by M mod(s).`
+
+The objects themselves come from the mod's game data, built with [ReSkate Studio](/mods/studio). The file names and groups them; it does not add them.

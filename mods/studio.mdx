@@ -1,0 +1,85 @@
+---
+title: "ReSkate Studio"
+description: "The tool that builds mods with game data: cosmetics from a donor item, changed game textures, sounds and animations, custom maps from Blender, a test in the game, and a Thunderstore package."
+---
+
+ReSkate Studio makes the mods that carry game data: your own clothing, hair, boards, tattoos and stickers, replaced game textures, sounds and animations, and custom maps built in Blender. It reads your installed skate. and writes only your mod, which carries the [build stamp](/mods/mod-folder#the-build-stamp) of the game version it was built against.
+
+It needs Windows x64 and an installed skate., with ReSkate installed to test mods in the game. Blender is needed only for maps.
+
+## Projects
+
+Everything you make is in a project (`.fbproject`), saved in `Documents\ReSkate Studio\Projects` by default.
+
+- Changes go into the project as you make them. There is no apply step.
+- **Undo** and **Redo** (**Ctrl+Z**, **Ctrl+Y**) work across the whole project.
+- Studio autosaves unsaved work every minute to its own folder, never over your project, and offers it back after a crash.
+
+## Cosmetics
+
+A new cosmetic starts from a donor: an item the game has, of the kind you want. Pick one in **All cosmetics** or the **Cosmetics** tab, then change it in five steps:
+
+| Step | What you change |
+| --- | --- |
+| **Model** | Import your own FBX or GLB mesh, or export the donor's. Hair has a **Hair variant** list: the full hairstyle, hat cutlines, the scalp cap. |
+| **Look** | Textures (**Import artwork...**, or each texture on its own) and colour and material settings. |
+| **Fit** | Which body parts and equipped items it hides, and how it moves. |
+| **Effects** | Shader swaps, particles and gameplay effects. |
+| **Store card** | The item's store picture, which Studio can take for you, and a **Fit Check**: the item turned once, saved as a GIF, APNG or WebM to share. |
+
+Give it a name and click **Add to project**. Studio only adds items you changed, so they are your own and not copies of the game's.
+
+- The name is 1 to 64 characters: letters, digits, spaces, `_` and `-`. The item's key is `Own_` and the name, with spaces turned into `_`. Two items in one project cannot share a name.
+- In game, the item's card is tagged **MOD**, with the mod's title, author, version and `icon.png`. The item browser's **Mods** filter shows only items from mods.
+- A saved outfit keeps a mod's item while the mod is off: the slot shows its default until the mod is back.
+
+Tattoos, skateboard stickers and face moles have no mesh. Their **Look** step exports the artwork as a transparent PNG and imports yours, and you place them in the game's own menus.
+
+<Warning>
+Do not use store items as donors. A mod with an item that copies one the store sells is refused at launch, whole: see [copies of store items](/mods/rules#copies-of-store-items).
+</Warning>
+
+## Changing a game file
+
+**Game files** browses the game by kind: textures, sounds, meshes, animations and levels. Select a file and its own editor opens. Once changed, the header says **Changed in your project**, with **Revert to the game's version**.
+
+- **Textures**: export as PNG or DDS, import a PNG or DDS, adjust colours.
+- **Sounds**: pick the variation, then **Import WAV**.
+- **Animations**: export a clip's take to FBX, edit it in Blender or another editor keeping the joint names, open it again and **Replace clip in project**. Studio does not retarget other skeletons.
+
+A changed cosmetic keeps the game's key, and its card is tagged **CHANGED BY MOD**. Every player with the mod sees the changed item where the game's was.
+
+## Maps
+
+Studio builds maps from a Blender scene (`.blend` or `.fbx`), a `.glb` / `.gltf`, or a Skater XL or Unity map bundle.
+
+1. Point **Settings** at your `blender.exe`, and install the **Skate Map** add-on from there.
+2. Add the map to the project: **+** beside **Maps**, or **Create** > **Map from a Blender scene**.
+3. **Map view** lets you fly around it and set collision, surfaces, grinds, lights, the spawn and more.
+4. **BUILD & INSTALL** installs it as its own mod, `Mods\<map ID>`. Keep the **Map ID** the same when you update a map.
+
+Studio writes the map's [`reskate-levels.json`](/mods/maps) for you, and a loading screen from `load_screen.png` (or `.jpg`, `.jpeg` or `.dds`) in the scene's `assets\<scene name>\` folder. Without that picture, the loading screen is a checkerboard.
+
+**Publish** does not package maps. To upload one, add a `manifest.json`, `icon.png` and `README.md` to its folder yourself: see [publishing a map](/mods/thunderstore#maps).
+
+## Testing in the game
+
+**Test in game** (**Ctrl+T**) saves the project, builds it together with the mods you enabled in Studio, installs it as `Mods\<project title>` and starts ReSkate. Close skate. first.
+
+Turn that folder off, or delete it, before you install your published version, so the two do not [conflict](/mods/overview#the-load-order).
+
+## Publishing
+
+**Publish** (in the toolbar, and in the **File** and **Build** menus) checks the mod and saves it as a **Thunderstore package** or an **.fbmod file**, which other Studio users can open.
+
+| Field | Rule |
+| --- | --- |
+| Title | Required, with at least one letter or digit. It becomes the package's name. |
+| Version | Three numbers, such as `1.0.0`. Studio warns about a version you already published. |
+| Description | Required, at most 250 characters. |
+| Website | Optional. |
+| Icon | A PNG or JPG, made 256 by 256. Without one, Studio makes a plain one. |
+
+The checks also warn about a cosmetic without its own store picture.
+
+The Thunderstore package is a zip with `manifest.json`, `README.md` and `icon.png` at its top and the built mod below them, ready to upload: see [publishing on Thunderstore](/mods/thunderstore). Studio writes an empty `dependencies` list; add any your mod needs to the `manifest.json` in the zip.

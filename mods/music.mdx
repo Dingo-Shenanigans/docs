@@ -1,0 +1,55 @@
+---
+title: "Music"
+description: "reskate-music.json: playlists for the songs a mod adds, in the game's music screen, with cover art for playlists and songs."
+---
+
+A mod that adds songs can give them playlists of their own in the game's music screen, with `reskate-music.json` at the top of its folder.
+
+```json
+{
+    "schema": 1,
+    "playlists": [
+        {"name": "My Playlist", "artwork": "artwork/playlist.png", "songs": ["Artist - Title", "Artist - Other Title"]}
+    ],
+    "song_artwork": {"Artist - Title": "artwork/track.png"}
+}
+```
+
+The songs themselves still have to be added by the mod's game data. The file only arranges them.
+
+## Fields
+
+<ParamField path="schema" type="integer" required>
+  `1`.
+</ParamField>
+
+<ParamField path="playlists" type="object[]" required>
+  At most 64 playlists. Each has a `name` and a list of `songs` (both required) and an `artwork`.
+</ParamField>
+
+<ParamField path="playlists[].songs" type="string[]" required>
+  At most 1024 songs, each its artist and title exactly as the mod registers them, joined by ` - `.
+</ParamField>
+
+<ParamField path="playlists[].artwork" type="string">
+  The playlist's cover.
+</ParamField>
+
+<ParamField path="song_artwork" type="object">
+  A song's cover, by its `"Artist - Title"`. At most 4096 songs.
+</ParamField>
+
+- Text is at most 255 bytes, without control characters.
+- A song that matches no song in the game is ignored, and a playlist with no matching songs is not shown.
+- A file without `schema` 1 and a `playlists` list, or with a playlist missing its `name` or `songs`, is skipped, and the log says why.
+
+ReSkate reads the files again when they change, so you can work on a playlist while the game runs.
+
+## Cover art
+
+Covers are PNG files in the mod's folder:
+
+- The path is relative to the mod's folder, with `/` between folders, ending in `.png`. It cannot start with `/` or hold `\`, `:`, `%`, `?`, `#` or `..`.
+- An image is at most 2048 by 2048 pixels and 4 MB.
+
+A missing or broken cover is ignored, and the playlist or song keeps the rest. The game's own covers keep their place.

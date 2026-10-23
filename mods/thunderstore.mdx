@@ -1,0 +1,85 @@
+---
+title: "Publishing on Thunderstore"
+description: "Package a mod for Thunderstore's ReSkate community: the zip's layout, manifest.json, names and versions, icon and README, categories, dependencies, updates, and maps players can download in multiplayer."
+---
+
+ReSkate's launcher installs mods from [Thunderstore's ReSkate community](https://thunderstore.io/c/reskate/). To share a mod, upload it there as a package.
+
+## The package
+
+A package is a zip with three files at its top, and the mod beside them or in a folder below:
+
+```text
+Shoebox_Pads-1.2.0.zip
+  manifest.json
+  icon.png
+  README.md
+  CHANGELOG.md        (optional)
+  Patch\              (the mod, here as ReSkate Studio packs it)
+    layout.toc
+    .reskate-studio-patch
+    Win32\...
+    reskate-objects.json
+```
+
+When a player installs it, the launcher finds the mod inside the zip (the shallowest folder with `layout.toc`, `reskate-levels.json` or a `parks` folder) and carries the top's `manifest.json`, `icon.png`, `README.md` and `CHANGELOG.md` into it. You can also put the mod's files at the top, beside them.
+
+[ReSkate Studio's **Publish**](/mods/studio#publishing) makes this zip for game data mods. For maps, parks and plugins, make it yourself.
+
+## manifest.json
+
+```json
+{
+    "name": "Shoebox_Pads",
+    "version_number": "1.2.0",
+    "website_url": "https://example.com",
+    "description": "Shoebox manual pads in five brands, behind one tile each.",
+    "dependencies": []
+}
+```
+
+| Field | Rule |
+| --- | --- |
+| `name` | Letters, digits and `_` only. The launcher shows `_` as spaces. |
+| `version_number` | Three numbers, such as `1.2.0`. Raise it for each upload. |
+| `description` | At most 250 characters. The launcher shows it on one line. |
+| `website_url` | A link, or an empty string. The launcher shows a **Website** button only for an `https://` link. |
+| `dependencies` | Other packages your mod needs, each as `Owner-Name-1.0.0`. |
+
+Your Thunderstore team is the package's owner: the launcher installs it as `Mods\<Owner>-<Name>`, and shows **by &lt;Owner&gt;**. Keep `<Owner>-<Name>` within 64 characters, the longest folder name a mod can have.
+
+## icon.png and README.md
+
+- `icon.png` is 256 by 256 pixels. The launcher shows it on the mod's row, and ReSkate shows it on a map's card and on the cards of the mod's items.
+- `README.md` is the mod's page, on Thunderstore and in the launcher. The launcher shows it as plain text, without pictures or HTML, up to 400 lines.
+
+## Categories
+
+Choose the package's categories when you upload it:
+
+- **Mods**: installable from the launcher's **GET MODS**. A package in **Tools** and not in **Mods** gets a button that opens Thunderstore instead.
+- **Maps**: needed for a map players can [download in multiplayer](#maps).
+
+Players filter **GET MODS** by category. A package marked NSFW, or in a category named NSFW, is never listed in the launcher.
+
+<Note>
+**GET MODS** installs only packages with something for the game to load: game data (`layout.toc`), a map (`reskate-levels.json`) or parks (a `parks` folder). A package with only a plugin, or one that only lists other packages as dependencies, is refused there for now. Players can download it from Thunderstore and use **Install .zip** in the launcher instead.
+</Note>
+
+## Dependencies and updates
+
+- When a player installs your mod, the launcher installs its dependencies first: the newest version of each, unless they already have one at least as new as you ask for.
+- A player with your mod installed from Thunderstore sees **UPDATE TO v&lt;version&gt;** once you upload a newer version. **PLAY** asks them first when an enabled mod has an update.
+- Deprecating a package hides it from players who do not have it, and tells those who do that its author no longer supports it.
+
+A mod with game data has to be rebuilt with ReSkate Studio, and uploaded again, for each version of skate. ReSkate supports: one built for another version is [left out](/mods/rules#built-for-another-version-of-skate).
+
+## Maps
+
+Upload a map in the **Maps** category, holding only the map: its `reskate-levels.json` and the map's game data, with no other game files. Then players who join a host or a server on it can download it in the game, without leaving the session. See [maps in multiplayer](/mods/maps#maps-in-multiplayer).
+
+ReSkate Studio's **Publish** does not package maps. Put a `manifest.json`, `icon.png` and `README.md` in the map's folder (`Mods\<map ID>`), and zip the folder's contents.
+
+## Profiles
+
+Players share sets of mods as [profiles](/mods/installing#profiles): codes and `.r2z` files, the same ones r2modman makes. A profile names each mod by its package, so mods installed from Thunderstore are the ones a profile can bring along.
