@@ -1,6 +1,6 @@
 ---
 title: "Server"
-description: "reskate.server: what only the session's authority does: kick or ban a player, speak in chat, tell one player, move a skater, set what a player may do, and spawn a dedicated server's park mods."
+description: "reskate.server: what only the session's authority does: kick or ban a player, speak in chat, tell one player, move a skater, set what a player may do, show players cards and polls, and spawn a dedicated server's park mods."
 ---
 
 `reskate.server` is the session's authority acting on its players. It works only in a plugin's **server copy**. Every function needs the `server` permission, except the [park mod](#park-mods) functions, which need `server.parks`. See [permissions](/plugins/permissions) and [manifest](/plugins/manifest).
@@ -38,6 +38,7 @@ The functions do not all work the same way in both places.
 | `ban`, `unban` | Not available: they return `false` and `"unavailable here"`. | The server's own ban list, as the console's `ban` and `unban`. |
 | `player.permissions`, `player:apply_permissions` | Not available: `permissions` is `nil`, and applying returns `false` and `"unavailable here"`. | What the player may do on the server, as the console's `lock`. |
 | `parks`, `park_spawn`, `park_remove` | Not available: `parks` is empty, and spawning or removing returns `false` and `"unavailable here"`. | The server's park mods, as the console's `park-mod`. |
+| `card`, `poll`, `poll_close` | Not available: they return `false` (`poll`: `nil`) and `"unavailable here"`. | Cards and polls on the players' screens. |
 
 Chat lines from `say` and `tell` start with the plugin's name in brackets (`[My Plugin] ...`): the `name` in its `manifest.json`, or its folder's name without one.
 
@@ -230,6 +231,73 @@ reskate.server.park_remove("immi-race2")
 ```
 
 <Note>Needs `server.parks` and a server copy on a dedicated server. Each call counts as a `reskate.server` call.</Note>
+
+## Cards and polls
+
+On a dedicated server, the server copy can put a card or a poll on players' screens, where the server shows its own announcements and votes. Each player's card or poll is their own: it shows over the server's until it ends, and then the server's shows again. Players need no plugin of their own to see them.
+
+Both take who they are for:
+
+- `"all"`: everyone on the server now;
+- one player (an id or a player table);
+- a list of players, 1 to 128.
+
+Players in the list who are not on the server are left out. When none of them is on, nothing is shown.
+
+### `reskate.server.card(who, text, seconds)`
+
+A card with a line of text, as the server's announcements show.
+
+<ParamField path="who" type="string or table" required>`"all"`, a player, or a list of players.</ParamField>
+<ParamField path="text" type="string" required>1 to 120 characters.</ParamField>
+<ParamField path="seconds" type="number">How long it is up, 1 to 60. Without it, as long as an announcement of the same length (6 to 15 seconds).</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it is shown.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"that player is not on the server"`, `"none of those players is on the server"` or `"nobody is on the server"`; on a lobby's host `"unavailable here"`.</ResponseField>
+
+A player's newer card replaces their earlier one, whichever plugin showed it.
+
+```lua
+reskate.server.card("all", "Race starts in 30 seconds", 10)
+```
+
+<Note>Needs the `server` permission and a server copy on a dedicated server. Each call counts as a `reskate.server` call.</Note>
+
+### `reskate.server.poll(who, question, answers, options)`
+
+A poll on each player's screen, shown as the server's own polls are, which they answer the same way: `/1`, `/2` and so on in chat. One answer closes it for that player. The poll shows no counts: your plugin hears each answer and counts them itself.
+
+<ParamField path="who" type="string or table" required>`"all"`, a player, or a list of players.</ParamField>
+<ParamField path="question" type="string" required>1 to 120 characters.</ParamField>
+<ParamField path="answers" type="table" required>2 to 6 answers, each 1 to 48 characters.</ParamField>
+<ParamField path="options.seconds" type="number">How long it runs, 5 to 300. Without it, the server's poll time (`votes.poll_seconds`, 60 by default).</ParamField>
+
+<ResponseField name="id" type="number or nil">The poll's id, one for everyone it asks. It comes back in the [`poll_answer`](/plugins/events#poll_answer) and [`poll_closed`](/plugins/events#poll_closed) events.</ResponseField>
+<ResponseField name="why" type="string">When `id` is nil: `"that player is not on the server"`, `"none of those players is on the server"` or `"nobody is on the server"`; on a lobby's host `"unavailable here"`.</ResponseField>
+
+A player has one poll from plugins at a time: a newer one replaces theirs, and the plugin whose poll it was hears `poll_closed` with `"replaced"`. Answering a plugin's poll is not a server vote, so a player's role does not need `votes` for it.
+
+```lua
+-- Needs "server" and a server copy on a dedicated server.
+local votes = {}
+local poll = reskate.server.poll("all", "Next track?", {"Docks", "Hill"}, {seconds = 30})
+reskate.on("poll_answer", function(e)
+    if e.id == poll then votes[e.text] = (votes[e.text] or 0) + 1 end
+end)
+```
+
+<Note>Needs the `server` permission and a server copy on a dedicated server. Each call counts as a `reskate.server` call.</Note>
+
+### `reskate.server.poll_close(id)`
+
+Closes one of your polls for every player it is still open for. Each of them comes back in `poll_closed` with `"closed"`.
+
+<ParamField path="id" type="number" required>The poll's id, as `poll` gave it.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it was open for someone.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"no poll of the plugin's with that id is open"`; on a lobby's host `"unavailable here"`.</ResponseField>
+
+<Note>Needs the `server` permission and a server copy on a dedicated server. When the plugin stops, its cards and polls go too, with no events.</Note>
 
 ## Player permissions
 
