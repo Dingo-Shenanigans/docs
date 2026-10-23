@@ -38,12 +38,15 @@ A bone you set is either in `"local"` space, its own parent's frame, as the pose
 
 ### `reskate.board.motion()`
 
-The board's velocity in the last physics step.
+The board's velocity and spin in the last physics step, and where the board and its deck were last drawn in the world. For effects that follow the board: a deck that sloshes, glows with speed or ripples on a landing.
 
 <ResponseField name="motion" type="table or nil">
 `nil` without a board.
 <Expandable title="fields">
 <ResponseField name="velocity" type="vector">Metres per second, in the world.</ResponseField>
+<ResponseField name="spin" type="vector or nil">Its angular velocity, in the world: the axis it turns about, its length radians per second. `nil` while it cannot be read.</ResponseField>
+<ResponseField name="place" type="table or nil">The board's place in the world (bone 1) as last drawn, `{position, rotation}`, the rotation `{x, y, z, w}`. `nil` while the board's pose is not read.</ResponseField>
+<ResponseField name="deck" type="table or nil">The deck (bone 3) in the world as last drawn, `{position, rotation}`. Bones your plugin sets or hides do not move it here: it is where the animation put the deck.</ResponseField>
 </Expandable>
 </ResponseField>
 
@@ -51,6 +54,9 @@ The board's velocity in the last physics step.
 local motion = reskate.board.motion()
 if motion and vector.magnitude(motion.velocity) > 15 then
     reskate.log("fast")
+end
+if motion and motion.spin and vector.magnitude(motion.spin) > 10 then
+    reskate.log("a flip trick, about " .. math.floor(vector.magnitude(motion.spin) / (2 * math.pi)) .. " turns a second")
 end
 ```
 
