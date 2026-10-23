@@ -37,6 +37,7 @@ The functions do not all work the same way in both places.
 | `move` | The player's game moves their skater (only a player in the world, not the host). | The same: the player's game makes the move. |
 | `ban`, `unban` | Not available: they return `false` and `"unavailable here"`. | The server's own ban list, as the console's `ban` and `unban`. |
 | `player.permissions`, `player:apply_permissions` | Not available: `permissions` is `nil`, and applying returns `false` and `"unavailable here"`. | What the player may do on the server, as the console's `lock`. |
+| `player.role` | Not available: `role` is `nil`. | The player's role in the server's `data/roles.json`, as the console's `role` gives it. |
 | `parks`, `park_spawn`, `park_remove` | Not available: `parks` is empty, and spawning or removing returns `false` and `"unavailable here"`. | The server's park mods, as the console's `park-mod`. |
 
 Chat lines from `say` and `tell` start with the plugin's name in brackets (`[My Plugin] ...`): the `name` in its `manifest.json`, or its folder's name without one.
@@ -287,8 +288,32 @@ end)
 
 <Note>Needs the `server` permission and a server copy on a dedicated server. The example also needs `session.read`. Each call counts as a `reskate.server` call.</Note>
 
+## Player roles
+
+A dedicated server gives each player a role (`data/roles.json`, and the console's `role <SteamID64> <role>`): the one given them, or else the server's default role. In a server copy, a player table's `role` says which, so a plugin can let its own commands follow the server's roles instead of keeping a list of its own.
+
+### `player.role`
+
+The player's role now: a read-only table, read from the server each time you read it.
+
+<ResponseField name="name" type="string">The role's name, such as `"player"`, `"moderator"` or `"admin"`.</ResponseField>
+<ResponseField name="rank" type="number">Its rank, 0 to 1000. With the roles a new server starts with: `player` and `muted` 0, `vip` 10, `moderator` 50, `admin` 100.</ResponseField>
+<ResponseField name="staff" type="boolean">Whether the role gives any of the server's commands (such as `kick`): `true` for `moderator` and `admin` on a new server.</ResponseField>
+
+`role` is `nil` for a player with no role (one given none, on a server with no default role), for the server itself, and on a lobby's host.
+
+```lua
+-- Only moderators and above edit the tracks.
+local function may_edit(player)
+    local role = player.role
+    return role ~= nil and role.rank >= 50
+end
+```
+
+Reading it outside a server copy, or without the `server` permission, raises an error. Each read counts as a `reskate.server` call (see [limits](#limits)).
+
 ## Limits
 
 <Note>
-A server copy makes at most 20 `reskate.server` calls a second, reading `player.permissions`, `apply_permissions` and the park mod functions included; the 21st raises an error. `say` also has its own limit of one line a second, which returns `false`. See [limits](/plugins/limits).
+A server copy makes at most 20 `reskate.server` calls a second, reading `player.permissions` and `player.role`, `apply_permissions` and the park mod functions included; the 21st raises an error. `say` also has its own limit of one line a second, which returns `false`. See [limits](/plugins/limits).
 </Note>
