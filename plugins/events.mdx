@@ -1,6 +1,6 @@
 ---
 title: "Events"
-description: "All 29 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
+description: "All 31 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
 ---
 
 This page lists every event `reskate.on` accepts. Five need no permission; each of the others needs the permission named in its section.
@@ -11,7 +11,7 @@ This page lists every event `reskate.on` accepts. Five need no permission; each 
 
 Registers a function to run each time the event fires. Register handlers when the entry file runs, usually at its top level.
 
-<ParamField path="event" type="string" required>The event's name, one of the 29 on this page, or the same name from `reskate.Enums.Event`.</ParamField>
+<ParamField path="event" type="string" required>The event's name, one of the 31 on this page, or the same name from `reskate.Enums.Event`.</ParamField>
 <ParamField path="handler" type="function" required>Called with the event's arguments, described in each section below.</ParamField>
 
 It returns nothing. These raise a Lua error:
@@ -483,6 +483,39 @@ Fires for each new line in your chat, as you see it (filtered when you filter ch
 ```lua
 reskate.on("chat", function(line)
     if line.text == "!where" then reskate.log(line.name .. " asked where everyone is") end
+end)
+```
+
+### `poll_answer`
+
+**Permission:** `server`.
+
+Fires in a dedicated server's server copy when a player answers one of the plugin's [polls](/plugins/api/server#cards-and-polls). The poll closes for that player; no `poll_closed` follows.
+
+<ResponseField name="e.id" type="number">The poll's id, as `reskate.server.poll` gave it.</ResponseField>
+<ResponseField name="e.player" type="string">The player's SteamID64, as a string.</ResponseField>
+<ResponseField name="e.answer" type="number">Which answer, from 1.</ResponseField>
+<ResponseField name="e.text" type="string">The answer's text.</ResponseField>
+
+```lua
+reskate.on("poll_answer", function(e)
+    reskate.log(e.player .. " picked " .. e.text)
+end)
+```
+
+### `poll_closed`
+
+**Permission:** `server`.
+
+Fires in a dedicated server's server copy when one of the plugin's polls closes for a player who did not answer it.
+
+<ResponseField name="e.id" type="number">The poll's id.</ResponseField>
+<ResponseField name="e.player" type="string">The player's SteamID64, as a string.</ResponseField>
+<ResponseField name="e.why" type="string">`"timeout"` (it ran out), `"left"` (the player left the server), `"replaced"` (a newer plugin poll for that player) or `"closed"` (`reskate.server.poll_close`).</ResponseField>
+
+```lua
+reskate.on("poll_closed", function(e)
+    if e.why == "timeout" then reskate.log(e.player .. " did not answer") end
 end)
 ```
 
