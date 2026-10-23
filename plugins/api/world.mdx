@@ -100,6 +100,8 @@ reskate.world.set_time("night")
 
 <Note>Needs the `world.environment` permission. In a session, the host chooses the time of day.</Note>
 
+On a dedicated server, a server copy sets the time of day for everyone, on every map, as the server's `tod` command does, and the server keeps it. That needs the server's world layers: a `world-layers.json` beside it and `layer-sync` on. Otherwise it returns `false` and `"the server has no world layers (world-layers.json beside it)"` or `"the server lets players keep their own world layers (layer-sync is off)"`. `set_control` and `set_park` are not available there.
+
 ### `reskate.world.set_control(control, value)`
 
 Sets one of the world controls. -1 gives a control back to the game's own.
@@ -458,7 +460,7 @@ A list. Each entry:
 
 ### `reskate.travel.levels()`
 
-The levels the game knows.
+The levels the game knows. On a dedicated server, the maps the server knows, as its `maps` command lists them: `asset` and `name` for each, and `can_load` true.
 
 <ResponseField name="levels" type="table">
 A list. Each entry:
@@ -497,6 +499,8 @@ Loads a level.
 <ResponseField name="why" type="string">Why not: `"one trip every 5 s"`, `"only the session's host changes where everyone is"`, `"that level cannot be loaded now"` or the game's reason.</ResponseField>
 
 <Note>Needs the `travel` permission. Shares the one trip every 5 seconds with `go`.</Note>
+
+On a dedicated server, a server copy changes the server's map, as its `map` command does: everyone goes, and the server keeps the map for its next start. `asset` is an `asset` or a `name` from `levels()`. It returns `false` and `"the server is already on that map"`, `"this server does not have that map"` or `"no single map is called ..."`. The log says `[map] A plugin changed the map to <map>.`, and the plugin hears [`level_unloading` and `level_loaded`](/plugins/events#level_loaded). `go` is not available there: a server has no fast travel.
 
 ## AI skaters
 

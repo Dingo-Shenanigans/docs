@@ -103,7 +103,7 @@ end
 reskate.net.send("all", reskate.json.encode({world = here.world})) -- net.send needs net.session
 ```
 
-<Note>Needs `session.read`. On a server copy, `world` is `"0"`, `barred` is false and `map` is empty.</Note>
+<Note>Needs `session.read`. On a dedicated server, a server copy gets the server's own world and the name of the map it runs, and `barred` is false.</Note>
 
 ## Other players' skaters
 

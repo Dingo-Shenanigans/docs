@@ -486,6 +486,17 @@ reskate.on("chat", function(line)
 end)
 ```
 
+On a dedicated server, a server copy hears every player's line as the server passes it on, unfiltered, and the server's own lines to everyone (`sender` `"0"`, `server` true), its plugins' `say` lines among them. It also hears a `/command` the server does not know itself, such as `/race join`, with its `/`. The server does not answer such a line `Unknown command` while a plugin hears chat, so your plugin answers the player, with [`reskate.server.tell`](/plugins/api/server#players). The server's own commands (`/help`, `/vote`, `/kick` and the rest) never reach plugins.
+
+```lua
+-- A server copy with chat.read and server.
+reskate.on("chat", function(line)
+    if line.text == "/race join" then
+        reskate.server.tell(line.sender, "You are in the next race.")
+    end
+end)
+```
+
 ### `poll_answer`
 
 **Permission:** `server`.

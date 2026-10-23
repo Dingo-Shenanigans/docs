@@ -60,6 +60,9 @@ With no plugins, `plugin list` says where it looks: `No server plugins. A plugin
 A plugin asks for what it uses with [permissions](/plugins/permissions) in its manifest. On a dedicated server:
 
 - **Players.** `reskate.session.players()` lists everyone on the server; the server is not one of them. With the `server` permission, a plugin [kicks, bans and moves](/plugins/api/server#players) players, speaks in chat as itself (`[Its name] ...`) or to one player, and reads and sets [what each player may do](/plugins/api/server#player-permissions), as `lock` does.
+- **Chat.** With `chat.read`, it hears every player's [chat line](/plugins/events#chat), the server's own lines, and the `/commands` the server does not know itself, so players can talk to it: `/race join`. While a plugin hears chat, the server does not answer those `Unknown command`; the plugin answers.
+- **The map.** With `session.read`, [`reskate.session.world()`](/plugins/api/session) names the map the server runs, and the plugin hears `level_loaded` when it changes. With `travel`, it lists the server's maps and [changes the map](/plugins/api/world#travel) for everyone, as `map` does.
+- **Time of day.** With `world.environment`, it [sets the time of day](/plugins/api/world#time-of-day-and-world-controls) for everyone, as `tod` does, when the server has its world layers and `layer-sync` is on.
 - **Roles.** It reads each player's [role](/plugins/api/server#player-roles), so its own commands can follow the server's [roles](/servers/roles).
 - **Cards and polls.** It shows players [cards and polls](/plugins/api/server#cards-and-polls) of its own, and hears the answers.
 - **Parks.** With `server.parks`, it lists, spawns and removes the server's [park mods](/plugins/api/server#park-mods).

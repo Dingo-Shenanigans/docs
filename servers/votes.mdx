@@ -124,4 +124,6 @@ Chat commands of your own, such as `/discord` or `/rules`, go in the `commands` 
 
 Each needs a `reply`, a `command`, or both. They are not listed in `/help`: tell players about them yourself.
 
+A `/command` that is neither the server's nor one of these goes to the server's [plugins](/servers/plugins) when one hears chat, instead of the `Unknown command` reply. A game mode's plugin takes its commands this way.
+
 <Warning>Mind what `{arg}` lets players put into a command.</Warning>
