@@ -1,6 +1,6 @@
 ---
 title: "Board"
-description: "reskate.board: read the skateboard's motion and bones, move, hide, park or toss its parts as they are drawn, and fit every board to a deck model of your own."
+description: "reskate.board: read the skateboard's motion and bones, move, hide, park or toss its parts as they are drawn, fit every board to a deck model of your own, and colour its shader parameters."
 ---
 
 `reskate.board` reads the local skateboard and changes what is drawn of it. `reskate.board.motion` needs the `skater.read` permission; every other function needs the `board` permission. Calling a function without its permission raises an error. See [permissions](/plugins/permissions).
@@ -8,7 +8,7 @@ description: "reskate.board: read the skateboard's motion and bones, move, hide,
 A plugin changes only what is drawn. The next animation update writes the whole pose again, and what the plugin asked for is written over it every frame, as the pose goes to the renderer. The board itself, its physics and the skater riding it do not change.
 
 <Warning>
-`reskate.board` sends nothing to other players. `set`, `hide` and `toss` change your own board as your game draws it. `park` and `fit` change every board your game draws, other players' boards included, but only on your game.
+`reskate.board` sends nothing to other players. `set`, `hide`, `toss` and `set_parameter` change your own board as your game draws it. `park` and `fit` change every board your game draws, other players' boards included, but only on your game.
 </Warning>
 
 ## The rig
@@ -231,3 +231,99 @@ reskate.time.every(2000, fit_boards)
 <Note>
 Needs the `board` permission. An `axle` that is not a number raises an error. When the plugin stops, its fit ends.
 </Note>
+
+## Shader parameters
+
+Each part of your board is drawn by its own material, and each holds a few shader values of its own. The renderer takes them for your board alone. A plugin can read all of them, and hold a colour or a number there, for example to make the deck's graphic glow with speed or pulse on a landing.
+
+| Part | What it is |
+| --- | --- |
+| `"deck"` | The deck: its wood and graphic. |
+| `"grip"` | The grip tape on top of the deck. |
+| `"trucks"` | Both trucks. |
+| `"wheels"` | The four wheels. |
+
+The game keeps no names for these values. Each one is known by its key, 16 hex digits. Two colours are known by what they colour, and you can use their names as keys:
+
+| Name | Key | What it colours |
+| --- | --- | --- |
+| `"graphic"` | `873f48af36e50d59` | The deck's and the grip's graphic. |
+| `"base"` | `8c46cd354b18a9e2` | The deck's wood, the trucks and the wheels. |
+
+To find what any other key does, read the part's parameters, change one, and watch your board.
+
+<Warning>
+Only colours and numbers can be set. An integer or a switch picks how the board is drawn, and some of those choose looks the store sells (the foil decks), so plugins can only read them. Nothing of your board's items changes, and nobody else sees what you set: other players draw your board from its cosmetics, as they are.
+</Warning>
+
+### `reskate.board.parameters(part)`
+
+The part's parameters as its material holds them now.
+
+<ParamField path="part" type="string" required>`"deck"`, `"grip"`, `"trucks"` or `"wheels"`.</ParamField>
+
+<ResponseField name="parameters" type="table or nil">
+`nil` without a board in play. A list; empty when the part has no material of its own.
+<Expandable title="each parameter">
+<ResponseField name="key" type="string">16 hex digits.</ResponseField>
+<ResponseField name="name" type="string or nil">`"graphic"` or `"base"` for the two known colours.</ResponseField>
+<ResponseField name="type" type="string">`"colour"`, `"number"`, `"integer"`, `"switch"`, or `"other"` for a value of another kind.</ResponseField>
+<ResponseField name="value" type="any">A colour's `{r, g, b}`, each 0 to 1; a number; an integer; `true` or `false` for a switch. `nil` for `"other"`.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+for _, p in reskate.board.parameters("grip") or {} do
+    reskate.log(p.key .. " " .. p.type .. " " .. (p.name or ""))
+end
+```
+
+<Note>Needs the `board` permission.</Note>
+
+### `reskate.board.set_parameter(part, key, value)`
+
+Holds a colour or a number on the part, written every frame until you clear it. A new value for the same key replaces the last one, so you can set it every tick to animate it.
+
+<ParamField path="part" type="string" required>`"deck"`, `"grip"`, `"trucks"` or `"wheels"`.</ParamField>
+<ParamField path="key" type="string" required>16 hex digits, `"graphic"` or `"base"`. A key that is not one raises an error.</ParamField>
+<ParamField path="value" type="table or number" required>For a colour, `{r = , g = , b = }`, each 0 to 1. For a number, a number from -100 to 100. A value that is not finite, or a colour without all three channels, raises an error.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the value is held.</ResponseField>
+<ResponseField name="why" type="string">Why not, for example `"there is no board in play"`, `"the wheels has no parameter 873f48af36e50d59"`, `"b00abec403499469 is an integer, which picks how the board is drawn; plugins only read it"`, `"a colour's channels are 0 to 1"`, `"<plugin> holds the grip's 873f48af36e50d59"` or `"a plugin holds at most 32 board parameters"`.</ResponseField>
+
+```lua
+-- The deck's graphic goes from its own colour to red as the board speeds up.
+local own
+reskate.on("tick", function()
+    local motion = reskate.board.motion()
+    if not motion then return end
+    if not own then
+        for _, p in reskate.board.parameters("deck") or {} do
+            if p.name == "graphic" then own = p.value end
+        end
+        if not own then return end
+    end
+    local t = math.clamp(vector.magnitude(motion.velocity) / 12, 0, 1)
+    reskate.board.set_parameter("deck", "graphic", {
+        r = own.r + (1 - own.r) * t, g = own.g * (1 - t), b = own.b * (1 - t)})
+end)
+```
+
+A part only has the keys its material holds now (the deck and grip about eight, the trucks and wheels three). A key it does not have is refused. One plugin holds a key of a part at a time: another plugin's `set_parameter` on it is refused until the holder clears it or stops. Changing the board's cosmetics gives the parts new materials; what you hold is written onto them too.
+
+<Note>Needs the `board` permission.</Note>
+
+### `reskate.board.clear_parameter(part, key)`
+
+Lets go of what you hold, and the board's own value comes back.
+
+<ParamField path="part" type="string">That part only. Without it: every part.</ParamField>
+<ParamField path="key" type="string">That key only. Without it: every key of the part (or of every part).</ParamField>
+
+Returns nothing. A value the game changed since you set it is left as the game has it.
+
+```lua
+reskate.board.clear_parameter()
+```
+
+<Note>Needs the `board` permission. When the plugin stops, everything it holds is let go.</Note>
