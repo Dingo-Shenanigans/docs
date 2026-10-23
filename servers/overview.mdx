@@ -1,0 +1,98 @@
+---
+title: "Dedicated servers"
+description: "Run a ReSkate dedicated server on Windows or Linux: download it, start it, make yourself an admin, how players find and reach it, and how it keeps itself up to date."
+---
+
+A dedicated server is a ReSkate lobby that runs on its own, without the game or Steam installed. Players find it in the game's server browser, **Multiplayer** > **Servers**, or join with its code. It holds up to 249 players, and runs [plugins](/plugins/api/server) of its own.
+
+## Download
+
+Each [ReSkate release](https://github.com/Dingo-Shenanigans/ReSkate/releases) has the server for both systems:
+
+| System | File |
+| --- | --- |
+| Windows | `ReSkateServer-<version>.zip` |
+| Linux | `ReSkateServer-Linux-<version>.zip` |
+
+Players and the server need the same ReSkate version. The server [updates itself](#updates) to stay on the latest one.
+
+## Start it
+
+<Steps>
+  <Step title="Unpack it">
+    Unpack the zip into a folder of its own, and keep its files together: the Steam libraries beside the server are how it talks to Steam, and `world-layers.json` lets it set the time of day and other world layers for everyone. On Linux, see [Linux servers](/servers/linux).
+  </Step>
+  <Step title="Run it once">
+    Run `ReSkateServer.exe`. The first run writes `ReSkateServer.json`, its [settings](/servers/configuration), beside it.
+  </Step>
+  <Step title="Name it">
+    Stop the server, set at least `"name"` in the `"server"` section of `ReSkateServer.json`, and start it again.
+  </Step>
+  <Step title="Make yourself an admin">
+    Type `role <your SteamID64> admin` in the server's window. In the game, you then have every command: see [roles](/servers/roles).
+  </Step>
+</Steps>
+
+On Windows, `ReSkateServer.exe` opens the server's window, where you start the server and type its commands. Start it with `--headless` (or `--cli`, `--no-gui`) to run it in a console instead, as a service or a host panel does.
+
+| Option | What it does |
+| --- | --- |
+| `--config <file>` | Use another settings file, such as `--config grom.json`. One that does not exist yet is written with the defaults. Run several servers from one folder this way. |
+| `--no-update` | Do not install new releases. |
+| `--headless` | Windows: run in a console, without the window. |
+
+Type `help` in the window for a short list of every [command](/servers/commands), and `status` for the server's name, map, players and join code.
+
+## The server's files
+
+| File | What it is |
+| --- | --- |
+| `ReSkateServer.json` | Every setting. The server writes it back whenever an admin changes one, so do not edit it while the server runs. |
+| `data/roles.json` | Who may do what: see [roles](/servers/roles). |
+| `data/bans.json` | The server's own bans. |
+| `data/words_filtered.txt`, `data/words_blocked.txt` | The server's own chat words: see [chat words](/servers/moderation#chat-words). |
+| `Mods\` | Custom maps and park mods the server offers: see [maps and parks](/servers/maps). |
+| `Plugins\` | The server's [plugins](/plugins/api/server). Their data is kept in `data/plugins`. |
+| `ReSkateServer.log` | Everything the server says. |
+
+## How players reach it
+
+Players connect through Steam's relay network, so no ports need opening, and the server never sees a player's address. If you do forward UDP 27015 and 27016 (`port` and `query_port`), the browser also shows the server's ping and players join a little faster. To let players connect straight to the server for the lowest ping, see `use_steam_relay` in [network settings](/servers/configuration#network).
+
+A server signs in to Steam anonymously, and gets a new Steam ID, so a new join code, every time it starts. The browser always finds it by name.
+
+To keep the same Steam ID, give it a Steam game server login token:
+
+1. Make one at [steamcommunity.com/dev/managegameservers](https://steamcommunity.com/dev/managegameservers) with App ID `3354750`. Each running server needs its own.
+2. Put it in `"steam_token"` in the `"server"` section. The server prints its Steam ID when it starts.
+
+<Warning>Keep the token private: anyone with it can sign in as your server.</Warning>
+
+The ReSkate team can set the server browser to show only servers with a token. The server says so in its log when that hides it. Players can always join with the code.
+
+`"listed": false` hides the server from the browser; players then need its code.
+
+## Updates
+
+The server keeps itself on the latest ReSkate release. It checks when it starts and every half hour.
+
+- A new version found while players are on is installed as soon as the server is empty. The server restarts on its own, keeping `ReSkateServer.json`, `Mods` and its logs.
+- `update` checks and installs straight away; players are told to rejoin.
+- `"auto_update": false`, or `--no-update`, turns it off.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Settings" icon="sliders" href="/servers/configuration">
+    Every setting in ReSkateServer.json.
+  </Card>
+  <Card title="Maps and parks" icon="map" href="/servers/maps">
+    The map pool, rotation, custom maps and park mods.
+  </Card>
+  <Card title="Roles" icon="user-shield" href="/servers/roles">
+    Admins, moderators, VIPs and roles of your own.
+  </Card>
+  <Card title="Commands" icon="terminal" href="/servers/commands">
+    Everything you can type in the server window.
+  </Card>
+</CardGroup>

@@ -1,0 +1,159 @@
+---
+title: "Roles"
+description: "Who may do what on a dedicated server: data/roles.json, the roles a new server has, ranks, every permission and every command a role can be given, and examples."
+---
+
+Who may do what is in `data/roles.json`, beside `data/bans.json`. The server writes it the first time it starts. Edit it while the server is stopped, or edit it and type `roles reload`. A file with a mistake in it is not loaded: the server says what is wrong and keeps the roles it had.
+
+## The file
+
+```json
+{
+    "default_role": "player",
+    "roles": [
+        {
+            "name": "moderator",
+            "tag": "Mod",
+            "color": "#5EC8FF",
+            "rank": 50,
+            "inherit": true,
+            "commands": ["kick", "ban", "unban", "bans", "msg"],
+            "permissions": ["reserved_slot", "anticheat_alerts"]
+        }
+    ],
+    "players": {
+        "76561198000000000": "moderator"
+    }
+}
+```
+
+| Field | What it is |
+| --- | --- |
+| `default_role` | The role of every player who was given none. `""` for none: such players then chat, vote, use parties and whisper, and nothing else. |
+| `roles` | Up to 32 roles. |
+| `players` | Who has which role, by SteamID64. Up to 4096 players, one role each. |
+
+## A role
+
+| Field | Rule |
+| --- | --- |
+| `name` | 1 to 24 of `a-z`, `0-9`, `-` and `_`, lower case. Not `none`. |
+| `tag` | The word shown before the player's name in chat and on their nametag, up to 16 characters, or `""` for none. Not one the game uses itself: Server, ReSkate, ReSkate Admin, Host, Friend, Dev, Developer, Staff, Homie, Centrix, Content Creator. A word the ReSkate team does not allow in chat is not shown either. |
+| `color` | The tag's colour, `"#RRGGBB"`. |
+| `rank` | 0 to 1000. See [rank](#rank). |
+| `inherit` | `true` (the default): the role also has everything the default role has. `false`: only what it lists, for a role that takes something away, such as `muted`. |
+| `commands` | The [commands](#commands) the role may use. |
+| `permissions` | What it may do besides commands: see [permissions](#permissions). |
+
+## The roles a new server has
+
+| Role | Rank | Tag | Has |
+| --- | --- | --- | --- |
+| `player` | 0 | | The default role. Permissions: `chat`, `votes`, `parties`, `whisper`. |
+| `vip` | 10 | VIP | `reserved_slot`. |
+| `moderator` | 50 | Mod | Commands: `kick`, `ban`, `unban`, `bans`, `players`, `msg`, `msg-party`, `msg-admins`, `tphere`, `vote-cancel`, `announce-to`, `role`. Permissions: `reserved_slot`, `no_afk_kick`, `vote_kick_immune`, `anticheat_alerts`, `polls`. |
+| `admin` | 100 | Admin | Commands: `"*"`, `role`, `reserved`. Every permission. |
+| `muted` | 0 | | `"inherit": false`. Permissions: `votes`, `parties`. |
+
+`vip`, `moderator` and `admin` inherit from `player`, so they also chat, vote, use parties and whisper.
+
+## Giving roles
+
+| Command | What it does |
+| --- | --- |
+| `role <player or SteamID64> <role>` | Give a player a role. |
+| `role <player or SteamID64> none` | Take it away: they are the default role again. |
+| `roles` | The roles and who has them. |
+| `roles reload` | Read `data/roles.json` again. |
+
+The player is told in chat when their role changes, and their game shows the new tag and controls at once. Changes made with `role` are saved to the file.
+
+## Rank
+
+Nobody can kick, ban or change the role of a player whose rank is the same as theirs or higher, or give out a role whose rank is. Nobody can change their own role. The server's own window is above every role and can do all of it.
+
+So a moderator (50) can mute a player (0) or make them a vip (10), and cannot touch an admin (100) or make anyone a moderator.
+
+## Permissions
+
+What every player normally does. The default `player` role has all four; leave one out of a role with `"inherit": false` to take it away:
+
+| Permission | Lets the player |
+| --- | --- |
+| `chat` | Talk in chat. Without it, their messages are not passed on, and they are told so. |
+| `votes` | Start the votes that are on, and vote in them (`/yes`, `/no`, `/1`, `/2`...). |
+| `parties` | Form, join and invite to parties, and use party chat (`/p`). |
+| `whisper` | Send private messages (`/w <player> <message>`). |
+
+Extras:
+
+| Permission | Lets the player |
+| --- | --- |
+| `reserved_slot` | Join when the server is full: each such player adds a slot beyond `max_players` that only they use. |
+| `unlimited_objects` | Place objects without a limit, build when `placement` is `admins`, and resize objects when `object-scaling` is off. |
+| `movement` | Use noclip, teleport, No Bail and the boosts when the server turned them off for players, but not a tool [locked](/servers/moderation#locking-a-players-tools) for them. |
+| `no_afk_kick` | Never be removed for being away. |
+| `vote_kick_immune` | Never be the target of a kick vote. |
+| `anticheat_alerts` | Hear in chat what the anti-cheat finds. |
+| `polls` | Start a poll when polls are for admins, and end anybody's poll early. |
+
+## Commands
+
+A player whose role has a command types it in chat with a `/` in front (`/kick Name`), or in the game's console as `mp server <command>`, or uses its control in the game's menus: the game shows a player the controls their role gives them. Replies arrive in chat. [Commands](/servers/commands) has what each one does.
+
+`"*"` is every command except `role` and `reserved`, which a role has only when it lists them by name too, such as `["*", "role"]`. Any role with a command can also use `help` and `roles`.
+
+| Area | Commands |
+| --- | --- |
+| Players | `players`, `kick`, `kick-time`, `ban`, `unban`, `bans`, `tpall`, `tphere`, `teleport`, `role`, `reserved` |
+| Messages | `msg`, `msg-party`, `msg-admins`, `announce`, `announce-to`, `announcements` |
+| Map and world | `map`, `maps`, `map-pool`, `rotation`, `park`, `park-mod`, `layer-sync`, `layer`, `layers`, `tod` |
+| Server settings | `name`, `password`, `welcome`, `listed`, `chat-color`, `status`, `net`, `activity-log` |
+| What players may do | `voice`, `voice-range`, `placement`, `objects`, `object-scaling`, `clear-objects`, `effects`, `noclip`, `nobail`, `boosts`, `tuning`, `parties`, `party-size`, `afk-kick`, `announce-throwdowns`, `lock`, `unlock`, `locks`, `throwdown-locks` |
+| Votes and polls | `votes`, `vote`, `vote-cancel`, `poll` |
+| Network | `distances`, `crowd`, `rate`, `tps` |
+| Anti-cheat | `speed-check`, `board-check`, `score-check`, `score-allow`, `bone-scale`, `bone-reach` |
+
+`say`, `poll-run`, `update` and `quit` are for the server's own window only. A name a role lists that is not a command does nothing: check its spelling against this list.
+
+## Examples
+
+A helper who can only message and teleport players:
+
+```json
+{"name": "helper", "tag": "Helper", "color": "#7CFC9A", "rank": 20,
+ "commands": ["msg", "tphere", "players"], "permissions": ["no_afk_kick"]}
+```
+
+A builder who is never limited, on a server where only staff build:
+
+```json
+{"name": "builder", "tag": "Builder", "color": "#FFA94D", "rank": 15,
+ "commands": [], "permissions": ["unlimited_objects"]}
+```
+
+Someone who runs events: the map, the time and the parks, and announcements, but no kicks:
+
+```json
+{"name": "events", "tag": "Events", "color": "#C792EA", "rank": 30,
+ "commands": ["map", "map-pool", "rotation", "tod", "park", "announce", "poll", "vote", "vote-cancel"],
+ "permissions": ["polls", "reserved_slot"]}
+```
+
+A player who may talk but not start votes:
+
+```json
+{"name": "no-votes", "tag": "", "color": "#FFFFFF", "rank": 0,
+ "inherit": false, "commands": [], "permissions": ["chat", "parties", "whisper"]}
+```
+
+Everybody gets a tag when the default role has one:
+
+```json
+{"name": "player", "tag": "Skater", "color": "#FFFFFF", "rank": 0,
+ "commands": [], "permissions": ["chat", "votes", "parties", "whisper"]}
+```
+
+[Server plugins](/plugins/api/server#player-roles) can read each player's role, so a plugin's own commands can follow the server's roles.
+
+A config from before roles lists its admins under `"access"`: the first time the server starts they are put in the admin role. The old `admin add`, `admin remove` and `admins` commands are gone: use `role` and `roles`.

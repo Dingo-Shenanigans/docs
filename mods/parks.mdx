@@ -86,6 +86,6 @@ A dedicated server spawns park mods for everyone, for a time, from the mods in i
 - `key`: which of the mod's parks, or empty when it has just one.
 - `park_limits`: how many parks can be out at once (1 to 16) and how many objects they hold together (1 to 1024).
 
-Admins spawn and remove them with `park-mod add <name> [minutes]` and `park-mod remove <name>`. The server's parks are its own: they count toward nobody's object limit, and go when the map changes. Objects players' games cannot show are skipped. See the server's README for every command, and [server plugins](/plugins/api/server) for spawning parks from a plugin.
+Admins spawn and remove them with `park-mod add <name> [minutes]` and `park-mod remove <name>`. The server's parks are its own: they count toward nobody's object limit, and go when the map changes. Objects players' games cannot show are skipped. See [park mods on a server](/servers/maps#park-mods) for every command, and [server plugins](/plugins/api/server) for spawning parks from a plugin.
 
 Plugins read any mod's `parks` folder with [`reskate.mods.content`](/plugins/api/mods).

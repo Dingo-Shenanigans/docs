@@ -1,0 +1,94 @@
+---
+title: "Maps and parks"
+description: "Choose the map, a pool and a rotation with a vote for the next map, offer custom maps that players download as they join, keep them up to date, put up park mods, and set the time of day for everyone."
+---
+
+## The map
+
+`maps.map` is the map everyone skates, named as the game's load command names it: `"San Vansterdam"`, `"Isle of Grom"`, `"Super Ultra Mega Resort"`, `"Stadium 1"`, or a custom map. `map <name>` changes it at once (`map grom`, `map bbcity`), and `maps` lists the maps the server knows.
+
+A player whose role has `map` can also pick the server's map from **Levels** or **Travel** in the game.
+
+## The pool and the rotation
+
+`maps.pool` is the maps players may vote for and the rotation goes through, in order. Empty, the default, allows every map. Admins can still change to any map. `map-pool add <map>`, `map-pool remove <map>` and `map-pool clear` change it.
+
+With `maps.rotation_minutes` (or `rotation <minutes>`), the server moves to the pool's next map on a timer.
+
+- Players get a minute's warning, and with `rotation_announce` a card at 10, 5 and 1 minutes left.
+- The clock waits while nobody is on, and starts over whenever the map changes, by a vote or an admin too.
+- `rotation extend [minutes]` gives the map in play more time at once.
+
+With `maps.rotation_vote` (or `rotation vote on`), players vote for the next map when the time is up: three maps of the pool at random, **Random map** and **Stay here**.
+
+- The vote runs `rotation_vote_seconds` (10 to 120), or ends sooner once everyone has voted.
+- The most votes wins, and a tie is drawn. With no vote at all, the pool's next map follows.
+- **Stay here** adds `rotation_extend_minutes`. Set it to 0 to leave that answer out.
+- The maps are drawn a minute before, so players' games have their pictures ready.
+
+Players can also ask for more time with `/vote extend` at any time: see [votes](/servers/votes).
+
+## Custom maps
+
+Copy a custom map's mod folder from the game's `Mods` into a `Mods` folder beside the server. The server reads its `reskate-levels.json` and `manifest.json`, and the map can then be chosen by name. `maps reload` reads the folder again, so a map copied in while the server runs can be switched to at once.
+
+Players need the same map to join. A player without it is offered it in the game when it is from Thunderstore: the game downloads it, applies it and joins again. For that, keep the folder's Thunderstore name:
+
+- `Owner-Name`, as the launcher installs it (such as `Sandos-Vancouver_Plaza`), or
+- `Owner-Name-1.0.0`, as its zip unpacks.
+
+The server tells players that name, and the version in its `manifest.json`. A map in any other folder works, but players install it themselves. See [maps in multiplayer](/mods/maps#maps-in-multiplayer) for what the player sees.
+
+### Keeping maps up to date
+
+With `maps.latest_versions` (or `maps latest on`), the server asks Thunderstore for each map's newest version when it starts and every `latest_check_minutes`. When a newer version is out, it writes it into the folder's `manifest.json` and reads the maps again. `maps update` asks at once.
+
+- Nothing is downloaded: players, who are sent to the server's version of a map, fetch it as they join. A player who already has a later version keeps it.
+- The map in play is left alone until nobody is on it.
+- A folder that is not a Thunderstore package is never touched.
+- The level list is not changed. When a new version adds, removes or renames levels, copy its `reskate-levels.json` in.
+
+## Park lots
+
+The game's maps have park lots with layouts to choose from. `maps.parks` holds the layout of each lot, such as `"skatepark_01"`, or `"empty"`. `park <construction|historic|financial> <layout>` sets one, and `park random` draws all three (never an empty lot).
+
+## Park mods
+
+A park built in the game's Park Editor and saved as a [park mod](/mods/parks) can be put up by the server for everyone.
+
+1. Copy the mod's folder into `Mods` beside the server.
+2. List it in `maps.park_mods`, with a name and the map it was built on:
+
+   ```json
+   "park_mods": [
+       {"name": "street", "folder": "popular skate 2 street park", "map": "San Vansterdam", "key": "bam"}
+   ]
+   ```
+
+   Or, while the server runs: `park-mod config add street | popular skate 2 street park | San Vansterdam | bam`.
+3. Spawn it while that map runs: `park-mod add street 30`.
+
+| Field | Rule |
+| --- | --- |
+| `name` | What `park-mod` and votes call it: 1 to 16 of `a-z`, `0-9`, `-` and `_`. |
+| `folder` | The mod's folder in `Mods`. Spaces are fine. |
+| `map` | The map it was built on. It is spawned only while that map runs. |
+| `key` | Which of the mod's parks: `bam`, `grom`, `mpr`, `ftue`, `stadium_1` or `stadium_2` (the file `parks/<key>.park.json`). Empty when the mod has just one. |
+
+- With minutes (1 to 1440), a park goes by itself when its time is up; players are told a minute before and when it goes. Without, it stays until removed.
+- Every park goes when the map changes, and none come back after a restart.
+- `park-mod add` reads the park's file afresh each time, and `park-mod reload <name>` swaps a spawned park's objects for its updated file, keeping its timer.
+- `maps.park_limits` caps what is out at once: 1 to 16 parks (default 3) and 1 to 1024 objects in all (default 512).
+
+A spawned park belongs to the server: it counts against nobody's object limit, nobody can move or delete it, and it stays when players leave. Players need no mod for it, since its objects are Build Kit items the game has. An object players' games would not show is left out, and the log says which. The log has a `[parks]` line for each park spawned or removed, and each one that could not be.
+
+Players spawn parks too: in chat, with a role that has `park-mod` (`/park-mod add street 30`), or by a [custom vote](/servers/votes#custom-votes). Plugins can, with [`reskate.server.park_spawn`](/plugins/api/server).
+
+## Time of day and world layers
+
+With `maps.world_layer_sync` on (`layer-sync on`), the server forces its world layers on every player. It needs `world-layers.json` beside it; on Linux, see [time of day](/servers/linux#time-of-day-and-world-layers).
+
+- `tod <morning|noon|afternoon|evening|night|weatherday|weathernight|default>` sets the time of day on every map.
+- `layer <key> default|on|off` sets one world layer, and `layers <key>=<mode> ...` several at once. They are saved in `maps.layers`.
+
+Without the sync, every player keeps their own layers. Players can vote for the time of day with `/vote tod <time>` when that vote is on.

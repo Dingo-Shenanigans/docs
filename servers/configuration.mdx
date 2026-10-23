@@ -1,0 +1,152 @@
+---
+title: "Settings"
+description: "Every setting in ReSkateServer.json, section by section: the server, access, maps, players, anti-cheat, network, votes, announcements and chat commands."
+---
+
+`ReSkateServer.json`, beside the server, holds its settings in sections:
+
+```json
+{
+    "server": {"name": "My server", "max_players": 32},
+    "players": {"afk_kick_minutes": 15},
+    "maps": {"map": "Isle of Grom", "rotation_minutes": 30}
+}
+```
+
+The first run writes the file with every default. Most settings also have a [command](/servers/commands), and every change made from the window or by an admin is saved back to the file.
+
+<Warning>
+Do not edit `ReSkateServer.json` while the server runs: it writes the file back whenever a setting changes, over your edits. Stop it, edit, and start it again, or change settings with commands.
+</Warning>
+
+A file from an older version, with every setting at the top level, is read as it is and written back in sections.
+
+## server
+
+The server itself: its name, its password and its ports.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `name` | `"ReSkate server"` | Shown in the browser: 1 to 64 letters, numbers, spaces and `- _ / [ ] ( )`. |
+| `password` | `""` | Empty lets anyone in; otherwise players type it to join. |
+| `welcome_message` | `""` | A chat line sent to each player as they join. |
+| `chat_color` | `"#8E5CFF"` | The colour of the server's own lines in chat: its **Server** badge and name. |
+| `chat_text_color` | `"#D9C8FF"` | The colour of their text. Pick one that reads on a dark background. |
+| `listed` | `true` | `false` hides the server from the browser; players then need its code. |
+| `max_players` | `16` | 1 to 249. |
+| `port`, `query_port` | `27015`, `27016` | Steam game server ports, UDP. |
+| `steam_token` | `""` | A Steam game server login token, to keep the same Steam ID and join code: see [how players reach it](/servers/overview#how-players-reach-it). |
+| `auto_update` | `true` | Install new ReSkate releases when nobody is on. |
+| `autostart` | `false` | Windows: the server window starts the server as it opens, without waiting for **Start**. The console server always starts at once. |
+| `activity_log` | `true` | Log what players do: throwdown drops, joins, turns and results, objects placed or removed, how long players take to load. |
+
+## access
+
+Who always has a place. Who runs the server is in `data/roles.json`: see [roles](/servers/roles).
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `reserved_players_slots` | `[]` | SteamID64s of players who can join when the server is full, such as `["76561198000000000"]`. Each of them, and each player whose role has `reserved_slot`, adds one slot beyond `max_players` that only they use. With 32 players, 2 admins and 2 listed, anyone can join until 32 are on, and those four up to 36. Nothing is held back from everyone else. |
+| `use_global_bans` | `true` | Turn away players the ReSkate team has banned from multiplayer. The list is read from `api.reskate.dev` at startup and every ten minutes. The server's own bans apply either way. |
+
+## maps
+
+What is skated. [Maps and parks](/servers/maps) explains each.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `map` | `"San Vansterdam"` | The map everyone skates, named as the game's load command names it: `"San Vansterdam"`, `"Isle of Grom"`, `"Super Ultra Mega Resort"`, `"Stadium 1"`, or a custom map. |
+| `pool` | `[]` | The maps players may vote for and the rotation goes through, in order. Empty allows every map the server knows. Admins can still change to any map. |
+| `rotation_minutes` | `0` | Minutes on each map before the next in `pool`. 0 is off. |
+| `rotation_vote` | `false` | When a map's time is up, players vote for the next. |
+| `rotation_vote_seconds` | `30` | How long that vote runs, 10 to 120. |
+| `rotation_extend_minutes` | `15` | What **Stay here** adds to the map's time, 1 to 240, or 0 to leave that answer out. |
+| `rotation_announce` | `true` | Tell players on a card at 10, 5 and 1 minutes left. |
+| `latest_versions` | `false` | Keep the server's custom maps at Thunderstore's newest version. |
+| `latest_check_minutes` | `60` | How often Thunderstore is asked, 5 to 1440. |
+| `parks` | | The layout for each park lot, such as `"skatepark_01"`, or `"empty"`. |
+| `world_layer_sync` | `false` | Force the `layers` below on every player. |
+| `layers` | | World layer key to `"on"` or `"off"`. |
+| `park_mods` | `[]` | Park mods the server can spawn: see [park mods](/servers/maps#park-mods). |
+| `park_limits` | `{"parks": 3, "objects": 512}` | How much may be spawned at once: 1 to 16 parks, 1 to 1024 objects in all. |
+
+## players
+
+What players may do. Admins, and roles with the matching [permission](/servers/roles#permissions), can always do what this turns off.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `allow_noclip` | `true` | Noclip, and teleporting. |
+| `allow_no_bail` | `true` | No Bail. |
+| `allow_boosts` | `true` | The forward and up boosts. |
+| `allow_parties` | `true` | Parties: inviting each other from the Social menu, a player card, the ReSkate menu or chat (`/party invite <player>`). Party members join each other's co-op challenges, see each other on the map and talk with `/p <message>`. |
+| `party_size` | `8` | Most players in a party, 2 to 8. |
+| `afk_kick_minutes` | `0` | Remove a player away this long, 1 to 1440 (0: never). See [away players](/servers/moderation#away-players). |
+| `kick_minutes` | `0` | How long a player kicked by an admin is kept out, 1 to 1440 (0: until the server restarts). |
+| `word_warnings` | `3` | Warnings for blocked chat words before a kick, 1 to 10. 0 warns and kicks nobody. See [chat words](/servers/moderation#chat-words). |
+| `use_global_word_filter` | `true` | Use the ReSkate team's chat word lists. |
+| `allow_voice_chat` | `true` | Voice chat. |
+| `voice_range` | `300` | How far proximity voice reaches, 50 to 1000 m. |
+| `object_placement` | `"everyone"` | Who can build: `everyone`, `admins` (the roles with `unlimited_objects`) or `nobody`. |
+| `object_limit` | `100` | Objects each player may have placed, 1 to 1024, or 0 for no limit. A player at the limit deletes one to place another. |
+| `allow_object_scaling` | `true` | Let players place objects bigger or smaller. `false` shares every object at its own size and turns the size controls off. |
+| `sync_effects` | `true` | Let players see each other's sparks and dust, and the trails and fire of costumes and boards. `false` saves a little traffic on a busy server. |
+| `announce_throwdowns` | `true` | Tell everyone in chat when a throwdown drop is placed. |
+| `throwdown_locks` | `[]` | Tools locked for a throwdown's players while it runs: any of `"noclip"`, `"nobail"`, `"boosts"`, `"tuning"`. See [locks](/servers/moderation#locking-a-players-tools). |
+
+A player who places more than twice the object limit plus 100 in a minute (a modified game animating objects by spawning them again) has their objects deleted for everyone, and nothing they place is shared for a minute.
+
+## anti_cheat
+
+What the server checks, and what it does. See [anti-cheat](/servers/moderation#anti-cheat).
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `speed_hack` | `"warn"` | Games running faster than normal: `off`, `warn` or `kick`. |
+| `pinned_board` | `"warn"` | A skateboard kept on another player as they move: `off`, `warn` or `kick`. |
+| `modified_scoring` | `"warn"` | Mods that change scoring or the skater's physics: `off`, `warn` or `kick`. |
+| `allowed_scoring_mods` | `[]` | Scoring fingerprints accepted like the game's own (16 hex digits each), for a server that runs on a scoring mod everyone installs. |
+| `enforce_tuning` | `true` | Everyone skates with the game's own physics tuning, not copies they edited. |
+| `bone_scale_limit` | `2` | How far a mod may resize part of a skater for others, 1 to 8; 0 is no limit. |
+| `bone_reach_limit` | `1` | How far, in metres, a bone may be from the one it hangs from for others, 0.5 to 20; 0 is no limit. |
+
+## network
+
+How players connect and how much they are sent. The defaults suit most servers.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `use_steam_relay` | `true` | `true`: players connect through Steam's relays; nothing to open, and the server never sees their addresses. `false`: straight to `port` over UDP, which must be open, for the lowest ping; the server then sees the addresses of players who connect that way. A game that gets no answer from the port in a few seconds still uses the relays, so `false` keeps nobody out. |
+| `send_rate` | `900` | The most sent to one player, in KB/s, 128 to 16384. About 1100 is what reaches a player through Steam's relays. |
+| `crowd_budget` | `600` | The most position updates a second one player is sent (0: no limit). Past about 30 players in one place, the farthest of the crowd drop from 20 a second to 10 and 5. |
+| `pack_ms` | `10` | How long a message may wait to share a packet with the next ones, 0 to 50 ms. Takes effect on restart. |
+| `threads` | `0` | Threads that build players' updates: 0 is one for each processor but one, up to 8. Takes effect on restart. |
+| `finger_distance` | `25` | Past this many metres a player's fingers are not sent moving. 0 always sends them. |
+| `distances` | | When far-away players update less often, in metres. |
+| `steam_debug` | `false` | Log what Steam's networking does with each connection, to find out why players cannot connect. It is a lot of text. |
+
+## votes
+
+What players may vote on, and polls. See [votes and polls](/servers/votes).
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `map`, `kick`, `time_of_day`, `extend_map` | | The server's own votes, each `{"enabled": ..., "percent": ..., "seconds": ..., "cooldown_seconds": ..., "min_players": ...}`. All but `extend_map` are off until turned on. |
+| `seconds` | `30` | How long a vote runs. |
+| `cooldown_seconds` | `60` | How long a player waits before starting another vote. |
+| `kick_minutes` | `5` | How long a vote kick keeps a player out, 1 to 1440, or 0 until the server restarts. |
+| `starter_votes_yes` | `true` | Whoever starts a vote has voted yes. |
+| `custom` | `[]` | Votes of your own, each running a server command when it passes. At most 16. |
+| `polls` | `"admins"` | Who may ask everyone a question: `off`, `admins` or `everyone`. |
+| `poll_seconds` | `60` | How long a poll runs. |
+
+## announcements
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `messages` | `[]` | Lines the server posts in turn while players are on, each on a card at the top of the screen. |
+| `interval_minutes` | `0` | Minutes between them; 0 is off. |
+
+## commands
+
+Chat commands of your own, such as `/discord` or `/rules`. A list of at most 32: see [chat commands](/servers/votes#chat-commands).

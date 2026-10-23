@@ -1,0 +1,78 @@
+---
+title: "Moderation and anti-cheat"
+description: "Kicks and bans, the ReSkate team's global bans, chat words, players away from their game, locking one player's tools, and what the server's anti-cheat checks."
+---
+
+## Kicks and bans
+
+| Command | What it does |
+| --- | --- |
+| `kick <player> [minutes]` | Off the server for that many minutes (1 to 1440), `restart` for until the server restarts, or with neither, as long as `kick-time` says. |
+| `kick-time <minutes>\|restart` | How long an admin's kick keeps a player out (`players.kick_minutes`; default: until the server restarts). A kick keeps the time it was given. |
+| `ban <player or SteamID64> [name]` | For good. |
+| `unban <SteamID64>` | Lets them in again. |
+| `bans` | The ban list. A role with `ban`, `unban` or `bans` also sees it in the game's menu. |
+
+A `<player>` is the start of their name (one word) or their SteamID64. `players` lists who is on, with their SteamID64s. A player is told how long when they are kicked and when they try to join again.
+
+Nobody kicks or bans a player of their own [rank](/servers/roles#rank) or above; the server's window can.
+
+Bans are kept in `data/bans.json`. The ReSkate team's own list of players banned from multiplayer is separate: with `access.use_global_bans` on (the default), the server reads it from `api.reskate.dev` at startup and every ten minutes, and turns those players away too.
+
+## Chat words
+
+The ReSkate team keeps a list of words not allowed in chat at all. A message with one is never passed on, and its player is warned. After `players.word_warnings` warnings (1 to 10, default 3), the next one gets them kicked; they can join again, and are kicked again at the next. Warnings last until the server restarts. With 0, nobody is warned or kicked, and the message is still not passed on.
+
+The server has two word files of its own in `data/`, made empty the first time it starts. One word to a line; a line starting with `#` is a comment. Edit them and type `words reload`.
+
+| File | What it does |
+| --- | --- |
+| `data/words_filtered.txt` | Words this server filters on top of the team's. Messages with them are passed on, and players with their chat filter on see the word as stars. The first 256 words of up to 32 letters are sent. |
+| `data/words_blocked.txt` | Words not allowed in this server's chat at all, on top of the team's. Messages with them are not passed on, and their player is warned. |
+
+`players.use_global_word_filter: false` (or `words global off`) leaves the team's lists out, so only `words_blocked.txt` is refused. Each player's own game still stars out the team's filtered words for a player with their chat filter on, and hides a server whose name has one of the team's words from the browser.
+
+To keep one player quiet, give them the `muted` [role](/servers/roles).
+
+## Away players
+
+With `players.afk_kick_minutes` (or `afk-kick <minutes>`), the server removes a player who has been away that long. Away is not moving, speaking, typing in chat, changing objects or using the game's controls: a player flying a plugin's drone, whose skater stands still, is not away.
+
+They are warned in chat a minute before, and can join again at once. Admins, and roles with `no_afk_kick`, are never removed for it.
+
+## Locking a player's tools
+
+`lock <player or SteamID64> <tools|all>` takes tools from one player while everyone else keeps what the server allows. The tools are `noclip` (with teleporting), `nobail`, `boosts` and `tuning` (their own physics tuning), joined by commas.
+
+- It takes effect at once, and is kept for their SteamID until unlocked or the server restarts: leaving and joining again does not lift it.
+- A player who is not on is locked by their SteamID64.
+- Their role cannot give a locked tool back.
+- `unlock <player or SteamID64> [tools]` gives them back (all when none are named), also to a player who left. `locks` lists the players with locked tools.
+
+`players.throwdown_locks` (or `throwdown-locks <tools>|off`) locks tools for a throwdown's players while it runs, for fair games on a server that allows the tools for free skating. They are locked when the throwdown starts, and unlocked when the player quits it, it ends, or they leave. Such as `["nobail", "boosts", "tuning"]`.
+
+The log has a `[lock]` line for each lock and unlock.
+
+## Anti-cheat
+
+Each check is `off`, `warn` or `kick`. Players whose role has `anticheat_alerts` are told in chat what the checks find.
+
+| Check | Setting | Command | `warn` (the default) |
+| --- | --- | --- | --- |
+| A game running faster than normal (Cheat Engine's speedhack and the like), from the timing of what it sends | `speed_hack` | `speed-check` | Takes the player out of throwdowns and co-op challenges until their speed is normal, and tells them. |
+| A skateboard kept on another player as they move (a hacked game placing its board there) | `pinned_board` | `board-check` | Stops showing their board to everyone until it has behaved for half a minute, and tells the admins who it is. |
+| Mods that change trick scoring or the skater's physics | `modified_scoring` | `score-check` | Takes the player out of throwdowns and co-op challenges, and tells everyone in chat. They have to restart Skate without the mod to take part. |
+
+`kick` removes the player instead.
+
+For a server that runs on a scoring mod everyone installs, `score-check` (with no argument) lists each player's scoring fingerprint, and `score-allow <fingerprint>` accepts it like the game's own (`anti_cheat.allowed_scoring_mods`).
+
+What else the server holds every player to:
+
+| Setting | Command | What it does |
+| --- | --- | --- |
+| `enforce_tuning` | `tuning on\|off` | Everyone skates with the game's own physics tuning (truck positions and the rest), not a copy they edited. |
+| `bone_scale_limit` | `bone-scale <1-8>\|off` | The most a mod may scale part of a skater for the others (a big head mod), default 2. The game's own skater height is a scale too, so 1 shows every skater at the same height and build. The player with the mod still sees it. |
+| `bone_reach_limit` | `bone-reach <0.5-20>\|off` | How far, in metres, a bone may be from the one it hangs from for the others, default 1. The game never moves them that far, so this only stops a hacked game stretching its skater across the map. |
+
+Players who place objects far too fast, more than twice the object limit plus 100 in a minute, have theirs deleted for everyone and nothing shared for a minute. Admins are exempt.

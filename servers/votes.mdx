@@ -1,0 +1,127 @@
+---
+title: "Votes and messages"
+description: "Player votes for the map, kicks, the time of day and more time, votes of your own that run a command, polls, announcements on a timer, and chat commands of your own."
+---
+
+## Votes
+
+Players start votes in chat and answer with `/yes` and `/no`. Each vote is off until you turn it on, in the `votes` section or with `votes <vote> on`.
+
+| Vote | Players type | Default | Needs |
+| --- | --- | --- | --- |
+| `map` | `/vote map <map>` | off, 60% | A map in `maps.pool`. |
+| `kick` | `/vote kick <player>` | off, 60% | Always two yes votes. Admins cannot be vote-kicked. |
+| `time_of_day` | `/vote tod <time>` | off, 50% | `maps.world_layer_sync`. |
+| `extend_map` | `/vote extend` | on, 50% | `maps.rotation_minutes`. The map in play gets `rotation_extend_minutes` more. |
+
+```json
+"votes": {
+    "map": {"enabled": true, "percent": 60},
+    "kick": {"enabled": true, "percent": 60, "min_players": 4},
+    "seconds": 30,
+    "cooldown_seconds": 60,
+    "kick_minutes": 5
+}
+```
+
+- `percent` is the share of the votes cast that yes needs. Players who do not vote count for neither side.
+- A vote runs `seconds` (default 30) and is decided then, or sooner once the players still to vote could not change it.
+- A player waits `cooldown_seconds` (default 60) before starting another.
+- Each vote can have its own `seconds` and `cooldown_seconds` (0: the ones above), and `min_players`, the players who must be on before anyone can start it (default 1).
+- `kick_minutes` (default 5) is how long a vote kick keeps a player out: 1 to 1440, or 0 for until the server restarts.
+- `starter_votes_yes` (default true): whoever starts a vote has voted yes.
+
+Starting and voting needs the `votes` [permission](/servers/roles#permissions), which every player has by default. `vote-cancel` stops the running vote.
+
+## Custom votes
+
+Votes of your own run a server command when they pass. Up to 16, in `votes.custom`:
+
+```json
+"custom": [
+    {"name": "restart", "description": "Reload the current map", "command": "map {map}", "percent": 60},
+    {"name": "noclip", "description": "Turn noclip on or off", "command": "noclip {arg}", "choices": ["on", "off"]},
+    {"name": "park", "description": "Spawn a park for 30 min", "command": "park-mod add {arg} 30",
+     "choices": ["street", "plaza"], "percent": 60}
+]
+```
+
+- Players start them with `/vote restart` or `/vote noclip off`, and `/vote list` shows them.
+- In the command, `{map}` is the current map, and `{arg}` the choice the player picked, one of `choices`. Without `choices`, the vote takes no argument.
+- A name and each choice is 1 to 16 of `a-z`, `0-9`, `-` and `_`, and not one of the server's own votes (`map`, `kick`, `tod`, `list` and the like).
+- Each takes `enabled`, `percent`, `seconds`, `cooldown_seconds` and `min_players` as the others do.
+
+## Polls
+
+A poll asks everyone a question with up to six answers, and runs nothing:
+
+```text
+/poll Next map? | Grom | San Vansterdam | Stadium
+```
+
+- Players answer on the card, or with `/1`, `/2`...
+- It ends after `votes.poll_seconds` (default 60), or when whoever started it, or an admin, types `/poll end`.
+- `votes.polls` says who may start one: `off`, `admins` (the default: roles with the `polls` permission) or `everyone`.
+
+## The server's own votes and polls
+
+The window, and scripts that talk to it, start the same votes and polls: `vote tod night`, `vote map grom`, `vote noclip off`, `poll Next map? | Grom | Stadium` and `poll end`. A vote still has to be on and its `min_players` met; a poll can be asked whatever `votes.polls` says. The server has no cooldown. Chat reads `The server started a vote to ...` or `The server asks: ...`.
+
+`poll-run <command> | <question> | <answer>...` also runs a command for the winning answer, with `{answer}` replaced by it, and nothing on a tie or when nobody answered:
+
+```text
+poll-run tod {answer} | Time of day? | morning | noon | night
+```
+
+[Server plugins](/plugins/api/server#cards-and-polls) can ask players polls and show them cards of their own.
+
+## Announcements
+
+`announce <text>` tells everyone, in chat and on a card at the top of the screen, and `announce-to <player> <text>` one player on a card. `:emotes:` in them show as images.
+
+`announcements.messages` are lines the server posts in turn, one every `interval_minutes` (0: off) while players are on, each on a card:
+
+```json
+"announcements": {
+    "messages": ["Be nice.", "Join our Discord: discord.gg/..."],
+    "interval_minutes": 15
+}
+```
+
+`announcements add <text>`, `announcements remove <n>`, `announcements clear` and `announcements interval <minutes>|off` change them.
+
+`server.welcome_message` (or `welcome <text|off>`) is a chat line each player gets as they join.
+
+## Private messages
+
+| Command | Shown as |
+| --- | --- |
+| `msg <player> <text>` | `[DM from <you>] ...` to that player. |
+| `msg-party <player> <text>` | To everyone in that player's party. |
+| `msg-admins <text>` | To every staff member who is on. |
+| `say <text>` | A chat line from the server (window only). |
+
+Players whisper each other with `/w <player> <text>`.
+
+## Chat commands
+
+Chat commands of your own, such as `/discord` or `/rules`, go in the `commands` section. Up to 32:
+
+```json
+"commands": [
+    {"name": "discord", "reply": "Join us: discord.gg/..."},
+    {"name": "rules", "command": "announce-to {player} No griefing!"},
+    {"name": "restart", "admin": true, "command": ["map {map}"]}
+]
+```
+
+| Field | What it does |
+| --- | --- |
+| `name` | 1 to 16 of `a-z`, `0-9`, `-` and `_`, not one of the server's own commands (`help`, `party`, `vote`, `kick`, `map`...). |
+| `reply` | A chat line sent back to whoever typed it. |
+| `command` | A server command, or a list of up to 8, run as the window would. `{player}` is the SteamID64 of whoever typed it, `{map}` the current map and `{arg}` the rest of what they typed. |
+| `admin` | Only admins may use it (default false). |
+
+Each needs a `reply`, a `command`, or both. They are not listed in `/help`: tell players about them yourself.
+
+<Warning>Mind what `{arg}` lets players put into a command.</Warning>

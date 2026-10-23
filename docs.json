@@ -54,6 +54,29 @@
         ]
       },
       {
+        "tab": "Servers",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "servers/overview",
+              "servers/linux",
+              "servers/configuration"
+            ]
+          },
+          {
+            "group": "Running a server",
+            "pages": [
+              "servers/maps",
+              "servers/roles",
+              "servers/moderation",
+              "servers/votes",
+              "servers/commands"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Plugins",
         "groups": [
           {

@@ -1,0 +1,79 @@
+---
+title: "Linux servers"
+description: "Run the dedicated server on 64-bit Linux: what it needs, the Steam libraries, time of day and world layers, systemd, Pterodactyl, and updates."
+---
+
+The Linux server is a native x86_64 program, `ReSkateServer`, with the same settings and commands as the Windows one. It needs no game install.
+
+## What it needs
+
+- 64-bit Linux with glibc 2.38 or newer and OpenSSL 3 (`libcrypto.so.3`).
+- `curl`: how the server reads the ReSkate team's global ban list and downloads its updates. Without it, the server says so in its log, enforces only its own bans and stays on its version.
+- `tar` with gzip, to unpack an update.
+- Steam's libraries beside the server: `libsteam_api.so` and `steamclient.so`.
+
+Without `libsteam_api.so` the server stops with `Cannot load .../libsteam_api.so. Put libsteam_api.so (Steamworks SDK) next to the server.`
+
+## Set it up
+
+1. Put `ReSkateServer` in a folder of its own.
+2. Fetch the Steam libraries with the script beside it:
+
+   ```bash
+   ./setup-linux-server-libs.sh
+   ```
+
+   It uses the folder it is in; `--server-dir <folder>` points it at another.
+3. Run `./ReSkateServer` once. It writes `ReSkateServer.json`: set its `"name"`, start it again, and type `role <your SteamID64> admin`.
+
+The server finds `steamclient.so` beside itself, on `LD_LIBRARY_PATH`, or in `~/.steam/sdk64/`. Its [commands](/servers/commands) and [settings](/servers/configuration) are the same as on Windows.
+
+## Time of day and world layers
+
+To set the time of day and other world layers for everyone, the server needs `world-layers.json` beside it. It cannot make one on Linux. Get it either way:
+
+- On Windows, with the game installed: `ReSkateServer.exe --export-world-layers "<Skate folder>" world-layers.json`, then copy it over.
+- From a Windows player's cache: `%LOCALAPPDATA%\ReSkate\cache\<build>\world-layers.json`, for the same game build.
+
+Without it, every player keeps their own world layers.
+
+## systemd
+
+The ReSkate repository has a unit, [`contrib/reskate-server.service`](https://github.com/Dingo-Shenanigans/ReSkate/blob/main/contrib/reskate-server.service), that runs the server from `/opt/reskate-server` as the user `reskate`:
+
+```bash
+sudo cp contrib/reskate-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now reskate-server
+```
+
+The server writes `ReSkateServer.log` beside itself, and the console's copy goes to the journal:
+
+```bash
+journalctl -u reskate-server -f
+```
+
+The server updates itself in place, so its user must be able to write to its folder:
+
+```bash
+sudo chown -R reskate: /opt/reskate-server
+```
+
+## Pterodactyl
+
+The repository has an egg for Pterodactyl and Pelican, [`contrib/pterodactyl`](https://github.com/Dingo-Shenanigans/ReSkate/tree/main/contrib/pterodactyl). It installs the server from the latest release, and the server then updates itself.
+
+1. In the admin area, **Nests** > **Import Egg**, and choose `egg-reskate-server.json`.
+2. Create a server with the **ReSkate Server** egg. Its primary allocation is the game port; add a second allocation, and put its port in **Query Port**. The two must differ.
+3. 256 MB of memory is plenty for a typical server, with about 300 MB of disk.
+
+The panel writes the ports and the **Steam Token** into `ReSkateServer.json` before each start, and sets **Listed** in the startup command. Set those in the panel, not in the file. **Stop** sends `quit`, so the server signs out of Steam cleanly. **Reinstall** keeps `ReSkateServer.json`, `Mods` and the logs.
+
+## Updates
+
+A server from a release updates itself like the Windows one: when it starts and every half hour it asks for the latest release, and installs a newer Linux server once nobody is on. `update` does it at once; `"auto_update": false` or `--no-update` turns it off.
+
+- The download is pinned by SHA-256, fetched with `curl` over HTTPS and unpacked with `tar`.
+- Everything from the release is replaced: the server, the Steam libraries, the readmes and `world-layers.json`. Your own files are kept: `ReSkateServer.json`, `Mods` and the logs.
+- The new version takes over the same process, so systemd or your terminal keeps the server it started.
+- A server you built yourself never replaces itself.

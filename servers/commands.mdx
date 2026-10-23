@@ -1,0 +1,147 @@
+---
+title: "Commands"
+description: "Every command you can type in the server window, and that players whose role has it run from chat or the game's console."
+---
+
+Type these in the server's window. A player whose [role](/servers/roles) has a command runs it in chat with a `/` in front (`/kick`, `/map`, `/votes`), or in the game's console as `mp server <command>`; its reply arrives in chat. They can also use the game's menus for what their role gives them: the server's map from **Levels** or **Travel**, and voice, distances, placement and kicks from the **Multiplayer** menu.
+
+A `<player>` is the start of a player's name (one word) or their SteamID64.
+
+## The server
+
+| Command | What it does |
+| --- | --- |
+| `help` | A short list of every command. |
+| `status` | Name, map, players, join code. |
+| `players` | Connected players and their SteamID64s. |
+| `net [player]` | How the connections are doing: traffic, queues, the server's loop timing and the twelve connections doing worst. With a player, their ping, delivery and queue. |
+| `name <text>` | The server's name. |
+| `password <text\|off>` | Its password. |
+| `welcome <text\|off>` | The line new players are sent. |
+| `listed on\|off` | Shown in the server browser. |
+| `chat-color <#badge> [<#text>]` | The colours of the server's own chat lines. |
+| `activity-log on\|off` | Log what players do. |
+| `update` | Check for a new release and install it now (window only). |
+| `quit`, `exit`, `stop` | Shut the server down (window only). |
+
+## Players
+
+| Command | What it does |
+| --- | --- |
+| `kick <player> [minutes\|restart]` | Off the server for 1 to 1440 minutes, until a restart, or as long as `kick-time` says. |
+| `kick-time <minutes>\|restart` | How long an admin's kick lasts. |
+| `ban <player or SteamID64> [name]` | For good. |
+| `unban <SteamID64>` | |
+| `bans` | The ban list. |
+| `role <player or SteamID64> <role>\|none` | Give a player a role, or take theirs away. |
+| `roles [reload]` | The roles and who has them; `reload` reads `data/roles.json` again. |
+| `reserved [add\|remove <player or SteamID64>]` | Who has a reserved slot, and how many extra slots there are. |
+| `tpall [player]` | Everyone to you (in the game) or to a player. |
+| `tphere <player>` | One player to you (in the game). |
+| `teleport <players> <player\|x y z>` | Players to a player or a place. `<players>` is one player, or up to 64 SteamID64s joined by commas. `x y z` are world units as the log prints them; `y` is up. |
+| `lock <player> <tool[,tool...]\|all>` | Take `noclip`, `nobail`, `boosts` or `tuning` from one player. See [locks](/servers/moderation#locking-a-players-tools). |
+| `unlock <player> [<tool[,tool...]\|all>]` | Give them back. |
+| `locks` | The players with locked tools. |
+
+## Messages
+
+| Command | What it does |
+| --- | --- |
+| `say <text>` | Chat as the server (window only). |
+| `msg <player> <text>` | A private message. |
+| `msg-party <player> <text>` | To everyone in that player's party. |
+| `msg-admins <text>` | To every admin who is on. |
+| `announce <text>` | Everyone, in chat and on a card. |
+| `announce-to <player> <text>` | One player, on a card. |
+| `announcements [list \| add <text> \| remove <n> \| clear \| interval <minutes>\|off]` | The messages posted on a timer. |
+| `words [reload \| global on\|off]` | The server's chat words: see [chat words](/servers/moderation#chat-words). |
+| `announce-throwdowns on\|off` | A chat line when a throwdown drop is placed. |
+
+## Maps and the world
+
+| Command | What it does |
+| --- | --- |
+| `map <name>` | Change the map: `map San Vansterdam`, `map grom`, `map bbcity`. |
+| `maps` | The maps the server knows. |
+| `maps reload` | Read `Mods` again, for a map copied in while the server runs. |
+| `maps update` | Take the newest version of each map from Thunderstore now. |
+| `maps latest on\|off` | Keep maps at Thunderstore's newest version. |
+| `maps latest every <minutes>` | How often Thunderstore is asked. |
+| `map-pool [add\|remove <map> \| clear]` | The maps players vote between and the rotation uses. |
+| `rotation [<minutes>\|off]` | Change the map on a timer. |
+| `rotation vote on\|off` | Players vote for the next map. |
+| `rotation stay <minutes>\|off` | What **Stay here** adds. |
+| `rotation announce on\|off` | Cards at 10, 5 and 1 minutes left. |
+| `rotation extend [minutes]` | Give the map in play more time now. |
+| `park <construction\|historic\|financial> <layout>` | A park lot's layout. |
+| `park random` | Draw all three lots' layouts. |
+| `park-mod list` | The park mods, and the spawned ones with their minutes left. |
+| `park-mod add <name> [<name>...] [minutes]` | Spawn parks on this map, for 1 to 1440 minutes or until removed. All or none. |
+| `park-mod remove <name> [<name>...]`, `park-mod clear` | Remove spawned parks. |
+| `park-mod reload <name> [<name>...]` | Read a spawned park's file again and swap its objects, keeping its timer. |
+| `park-mod config add <name> \| <folder> \| <map> [\| <key>]` | Set up a park mod, saved to the settings. |
+| `park-mod config remove <name>` | Take one out of the setup. |
+| `layer-sync on\|off` | Force the server's world layers on everyone. |
+| `layer <key> default\|on\|off` | One world layer. |
+| `layers <key>=<mode> ...` | Several at once. |
+| `tod <default\|morning\|noon\|afternoon\|evening\|night\|weatherday\|weathernight>` | The time of day on every map (needs `layer-sync on`). |
+
+See [maps and parks](/servers/maps).
+
+## What players may do
+
+| Command | What it does |
+| --- | --- |
+| `voice on\|off` | Voice chat. |
+| `voice-range <m>` | How far voice carries, 50 to 1000. |
+| `placement everyone\|admins\|nobody` | Who can build. |
+| `objects <number>\|off` | Objects each player may have placed. |
+| `object-scaling on\|off` | Whether players may resize objects. |
+| `clear-objects` | Delete every placed object. |
+| `effects on\|off` | Whether players see each other's effects. |
+| `noclip on\|off`, `nobail on\|off`, `boosts on\|off` | What players may use (admins always can). |
+| `tuning on\|off` | Everyone on the game's own physics tuning. |
+| `parties [on\|off]` | List the parties, or allow them (off ends them all). |
+| `party-size <2-8>` | Most players in a party. |
+| `afk-kick <minutes>\|off` | Remove players away that long. |
+| `throwdown-locks <tools>\|off` | What a throwdown locks for its players. |
+
+## Votes and polls
+
+| Command | What it does |
+| --- | --- |
+| `votes [map\|kick\|tod on\|off\|<percent>]` | The vote settings. |
+| `votes seconds <n>`, `votes cooldown <n>` | How long votes run, and the wait before another. |
+| `votes kick-minutes <n>\|restart` | How long a vote kick keeps a player out. |
+| `votes <vote> seconds\|cooldown\|min-players <n>` | One vote's own limits. `<vote>` is `map`, `kick`, `tod` or a custom vote's name, which also takes `on\|off\|<percent>`. |
+| `votes polls off\|admins\|everyone` | Who may start polls. |
+| `votes poll-seconds <n>`, `votes starter-yes on\|off` | |
+| `vote <map\|kick\|tod\|custom vote> [argument]` | Start a vote as the server. |
+| `vote-cancel` | Stop the running vote. |
+| `poll <question> \| <answer> \| <answer>...` | Ask everyone, 2 to 6 answers. |
+| `poll end` | End the running poll. |
+| `poll-run <command with {answer}> \| <question> \| <answer>...` | A poll whose winning answer runs the command (window only). |
+
+See [votes and messages](/servers/votes).
+
+## Network
+
+| Command | What it does |
+| --- | --- |
+| `distances <full> <half> <half-return> <low>` | How far away skaters update at each rate. |
+| `crowd <n>\|off` | The most position updates a second one player is sent. |
+| `rate <KB/s>` | The send rate to each player, also for those already on. |
+| `tps <n>` | Updates a second. |
+
+## Anti-cheat
+
+| Command | What it does |
+| --- | --- |
+| `speed-check off\|warn\|kick` | Games running fast. |
+| `board-check off\|warn\|kick` | A skateboard kept on another player. |
+| `score-check [off\|warn\|kick]` | Mods that change scoring or physics; with no argument, every player's result. |
+| `score-allow [<fingerprint> \| remove <fingerprint>]` | Accept a scoring mod's fingerprint, or list them. |
+| `bone-scale <1-8>\|off` | How far a mod may resize part of a skater for the others. |
+| `bone-reach <0.5-20>\|off` | How far a bone may be moved. |
+
+See [moderation and anti-cheat](/servers/moderation).
