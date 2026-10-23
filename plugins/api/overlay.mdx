@@ -376,7 +376,7 @@ Where a place in the world is on the screen now.
 
 <ParamField path="position" type="vector" required>World metres.</ParamField>
 
-<ResponseField name="point" type="vector or nil">`x` and `y` in pixels from the window's top left, and `z` its depth in front of the camera; `nil` when it is behind the camera.</ResponseField>
+<ResponseField name="point" type="vector or nil">`x` and `y` in pixels from the window's top left, and `z` its depth in front of the camera; `nil` when it is behind the camera, or so close to it and so far to the side that it lands more than a million pixels out, where the drawing functions would refuse it. Whatever comes back can be drawn.</ResponseField>
 
 ```lua
 local on = d:world_to_screen(goal)
