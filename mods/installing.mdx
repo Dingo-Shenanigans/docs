@@ -14,15 +14,13 @@ On **GET MODS**, pick a mod and press **INSTALL**. The launcher downloads it, in
 - A package in Thunderstore's **Tools** category, and not in **Mods**, cannot be installed from here: its button opens it on Thunderstore instead.
 - Packages marked NSFW are never listed. A deprecated package is hidden, unless you have it installed, and its page says its author no longer supports it.
 
-<Note>
-**GET MODS** installs only packages with something for the game to load: game data built with ReSkate Studio (`layout.toc`), a map (`reskate-levels.json`) or parks (a `parks` folder). A package with only a plugin, or a pack that only lists other mods, is refused there for now. Download it from Thunderstore and use **Install .zip** instead.
-</Note>
+A package needs something for the game to load: game data built with ReSkate Studio (`layout.toc`), a map (`reskate-levels.json`), parks (a `parks` folder) or a plugin (`reskate-plugin.json`). A mod pack, whose `manifest.json` only lists other packages as dependencies, installs too. A package with none of these is refused.
 
 ## From a .zip or a folder
 
 On **MY MODS**, use **Install .zip** or **Install folder**, or drag a `.zip` or a folder onto the launcher's window. **Open Mods folder** opens the folder itself.
 
-The launcher finds the mod inside what you give it: the shallowest folder holding game content (`layout.toc`, `reskate-levels.json` or `parks/*.park.json`), or else the shallowest holding a `manifest.json`. A Thunderstore package's `manifest.json`, `icon.png`, `README.md` and `CHANGELOG.md` at the top of the zip go into the mod's folder with it.
+The launcher finds the mod inside what you give it: the shallowest folder holding something the game loads (`layout.toc`, `reskate-levels.json`, `reskate-plugin.json` or `parks/*.park.json`), or else the shallowest holding a `manifest.json`. A Thunderstore package's `manifest.json`, `icon.png`, `README.md` and `CHANGELOG.md` at the top of the zip go into the mod's folder with it.
 
 The mod's folder is named after:
 

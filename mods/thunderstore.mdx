@@ -22,9 +22,9 @@ Shoebox_Pads-1.2.0.zip
     reskate-objects.json
 ```
 
-When a player installs it, the launcher finds the mod inside the zip (the shallowest folder with `layout.toc`, `reskate-levels.json` or a `parks` folder) and carries the top's `manifest.json`, `icon.png`, `README.md` and `CHANGELOG.md` into it. You can also put the mod's files at the top, beside them.
+When a player installs it, the launcher finds the mod inside the zip (the shallowest folder with `layout.toc`, `reskate-levels.json`, `reskate-plugin.json` or a `parks` folder) and carries the top's `manifest.json`, `icon.png`, `README.md` and `CHANGELOG.md` into it. You can also put the mod's files at the top, beside them.
 
-[ReSkate Studio's **Publish**](/mods/studio#publishing) makes this zip for game data mods. For maps, parks and plugins, make it yourself.
+[ReSkate Studio's **Publish**](/mods/studio#publishing) makes this zip for game data mods. For maps, parks, plugins and mod packs, make it yourself.
 
 ## manifest.json
 
@@ -62,9 +62,7 @@ Choose the package's categories when you upload it:
 
 Players filter **GET MODS** by category. A package marked NSFW, or in a category named NSFW, is never listed in the launcher.
 
-<Note>
-**GET MODS** installs only packages with something for the game to load: game data (`layout.toc`), a map (`reskate-levels.json`) or parks (a `parks` folder). A package with only a plugin, or one that only lists other packages as dependencies, is refused there for now. Players can download it from Thunderstore and use **Install .zip** in the launcher instead.
-</Note>
+A package needs something for the game to load: game data (`layout.toc`), a map (`reskate-levels.json`), parks (a `parks` folder) or a plugin (`reskate-plugin.json`). A mod pack, with only `manifest.json` and its `dependencies`, is fine too: it installs the packages it lists. The launcher refuses a package with none of these.
 
 ## Dependencies and updates
 
