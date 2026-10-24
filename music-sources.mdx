@@ -1,0 +1,239 @@
+---
+title: "Music sources"
+description: "Play Spotify, Plex, YouTube Music, your own music files, internet radio or any app on your PC through the game's music player."
+---
+
+ReSkate can play **Spotify**, **YouTube Music**, **your own music files**, **internet radio** and **any app on your PC** through the in-game music player, and show what **Plex** is playing. Each source is its own row in the game's music screen, with tiles you pick like any other playlist. Pause, next, the track name and cover art all work from the game.
+
+Everything is set up from one page in your browser. Each source has numbered steps on the page that tick off as you do them, so you can also just follow the page.
+
+<Note>To add songs and playlists to the game itself, for everyone who installs them, make a mod: see [Music](/mods/music) in the Mods tab.</Note>
+
+## Open the setup page
+
+<Steps>
+  <Step title="Start the game">
+    Start skate. with ReSkate.
+  </Step>
+  <Step title="Open the console">
+    Press **~**.
+  </Step>
+  <Step title="Run the command">
+    Type `music setup` and press Enter. The ReSkate menu's **MUSIC** page has a button for it too, under **SOURCES**.
+  </Step>
+</Steps>
+
+Your browser opens `http://127.0.0.1:8421/`. The page only works on the PC the game is running on, and only while the game is running.
+
+<Tip>A new row or tile can take a game restart to show up. If you set something up and don't see it in the music screen, restart the game once.</Tip>
+
+## Spotify
+
+You need Spotify Premium. A free account cannot play to the game: if you pick **ReSkate** with one, the setup page tells you so and the game forgets it.
+
+### Play Spotify through the game
+
+<Steps>
+  <Step title="Allow the firewall prompt">
+    Start the game. Windows may ask whether to allow the game through the firewall: allow it on private networks. Spotify uses this to find the game.
+  </Step>
+  <Step title="Open Spotify">
+    Open Spotify on your phone or PC, on the same network as the game.
+  </Step>
+  <Step title="Pick ReSkate">
+    Open Spotify's device list and pick **ReSkate**.
+  </Step>
+</Steps>
+
+You only do this once. After that the game signs in by itself.
+
+In the game's music screen, open the **Spotify** row and pick the **Spotify** tile. Whatever Spotify was playing carries on through the game. If nothing was playing, it starts your Liked Songs on shuffle.
+
+### Show your own playlists
+
+This part is optional. To get your playlists and Liked Songs as tiles, with their tracks listed, ReSkate needs a Spotify developer app. It is free and takes a couple of minutes.
+
+<Steps>
+  <Step title="Open the Spotify dashboard">
+    Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) and sign in.
+  </Step>
+  <Step title="Create an app">
+    Any name and description will do.
+  </Step>
+  <Step title="Add the redirect URI">
+    Add this redirect URI exactly: `http://127.0.0.1:47824/callback`
+  </Step>
+  <Step title="Save the Client ID">
+    Copy the app's **Client ID**. On the setup page, under **Spotify > Show your own playlists**, paste it and press **Save**.
+  </Step>
+  <Step title="Sign in">
+    Press **Sign in with Spotify** and approve it in the browser tab that opens.
+  </Step>
+</Steps>
+
+Your first 50 playlists appear, each with its first 50 tracks. Liked Songs shows your 50 most recent. Pressing a track in the game starts Spotify at that track.
+
+## Plex
+
+Plex works together with [External audio](#external-audio): the sound comes from your Plex app, and ReSkate shows what your Plex server says is playing.
+
+<Steps>
+  <Step title="Sign in with Plex">
+    On the setup page, under **Plex**, press **Sign in with Plex**. A Plex tab opens: sign in if it asks, press **Allow**, then come back to the setup page. You never type your password into ReSkate.
+  </Step>
+  <Step title="Play music">
+    Play music in Plexamp, or any Plex app.
+  </Step>
+  <Step title="Use the app as external audio">
+    Under **External audio** on the setup page, pick that app.
+  </Step>
+</Steps>
+
+The game shows the song, artist and album art from your Plex server, and the game's play, pause and next buttons control it.
+
+## YouTube Music
+
+You don't need to install anything beforehand. ReSkate downloads one small tool for you.
+
+<Warning>Playing YouTube this way is against YouTube's terms of service. Whether to use it is up to you.</Warning>
+
+<Steps>
+  <Step title="Get the tool">
+    On the setup page, under **YouTube Music**, press **Download and set up**. This downloads `yt-dlp`, about 18 MB, from its official GitHub releases.
+  </Step>
+  <Step title="Add a playlist">
+    Paste a link to a YouTube or YouTube Music video or playlist and press **Add**. You can add up to 12 playlists, of up to 100 songs each.
+  </Step>
+  <Step title="Play it">
+    In the game's music screen, open the **YouTube Music** row and pick your playlist, or press a song in it.
+  </Step>
+</Steps>
+
+Each song takes about two seconds to start.
+
+### Songs that get skipped
+
+Private and age-restricted songs only play if YouTube can see you're signed in. If songs are being skipped:
+
+<Steps>
+  <Step title="Install a cookie exporter">
+    In your browser, signed in to YouTube, install the extension **Get cookies.txt LOCALLY**.
+  </Step>
+  <Step title="Export your cookies">
+    On youtube.com, use it to export a `cookies.txt`.
+  </Step>
+  <Step title="Give it to ReSkate">
+    On the setup page, under **YouTube Music > Songs being skipped?**, choose that file.
+  </Step>
+</Steps>
+
+The first time you add a sign-in, ReSkate downloads one more small tool, QuickJS, about 2 MB. There is nothing else to install. With a sign-in set, each song takes about seven seconds to start instead of two. If you have **Node.js** installed, ReSkate uses it instead, which is about twice as fast.
+
+<Warning>Treat `cookies.txt` like a password: it is your YouTube sign-in. It stays on your PC, and the **Remove cookies.txt** button deletes it.</Warning>
+
+Cookies expire. If songs start skipping again weeks later, export a fresh file.
+
+## Local files
+
+Plays music saved on your PC: MP3, M4A, AAC, Ogg, FLAC and WAV.
+
+<Steps>
+  <Step title="Copy the folder's path">
+    Open the folder with your music in File Explorer, click the address bar at the top and copy what it shows.
+  </Step>
+  <Step title="Add it">
+    On the setup page, under **Local files**, paste it and press **Add**. Or press **Or use my Music folder**.
+  </Step>
+  <Step title="Play it">
+    In the game's music screen, open the **Local Files** row and pick the folder, or press a song in it.
+  </Step>
+</Steps>
+
+Each folder is a tile with up to 200 songs, including the folders inside it. You can add up to 12 folders. Song names and covers come from the files' tags. A file with no tags is named after its file name: `Artist - Title.mp3` works best.
+
+Added new files to a folder? Press **Rescan** next to it on the setup page.
+
+## Online radio
+
+Plays live internet radio stations. Each station you add is its own tile.
+
+<Steps>
+  <Step title="Find a station">
+    On the setup page, under **Online radio**, type part of a station's name and press **Search**. This searches [radio-browser.info](https://www.radio-browser.info), a free public directory.
+  </Step>
+  <Step title="Add it">
+    Press **Add** next to the station you want. You can add up to 24 stations.
+  </Step>
+  <Step title="Play it">
+    In the game's music screen, open the **Online Radio** row and pick the station.
+  </Step>
+</Steps>
+
+The track name updates as the station changes song, when the station sends it. Radio is live, so pausing leaves the station and playing tunes back in. There is no next or previous.
+
+If you have a stream's address instead, open **Have a stream's address instead?** and paste it. MP3 and AAC streams work, and `.pls` and `.m3u` links to them. Addresses ending in `.m3u8` (HLS) are not supported.
+
+## External audio
+
+Plays the sound of any app on your PC through the game: a browser, a media player, another music service.
+
+<Steps>
+  <Step title="Start the app playing">
+    Start the app and get it playing something. Only apps making sound are listed.
+  </Step>
+  <Step title="Pick it">
+    On the setup page, under **External audio**, pick the app and press **Use this app**.
+  </Step>
+  <Step title="Play it">
+    In the game's music screen, open the **External Audio** row and pick its tile.
+  </Step>
+</Steps>
+
+While it plays through the game, the app's own volume is turned right down so you don't hear it twice. It is put back when you leave the tile or close the game.
+
+The track name, cover, pause and next work for apps that support Windows media controls, the same ones your keyboard's play/pause key uses. Browsers and most media players do. An app that doesn't is still heard through the game, but can't be paused or skipped from it.
+
+## Sound settings
+
+In the **Sound** section of the setup page:
+
+- **Loudness**: how loud the music is through the game.
+- **Keep every song at the same loudness**: turns quiet songs up and loud ones down.
+- **Equaliser**: five sliders, from bass to treble, with a few presets. Up is more, down is less. It only changes the music you play through ReSkate, not the game's own.
+- **Speakers in the world play Spotify too**: when on, speakers in the world play what you're playing, and grabbing music from one keeps you on your own music.
+
+These settings are remembered between game sessions.
+
+## Queue
+
+The **Queue** section of the setup page lists the songs of the YouTube Music or Local Files playlist you are playing, with the current one marked. Press a song to jump to it, or type in the box to find one. Spotify keeps its own queue, in the Spotify app.
+
+## Troubleshooting
+
+| Problem | Try this |
+| --- | --- |
+| **ReSkate** isn't in Spotify's device list | Make sure the game is running, both are on the same network, and the game was allowed through the firewall. |
+| The Spotify tile is silent | Type `music` in the console. It shows whether a Spotify account is on the device. If not, pick **ReSkate** in Spotify's device list again. |
+| A new playlist or row isn't in the music screen | Restart the game. |
+| A newly added playlist plays the wrong music | Press a song in it instead of the tile, or restart the game. |
+| YouTube songs keep getting skipped | See [Songs that get skipped](#songs-that-get-skipped). |
+| YouTube stopped working altogether | YouTube changes things often. Close the game, delete `yt-dlp.exe` from `%LOCALAPPDATA%\ReSkate\bin`, start the game and press **Download and set up** again to get the latest version. |
+| A local file gets skipped | It is a kind ReSkate can't play, for example Apple Lossless or WMA, or the file has moved. Press **Rescan**. |
+| A radio station won't play | Some stations only send HLS, which isn't supported. Try another entry for the same station in the search results. |
+| The setup page says the game isn't answering | The game has been closed. The page only works while it's running. |
+
+## Where things are kept
+
+Everything is on your PC, in `%LOCALAPPDATA%\ReSkate`. Deleting any of these resets that part.
+
+| File or folder | What it is |
+| --- | --- |
+| `spotify-device\` | The remembered Spotify sign-in for the in-game device |
+| `spotify.json` | Your Client ID and playlist sign-in, encrypted for your Windows account |
+| `plex.json` | Your Plex sign-in, encrypted for your Windows account |
+| `youtube-music.json` | Your saved YouTube playlists, music folders and radio stations |
+| `music-settings.json` | Loudness, the equaliser and the other sound settings |
+| `youtube-cookies.txt` | Your YouTube sign-in, if you added one |
+| `external-audio.json` | Which app External audio uses |
+| `bin\yt-dlp.exe` | The YouTube tool |
+| `bin\qjs.exe` | QuickJS, which the YouTube tool needs once a sign-in is set |

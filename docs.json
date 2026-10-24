@@ -19,6 +19,13 @@
               "index",
               "quickstart"
             ]
+          },
+          {
+            "group": "Playing",
+            "pages": [
+              "macos",
+              "music-sources"
+            ]
           }
         ]
       },

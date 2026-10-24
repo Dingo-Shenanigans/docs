@@ -1,0 +1,51 @@
+---
+title: "macOS"
+description: "Run ReSkate on a Mac with Steam for Mac and a Wine-based compatibility tool such as NotProton or CrossOver."
+---
+
+ReSkate has no macOS build. It runs through a Wine-based Steam compatibility tool on top of the Steam for Mac client, set up much like [Linux](/quickstart#install). codejunky found it and first tested it on an M1 Pro with macOS 26 and NotProton on CrossOver 26.3: the launcher showed **Welcome, your name** and the game reached the Hub.
+
+## Set it up
+
+<Steps>
+  <Step title="Install skate.">
+    Install skate. with Steam for Mac.
+  </Step>
+  <Step title="Force the compatibility tool">
+    Install the compatibility tool. Then in Steam, open **skate. > Properties > Compatibility** and force it.
+  </Step>
+  <Step title="Give ReSkate a folder">
+    Put `ReSkateLauncher.exe` and `ReSkate.dll` in a new, empty folder of their own, for example `~/Games/ReSkate`.
+
+    <Warning>Do not use Steam's skate. folder. The launcher refuses to run from there.</Warning>
+  </Step>
+  <Step title="Set the launch option">
+    In Steam, open **skate. > Properties > Launch Options** and enter this, with your own folder's path:
+
+    ```bash
+    /bin/bash -c 'export ROSETTA_ADVERTISE_AVX=1; exec "${@/*EAAntiCheat.GameServiceLauncher.exe//Users/you/Games/ReSkate/ReSkateLauncher.exe}"' -- %command%
+    ```
+  </Step>
+  <Step title="Play">
+    Press **Play** on skate. in your Steam library. The first time, the launcher installs its own copy of the game into your folder.
+
+    Start it from Steam rather than running the launcher yourself. The launcher finds your Steam account through what Steam gives the compatibility tool.
+  </Step>
+</Steps>
+
+<Note>This setup, with the launcher in a folder of its own, has not been tested on a Mac yet. It was first tested with the launcher beside `Skate.exe`, the setup ReSkate used then.</Note>
+
+## Why this launch option
+
+- **`/bin/bash`, not `bash`.** Steam for Mac runs a launch option directly, without a shell, so `bash` alone fails to start with *Failed to spawn process* (OS error 260). The full path works.
+- **`ROSETTA_ADVERTISE_AVX=1`.** Without it the game stops at a *Below Min Spec* dialog. The game checks that the CPU reports F16C and OSXSAVE, which Rosetta 2 runs but does not report unless told to. It has to be set before Wine starts, so it goes in the launch option.
+- **The `${@/…/…}` swap** is the same as on Linux. Steam would start EA's anti-cheat launcher, which does not run under Wine, and this starts ReSkate's launcher in its place.
+
+## If the launcher says Steam is not running
+
+The launcher reads the signed-in account from Steam's `config/loginusers.vdf`. Under a Wine-based tool on macOS, Steam points the tool inside its app bundle rather than at that folder, and the tool keeps no record of the running Steam client the way Windows does. So the launcher looks up from the bundle for `config/loginusers.vdf` and, when Steam started it, takes the account marked as most recent.
+
+If it still says Steam is not running, check two things:
+
+- You started skate. from the Steam library, with the launch option above.
+- Steam is signed in.
