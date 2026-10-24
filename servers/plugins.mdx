@@ -1,6 +1,6 @@
 ---
 title: "Plugins"
-description: "Run plugins on a dedicated server: the Plugins folder, which plugins run there, what players need, reloading, storage and logs, the server's plugin commands, and what a server plugin can do."
+description: "Run plugins on a dedicated server: the Plugins folder, which plugins run there, the plugins players must have to join, reloading, storage and logs, the server's plugin commands, and what a server plugin can do."
 ---
 
 A dedicated server runs [plugins](/plugins/overview): game modes, rules, chat tools and the like, written in Luau and sandboxed. On the server a plugin is the session's authority. It can kick, ban and move players, speak in chat, show cards and polls, set what each player may do, read their roles and spawn park mods. This is its **server copy**.
@@ -26,9 +26,33 @@ Plugins/
 - Only plugins whose `"side"` is `"server"` or `"both"` run on a server. A plugin for players' games alone (`"side": "client"`, the default) does nothing there.
 - Copy the whole mod folder, `manifest.json` included, so the server's messages to players go under the same name as their copies of the plugin.
 
-A plugin for `"both"` sides also has a copy on each player's game, and players need the same mod installed for that copy: the server sends them nothing to install. Tell your players which mods the server uses.
+A plugin for `"both"` sides also has a copy on each player's game, and players need the same mod installed for that copy. List it in [plugins players need](#plugins-players-need) and players without it are offered it as they join.
 
 The server refuses a plugin whose folder holds a program or a script Windows runs, as the game does: see [plugins that ship programs](/mods/rules#plugins-that-ship-programs).
+
+## Plugins players need
+
+List the plugins every player must have in `plugins.required`, in `ReSkateServer.json`, by their Thunderstore package name:
+
+```json
+{
+    "plugins": {"required": ["neekgate-FPV_Drone", "Team-Trick_Race-1.2.0"]}
+}
+```
+
+- `Owner-Name` takes any version. `Owner-Name-1.2.3` takes that version or a later one.
+- At most 16 plugins, each named once.
+- The server checks each one on Thunderstore as it starts. A package that is not listed in the **Plugins** category is left out, and the log says so: `Required plugin Team-Skins is left out: Its package is not listed as a plugin on Thunderstore. Players are only asked for plugins.`
+
+When a player joins, their game looks for each plugin among their mods. A plugin counts when it is switched on and at least the version named, in the package's folder (`Owner-Name`) or with the package's name and author in its `manifest.json`.
+
+A player who is missing any is asked once, on one card, before the server's map loads. The card lists every plugin they need, and the server's map too when they do not have that either, each with its size or what it takes: a download, an update, or switching on a mod they already have. **GET ALL** downloads everything from Thunderstore, puts it in their `Mods` folder, applies it while the game runs, and joins. **CANCEL** leaves the server.
+
+<Note>
+Only plugins can be required. The player's game fetches a package only when Thunderstore lists it as a plugin and what it installs has a `reskate-plugin.json` that runs Luau code, whatever the server asks for. A plugin may bring the models and textures it uses, and they are checked as any mod's are. A cosmetic or other mod without plugin code is never downloaded this way, and one that turns out not to be a plugin is taken out again.
+</Note>
+
+The player has 30 minutes from the card coming up to download, install and join, as for a missing map, and two of those minutes to answer.
 
 ## Reloading
 

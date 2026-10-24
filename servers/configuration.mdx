@@ -1,6 +1,6 @@
 ---
 title: "Settings"
-description: "Every setting in ReSkateServer.json, section by section: the server, access, maps, players, anti-cheat, network, votes, announcements and chat commands."
+description: "Every setting in ReSkateServer.json, section by section: the server, access, maps, required plugins, players, anti-cheat, network, votes, announcements and chat commands."
 ---
 
 `ReSkateServer.json`, beside the server, holds its settings in sections:
@@ -69,6 +69,12 @@ What is skated. [Maps and parks](/servers/maps) explains each.
 | `layers` | | World layer key to `"on"` or `"off"`. |
 | `park_mods` | `[]` | Park mods the server can spawn: see [park mods](/servers/maps#park-mods). |
 | `park_limits` | `{"parks": 3, "objects": 512}` | How much may be spawned at once: 1 to 16 parks, 1 to 1024 objects in all. |
+
+## plugins
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `required` | `[]` | Thunderstore plugins every player must have to join, such as `"neekgate-FPV_Drone"`, or `"neekgate-FPV_Drone-1.0.0"` for at least that version. At most 16. Players without them are offered them as they join. See [plugins players need](/servers/plugins#plugins-players-need). |
 
 ## players
 
