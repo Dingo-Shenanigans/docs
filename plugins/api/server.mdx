@@ -40,6 +40,7 @@ The functions do not all work the same way in both places.
 | `player.role` | Not available: `role` is `nil`. | The player's role in the server's `data/roles.json`, as the console's `role` gives it. |
 | `parks`, `park_spawn`, `park_remove` | Not available: `parks` is empty, and spawning or removing returns `false` and `"unavailable here"`. | The server's park mods, as the console's `park-mod`. |
 | `card`, `poll`, `poll_close` | Not available: they return `false` (`poll`: `nil`) and `"unavailable here"`. | Cards and polls on the players' screens. |
+| `hide`, `unhide` | Not available: they return `false` and `"unavailable here"`. | A player hidden from others, or muted for them. |
 
 Chat lines from `say` and `tell` start with the plugin's name in brackets (`[My Plugin] ...`): the `name` in its `manifest.json`, or its folder's name without one.
 
@@ -299,6 +300,59 @@ Closes one of your polls for every player it is still open for. Each of them com
 <ResponseField name="why" type="string">Why not: `"no poll of the plugin's with that id is open"`; on a lobby's host `"unavailable here"`.</ResponseField>
 
 <Note>Needs the `server` permission and a server copy on a dedicated server. When the plugin stops, its cards and polls go too, with no events.</Note>
+
+## Hiding players
+
+On a dedicated server, the server copy can hide one player from others: wholly, so they are gone from those players' games, or only their voice or sound. For Hide and Seek, tag, spectating or ghost runs. It works per viewer: the hidden player still sees everyone, and players it is not hidden from still see them.
+
+Hidden wholly, the player is taken out of the viewers' games as if they had left: their skater, name tag, place in the player list and the objects they placed are gone, and the viewers get nothing of them (poses, sound, voice, outfit, effects). Chat lines still show. Shown again, they come back as if they had just joined: outfit, skater and objects. The name goes with the skater: a game has no skater without its player, so one cannot be hidden without the other.
+
+### `reskate.server.hide(target, viewers, options)`
+
+Hides `target` from `viewers`.
+
+<ParamField path="target" type="string or table" required>The player to hide.</ParamField>
+<ParamField path="viewers" type="string or table" required>Who they are hidden from: `"all"` (everyone on the server now but `target`; players who join later still see them), a player, or a list of 1 to 128 players. Players in the list who are not on the server are left out.</ParamField>
+<ParamField path="options.skater" type="boolean">`true` (the default): hidden wholly. `false`: only what `voice` and `sound` say is held back, and the player stays.</ParamField>
+<ParamField path="options.name" type="boolean">The same as `skater`; giving both with different values raises an error.</ParamField>
+<ParamField path="options.voice" type="boolean">Their voice chat, `true` by default.</ParamField>
+<ParamField path="options.sound" type="boolean">Their skating sounds, `true` by default.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when they are hidden.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"that player is not on the server"` (the target), `"none of those players is on the server"`, `"nobody else is on the server"`, `"they share a party"` or `"they are in a throwdown together"` (with any of the viewers: their games would lose a party member or a player mid-way, so nothing is hidden); on a lobby's host `"unavailable here"`.</ResponseField>
+
+Hiding a player from someone they are already hidden from replaces what was hidden. While a player is hidden wholly from another, the two cannot come into one party. A viewer who was spectating the hidden player stops.
+
+These raise an error: no `viewers`, an empty list, an option that is not `skater`, `name`, `voice` or `sound` or not a boolean, `skater = true` with `voice` or `sound` set to `false` (a hidden skater's voice and sound go too), and all three set to `false`.
+
+```lua
+-- Needs "server" and a server copy on a dedicated server.
+for _, hider in ipairs(hiders) do
+    reskate.server.hide(hider, seekers)
+end
+-- Only mute a player for someone, who still sees them skate:
+reskate.server.hide(player, other, {skater = false, voice = true, sound = false})
+```
+
+<Note>Needs the `server` permission and a server copy on a dedicated server. Each call counts as a `reskate.server` call. When the plugin stops, everyone it hid is shown again; a player who leaves the server is taken out of every list.</Note>
+
+<Note>The throwdown check works while the server follows throwdowns: when `activity_log`, `announce_throwdowns` and `throwdown_locks` are all off in its settings, it does not know who plays together.</Note>
+
+### `reskate.server.unhide(target, viewers)`
+
+Shows `target` again to `viewers`, as far as this plugin hid them.
+
+<ParamField path="target" type="string or table" required>The player.</ParamField>
+<ParamField path="viewers" type="string or table">A player, a list of players, or `"all"`. Without it, to everyone this plugin hid them from.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when they were hidden from one of them by this plugin.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"the plugin hides that player from none of them"`; on a lobby's host `"unavailable here"`.</ResponseField>
+
+```lua
+reskate.server.unhide(hider) -- the round is over
+```
+
+<Note>Needs the `server` permission and a server copy on a dedicated server. Each call counts as a `reskate.server` call.</Note>
 
 ## Player permissions
 
