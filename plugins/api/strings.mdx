@@ -1,0 +1,97 @@
+---
+title: "Strings"
+description: "reskate.strings: change the text the game shows for its string ids, by id or by hash, for a translation or a renamed menu."
+---
+
+`reskate.strings` changes the text the game shows. Every piece of text in the game's menus and HUD is looked up by a string id, such as `ID_MENU_PLAY`; text your plugin sets for an id is shown wherever the game shows that id, in place of the text it ships. A translation is a plugin that sets every id it translates. It needs the `strings` [permission](/plugins/permissions), except `hash`.
+
+Your text goes into the game's own string-override store, which the game checks before its shipped text. It is stored over the next ticks, 256 strings a tick, so a whole translation causes no hitch. When the game loads another string database (the player changes the language), ReSkate stores your text again, so it stays.
+
+## Keys
+
+A key names a string one of two ways:
+
+- **An id**, such as `"ID_MENU_PLAY"`: 1 to 255 printable ASCII characters, with no spaces, not starting with `#`.
+- **A hash**, such as `"#1a2b3c4d"`: `#` and 1 to 8 hex digits. The game finds text by the hash of its id, so a hash names a string whose id you do not know. `reskate.strings.hash` gives an id's hash.
+
+## Texts
+
+A text is UTF-8 of at most 511 characters (counted in UTF-16 units: a character outside the Basic Multilingual Plane, such as an emoji, counts as 2). It cannot hold a NUL character. The game's markup works in it as in its own text, such as `[font color=Attention]...[/font]`.
+
+The game draws only the characters its fonts have.
+
+### `reskate.strings.set(key, text)`
+
+Shows `text` for one string.
+
+<ParamField path="key" type="string" required>An id or a `#hash` ([keys](#keys)).</ParamField>
+<ParamField path="text" type="string" required>The text to show ([texts](#texts)).</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the text is taken. It shows from the next ticks on.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"a plugin sets at most 65536 strings"`, `"the game's text store differs from the supported build"`, or `"unavailable here"` (a dedicated server).</ResponseField>
+
+```lua
+reskate.strings.set("ID_MENU_PLAY", "Oyna")
+reskate.strings.set("#1a2b3c4d", "Ayarlar")
+```
+
+<Note>Raises an error for a key or a text that breaks the rules above.</Note>
+
+### `reskate.strings.set_many(texts)`
+
+Shows a text for each string in a table: what a translation does at load.
+
+<ParamField path="texts" type="table" required>Keys and texts: `{[key] = text, ...}`. A key starting with `_` is left out, so a data file can carry notes (`"_about": "..."`).</ParamField>
+
+<ResponseField name="count" type="number or nil">How many texts were taken, or `nil` when none were.</ResponseField>
+<ResponseField name="why" type="string">Why not, as for `set`.</ResponseField>
+
+```lua
+-- data/strings.json: {"_about": "Turkish", "ID_MENU_PLAY": "Oyna", "#1a2b3c4d": "Ayarlar"}
+local count, why = reskate.strings.set_many(reskate.package.read_json("data/strings.json"))
+reskate.log(count and (count .. " strings") or ("not now: " .. why))
+```
+
+<Note>Raises an error, and takes none of the table, when one of its keys or texts breaks the rules above or the table has more than 65536 of them.</Note>
+
+<Tip>
+A whole translation is thousands of strings. Hand them over in parts from a `tick` handler, so no one call comes near the [50 ms a call](/plugins/limits) may take:
+
+```lua
+local texts = reskate.package.read_json("data/strings.json")
+local key
+reskate.on("tick", function()
+    if not texts then return end
+    local part, count = {}, 0
+    repeat
+        local text
+        key, text = next(texts, key)
+        if key ~= nil then part[key] = text; count += 1 end
+    until key == nil or count >= 1000
+    if count > 0 then reskate.strings.set_many(part) end
+    if key == nil then texts = nil end
+end)
+```
+</Tip>
+
+### `reskate.strings.exists(key)`
+
+Whether the game has text for a string: its own, or text a plugin set that is stored already.
+
+<ParamField path="key" type="string" required>An id or a `#hash`.</ParamField>
+
+<ResponseField name="exists" type="boolean or nil">`nil` while ReSkate cannot tell: before the game's text is up, and on a dedicated server.</ResponseField>
+
+### `reskate.strings.hash(id)`
+
+An id's hash, as a key. Needs no permission.
+
+<ParamField path="id" type="string" required>1 to 255 characters.</ParamField>
+
+<ResponseField name="key" type="string">`#` and 8 lowercase hex digits, such as `"#0b1fe9a2"`.</ResponseField>
+
+## When your plugin stops
+
+When your plugin unloads or reloads, ReSkate no longer keeps its text. A string another plugin also set shows that plugin's text again. Any other string keeps your text until the game restarts: the game's store cannot take a text out again. A plugin that reloads sets its text again as it loads.
+
+When two plugins set the same string, the one that set it last is shown.
