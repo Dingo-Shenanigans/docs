@@ -90,8 +90,28 @@ An id's hash, as a key. Needs no permission.
 
 <ResponseField name="key" type="string">`#` and 8 lowercase hex digits, such as `"#0b1fe9a2"`.</ResponseField>
 
+## Upper and lower case
+
+Some of the game's text is shown in capitals, such as the section headings in **Settings**: the game capitalizes it as it draws it, so you set it as written (`"Dil"`, shown as `DIL`). The game's casing has no language rules, so a Turkish `i` becomes `I` instead of `İ`, and `I` becomes `i` instead of `ı`.
+
+### `reskate.strings.set_case_rules(rules)`
+
+Sets the casing rules the game follows for the text it capitalizes itself (upper case, lower case and title case), while your plugin is loaded.
+
+<ParamField path="rules" type="string">`"tr"`: Turkish (and Azerbaijani) rules, `i` to `İ` in upper case and `I` to `ı` in lower case. `""` or nothing: the game's own rules again.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the rules are taken. They apply from the next ticks on, to text the game draws after that.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"the game's text casing differs from the supported build"`, or `"unavailable here"` (a dedicated server).</ResponseField>
+
+```lua
+reskate.strings.set_case_rules("tr")
+reskate.strings.set("#1a2b3c4d", "Dil") -- shown as DİL in a heading
+```
+
+<Note>Raises an error for rules other than `"tr"` and `""`. The rules apply to all of the game's text, not only yours, until every plugin that asked for them has unloaded or set `""`. Text you set in capitals yourself is shown as you wrote it.</Note>
+
 ## When your plugin stops
 
-When your plugin unloads or reloads, ReSkate no longer keeps its text. A string another plugin also set shows that plugin's text again. Any other string keeps your text until the game restarts: the game's store cannot take a text out again. A plugin that reloads sets its text again as it loads.
+When your plugin unloads or reloads, ReSkate no longer keeps its text, and its casing rules end. A string another plugin also set shows that plugin's text again. Any other string keeps your text until the game restarts: the game's store cannot take a text out again. A plugin that reloads sets its text again as it loads.
 
 When two plugins set the same string, the one that set it last is shown.
