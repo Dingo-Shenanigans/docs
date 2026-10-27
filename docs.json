@@ -147,7 +147,8 @@
             "group": "Game",
             "pages": [
               "plugins/api/music",
-              "plugins/api/progression"
+              "plugins/api/progression",
+              "plugins/api/strings"
             ]
           },
           {
