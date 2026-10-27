@@ -1,6 +1,6 @@
 ---
 title: "Input"
-description: "reskate.input: named actions on keys and pad combos, flight keys and mouse look, gamepads, joysticks, raw pad bits, keys and the mouse wheel, keeping the controller or some of its buttons from the game, and whether the game has the input."
+description: "reskate.input: named actions on keys and pad combos, flight keys and mouse look, gamepads, joysticks and radios (all 8 channels, and which controller), raw pad bits, keys and the mouse wheel, keeping the controller or some of its buttons from the game, and whether the game has the input."
 ---
 
 `reskate.input` gives your plugin actions the player can press, and reads the keyboard, mouse, gamepad and joystick for a plugin that flies something or runs a game of its own. Every function, and the `action` event, needs the `input` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
@@ -139,24 +139,50 @@ end
 
 <Note>Needs the `input` permission.</Note>
 
-### `reskate.input.joystick()`
+### `reskate.input.joystick(device)`
 
-A joystick or RC radio connected to Windows. When there are several, one whose name holds "radio" is chosen first, otherwise the first one found.
+A joystick, RC radio or other game controller connected to Windows. With no `device`, one whose name holds "radio", "EdgeTX" or "OpenTX" is chosen first, otherwise the lowest-numbered one.
+
+<ParamField path="device" type="integer">A controller's number from [`joysticks()`](#reskate-input-joysticks), 0 to 15. Leave it out for the first controller as above.</ParamField>
 
 <ResponseField name="stick" type="table or nil">
-`nil` when none is connected or the game window does not have the focus.
+`nil` when there is no such controller, or the game window does not have the focus.
 <Expandable title="fields">
-<ResponseField name="axes" type="table">A list of 6 numbers, each -1 to 1. Axes the device does not have read 0.</ResponseField>
+<ResponseField name="axes" type="table">A list of 8 numbers, each -1 to 1: X, Y, Z, Rx, Ry, Rz and the two sliders, which is all 8 channels of a radio. Axes the device does not have read 0.</ResponseField>
 <ResponseField name="buttons" type="table">A list of 32 booleans, button 1 first.</ResponseField>
 <ResponseField name="name" type="string">The device's name, as Windows gives it.</ResponseField>
+<ResponseField name="device" type="integer">The controller's number, as `joysticks()` lists it.</ResponseField>
 </Expandable>
 </ResponseField>
+
+ReSkate reads the controllers on a thread of its own, about 250 times a second, and this call returns the latest reading, so it never holds up your tick. Just after the first call, or after a controller is plugged in, it can take a moment to show up.
 
 ```lua
 local stick = reskate.input.joystick()
 if stick then
     local throttle = (stick.axes[3] + 1) / 2
 end
+```
+
+<Note>Needs the `input` permission. Before ReSkate 2.1.3 there were 6 axes, in Windows' older order (X, Y, Z, R, U, V). A plugin that saved which axis is which should let players set them again.</Note>
+
+### `reskate.input.joysticks()`
+
+Every game controller plugged in, so a player with a gamepad and a radio can pick which one your plugin reads.
+
+<ResponseField name="list" type="table">
+A list, lowest number first, empty when none is plugged in. Each entry:
+<Expandable title="fields">
+<ResponseField name="device" type="integer">The controller's number, for `joystick(device)`. It stays the same while the controller stays plugged in.</ResponseField>
+<ResponseField name="name" type="string">The device's name, as Windows gives it.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+for _, controller in ipairs(reskate.input.joysticks()) do
+    reskate.log(controller.device .. ": " .. controller.name)
+end
+local radio = reskate.input.joystick(chosen_device)
 ```
 
 <Note>Needs the `input` permission.</Note>
