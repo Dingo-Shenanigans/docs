@@ -81,7 +81,7 @@ A mod folder named as a Thunderstore package (`Owner-Name`, as the launcher inst
 - A package that was on Thunderstore and has been taken down stops running its plugin.
 - A folder that is not named as a package, or a package Thunderstore has never had (a plugin you have not uploaded yet), is not Thunderstore's to say: it runs once the player turns it on.
 
-The game asks thunderstore.io about each package on a thread of its own, keeps the answers in `%LOCALAPPDATA%\ReSkate\plugin_listings.json`, and asks again every six hours. Until a package has been looked up once, its plugin waits. A plugin that is refused shows a notice in the game, and the log says why:
+The game asks thunderstore.io about each package on a thread of its own, keeps the answers in `%LOCALAPPDATA%\ReSkate\plugin_listings.json`, and asks again every six hours. Until a package has been looked up once, its plugin waits, usually a second or two. When Thunderstore cannot be reached (you are offline, or it is down) and the game has no answer for the package yet, the check is skipped and the plugin runs; the game asks again every minute, and once Thunderstore answers, its answer holds. A plugin that is refused shows a notice in the game, and the log says why:
 
 ```
 Plugins: Team-Cosmetic_Pack: Thunderstore does not list Team-Cosmetic_Pack as a plugin (it is in Cosmetics), so its plugin does not run. The rest of the mod still loads.
