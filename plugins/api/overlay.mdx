@@ -19,6 +19,14 @@ ReSkate calls your `draw` handlers once a game tick with a drawing object, `d`, 
 
 `d`'s functions are called with a colon (`d:text(...)`). The shape functions work only while a draw handler runs: calling one at any other time (from a timer, with a `d` you kept) raises an error.
 
+### Flashing
+
+Fast flashing over a large part of the screen can bring on seizures, so the overlay holds back how fast a plugin's drawing can brighten the screen. It adds up the light of each filled shape (rectangles, pictures, gradients, tiles and filled polygons): its colour's brightness times its opacity, times the share of the screen it covers. That total may rise by at most 1.5 of a whole white screen a second, and fall as fast as you like. When your drawing would be brighter than that, its filled shapes are drawn more transparent until it catches up.
+
+So a full-screen white flash shown eight times a second comes out at about a tenth of its strength, and a bright full-screen picture fades in over about two thirds of a second. A HUD, text and shapes over a small part of the screen are never held back.
+
+While a plugin's drawing covers most of the screen, the game names the plugin in the bottom corner and says that **Ctrl+Shift+End** switches plugins off.
+
 ## Coordinates
 
 - **Screen shapes** take positions as vectors in pixels of the game window, from its top left: `vector.create(x, y, 0)` (the `z` is ignored). `d:size()` gives the window's width and height.

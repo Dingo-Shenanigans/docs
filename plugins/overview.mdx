@@ -41,6 +41,8 @@ Some things are left out of the API on purpose, whatever a manifest asks for:
 - **Run ReSkate's console commands.** A plugin adds its own commands. ReSkate refuses a command name whose first word is one of ReSkate's, `plugin` or `help`.
 - **Reach game memory, files or programs.** There is no API for memory, no `io`, no `os.execute`, and no loading of code but the plugin's own Luau source. A plugin reads only files inside its own package.
 - **Use the microphone, voice audio or the clipboard.** `voice.control` sets how loud another player is to you, nothing more.
+- **Change how loud the game is.** `reskate.settings.set` refuses every sound setting: volumes, mute, music, voice and speakers.
+- **Flash the screen.** How much light a plugin's drawing adds over the screen can only rise so fast, so a fast full-screen flash comes out faint. See [the overlay](/plugins/api/overlay#flashing).
 
 [Limits](/plugins/limits) covers the sandbox and the limits that stop a plugin before it can harm the game.
 
@@ -48,14 +50,46 @@ Some things are left out of the API on purpose, whatever a manifest asks for:
 
 ReSkate looks through the `Mods` folder beside the game every 2 seconds. A mod is a plugin when:
 
-1. it is switched on (`mods.json` does not list it as off; a folder `mods.json` does not list is on), and
-2. it has a `reskate-plugin.json` at the top of its folder.
+1. it is switched on (`mods.json` does not list it as off; a folder `mods.json` does not list is on),
+2. it has a `reskate-plugin.json` at the top of its folder,
+3. the player has turned the plugin on (see [turning a plugin on](#turning-a-plugin-on)), and
+4. when its folder is a Thunderstore package, Thunderstore lists that package as a plugin (see [plugins and Thunderstore](#plugins-and-thunderstore)).
 
-A new plugin loads at the next game tick after ReSkate finds it, without a restart. When you switch its mod off or remove it, it unloads.
+A new plugin loads at the next game tick after ReSkate finds it and the player turns it on, without a restart. When you switch its mod off or remove it, it unloads.
 
 <Warning>
 If `mods.json` cannot be read, the game loads no mods at all, and no plugins either.
 </Warning>
+
+### Turning a plugin on
+
+A plugin does not run until the player says so. The first time ReSkate finds one, the game asks, with what the plugin can do in plain words, from the permissions its manifest lists. **Keep off** (also Esc or B) leaves it off; only **Turn on** starts it. The rest of its mod, such as cosmetics or a map, loads either way.
+
+The answer is kept for the plugin's own files: `reskate-plugin.json` and everything in the folder of its entry (`plugin/` for `"entry": "plugin/main.lua"`). When any of them changes, an update included, the game asks again. The answers are kept in `%LOCALAPPDATA%\ReSkate\plugin_approvals.json`, outside the `Mods` folder, so no mod can answer for the player.
+
+**Insert > Plugins > Plugin Manager** lists every plugin with everything it may do, and switches each on or off.
+
+<Tip>
+While you work on a plugin, turn on developer mode: `plugin dev on` in the console, or the switch in the launcher's settings. A plugin you have turned on then stays on when you change its files. A plugin you have never answered for still asks.
+</Tip>
+
+### Plugins and Thunderstore
+
+A mod folder named as a Thunderstore package (`Owner-Name`, as the launcher installs it, or `Owner-Name-1.2.3` from a zip) runs its plugin only while ReSkate's community on Thunderstore lists that package in the **Plugins** category. So a package uploaded as cosmetics, a map or anything else cannot run code. Its other content still loads.
+
+- A package Thunderstore lists without **Plugins** does not run its plugin, nor one Thunderstore's moderators rejected.
+- A package that was on Thunderstore and has been taken down stops running its plugin.
+- A folder that is not named as a package, or a package Thunderstore has never had (a plugin you have not uploaded yet), is not Thunderstore's to say: it runs once the player turns it on.
+
+The game asks thunderstore.io about each package on a thread of its own, keeps the answers in `%LOCALAPPDATA%\ReSkate\plugin_listings.json`, and asks again every six hours. Until a package has been looked up once, its plugin waits. A plugin that is refused shows a notice in the game, and the log says why:
+
+```
+Plugins: Team-Cosmetic_Pack: Thunderstore does not list Team-Cosmetic_Pack as a plugin (it is in Cosmetics), so its plugin does not run. The rest of the mod still loads.
+```
+
+<Note>
+Uploading a mod with a plugin? Tick **Plugins** among its categories on Thunderstore, whatever else it is. See [categories](/mods/thunderstore#categories).
+</Note>
 
 ### Hot reload
 
@@ -96,8 +130,10 @@ Open ReSkate's console to see and control plugins. `<id>` is the plugin's mod fo
 | `plugin list` | Lists the plugins: running (with memory, time a tick and command count), stopped and why, switched off, or not loaded here. While this game hosts a lobby, its server copies are listed too, as `<folder>@server`. |
 | `plugin commands` | Lists the console commands plugins added, with their help and the plugin that owns each. |
 | `plugin reload <id>` | Unloads the plugin and loads it again from its files. |
-| `plugin off <id>` | Switches the plugin off until `plugin on <id>`, or the next launch. Its mod stays on. |
+| `plugin off <id>` | Switches the plugin off until `plugin on <id>`. Its mod stays on. |
+| `plugin off all` | Switches every running plugin off. **Ctrl+Shift+End** does the same at any time in the game, whatever a plugin draws or holds. |
 | `plugin on <id>` | Starts a plugin that was switched off or stopped. |
+| `plugin dev on` or `off` | Developer mode: a plugin you turned on stays on when its files change. |
 
 `plugin list` prints one line a plugin:
 
