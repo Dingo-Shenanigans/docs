@@ -1,9 +1,9 @@
 ---
 title: "Outfit"
-description: "reskate.outfit: put tattoos, moles and eyewear on the local skater over the player's own outfit, and read what the skater wears."
+description: "reskate.outfit: put tattoos, moles and eyewear on the local skater over the player's own outfit, read what the skater wears, and choose what stands in for other players' items this PC does not have."
 ---
 
-`reskate.outfit` puts items on the local skater, over the outfit the player chose: a tattoo where your plugin places it, moles, a pair of glasses. Every function needs the `outfit` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+`reskate.outfit` puts items on the local skater, over the outfit the player chose: a tattoo where your plugin places it, moles, a pair of glasses. Every function needs the `outfit` permission, except [`stand_ins`](#stand-ins), which needs `outfit.stand_ins`; calling one without its permission raises an error. See [permissions](/plugins/permissions).
 
 <Warning>
 Other players see what the skater wears. The player's own outfit is never changed: what a plugin puts on is worn over it, and taken off again when the plugin clears it or stops.
@@ -192,3 +192,44 @@ An item's name as the game shows it. It is the item's title in the game's catalo
 <ResponseField name="title" type="string">The item's name.</ResponseField>
 
 <Note>Needs the `outfit` permission.</Note>
+
+## Stand-ins
+
+Another player may wear an item from a cosmetics mod this PC does not have. The game cannot draw it, so something stands in for it: by default the game's own default item for that slot, or nothing. `reskate.outfit.stand_ins` lets your plugin choose what stands in instead, from the items installed on this PC.
+
+Only what this PC shows of other players changes. Nothing is sent, saved or owned, and the other player sees their own item. A paid store item never stands in, whatever your lists say.
+
+### `reskate.outfit.stand_ins(policy)`
+
+<ParamField path="policy" type="table or nil" required>
+What stands in, or `nil` to give the choice back to the game's defaults.
+<Expandable title="fields">
+<ParamField path="pick" type="string" default="&quot;first&quot;">`"first"`: the first item that fits the slot. `"random"`: one of them at random.</ParamField>
+<ParamField path="parts" type="string" default="&quot;both&quot;">What the choice covers: `"both"`, `"skater"` (what the skater wears) or `"board"`.</ParamField>
+<ParamField path="items" type="table">The items that may stand in, by name, in the order `"first"` tries them: at most 4096 names, each 1 to 255 characters. An item of the list stands in only where it is installed and fits the slot. Leave it out for every installed item that fits the slot, in name order.</ParamField>
+<ParamField path="exclude" type="table">Items that never stand in: at most 64 names, each 1 to 255 characters, in any case. `*` in a name is any run of characters, so `"Own_Costume*"` or `"*GhostSkater*"` matches many. A player who really wears an excluded item still shows it.</ParamField>
+<ParamField path="seed" type="number" default="0">For `"random"`: 0 to 4294967295. A new seed gives every player new stand-ins.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when your choice is set (or given back).</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"\"<plugin>\" chooses the stand-ins already"` while another plugin holds the choice, or `"asked more than 4 times in a second"`.</ResponseField>
+
+`"random"` picks from the player's whole outfit, the slot and the missing item as well as the seed. A player keeps the same stand-ins for as long as they wear the same outfit, so nothing flickers each time they put it on again, and different players and slots get different ones. Each PC with the same plugin, the same seed and the same items installed picks the same.
+
+Where none of your items fits, the game's own default for the slot stands in, unless `exclude` matches it.
+
+```lua
+-- Other players' missing items shown as one of this PC's installed items, never a ghost costume.
+local ok, why = reskate.outfit.stand_ins({
+    pick = "random",
+    parts = "skater",
+    exclude = {"*ghost*", "Own_Costume*"},
+    seed = 7,
+})
+if not ok then reskate.log("no stand-ins: " .. why, "warn") end
+```
+
+A word that is not one of the choices, a list longer than its limit, a name that is empty, longer than 255 characters or just `*`, and a seed out of range raise an error.
+
+<Note>Needs the `outfit.stand_ins` permission. One plugin holds the choice at a time. Every change dresses the players you see again, so `stand_ins` shares the budget of 4 calls a second with `outfit.set` and the other control calls. When your plugin stops, the game's defaults come back.</Note>

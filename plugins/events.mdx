@@ -1,6 +1,6 @@
 ---
 title: "Events"
-description: "All 31 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
+description: "All 32 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
 ---
 
 This page lists every event `reskate.on` accepts. Five need no permission; each of the others needs the permission named in its section.
@@ -11,7 +11,7 @@ This page lists every event `reskate.on` accepts. Five need no permission; each 
 
 Registers a function to run each time the event fires. Register handlers when the entry file runs, usually at its top level.
 
-<ParamField path="event" type="string" required>The event's name, one of the 31 on this page, or the same name from `reskate.Enums.Event`.</ParamField>
+<ParamField path="event" type="string" required>The event's name, one of the 32 on this page, or the same name from `reskate.Enums.Event`.</ParamField>
 <ParamField path="handler" type="function" required>Called with the event's arguments, described in each section below.</ParamField>
 
 It returns nothing. These raise a Lua error:
@@ -365,6 +365,41 @@ reskate.on("bail_end", function()
 end)
 ```
 
+### Physics geometry
+
+**Permission:** `events.physics.geometry`, which also needs `events.physics` in the same manifest. A manifest with the first and not the second fails to load: `events.physics.geometry also needs the events.physics permission`.
+
+With it, each `physics_step` carries the skater's bodies as they are in the world, for effects that start where a body hits something. Without it these fields are never there. A field ReSkate could not read is absent, never zero, so do not make a hit out of a missing one.
+
+<ResponseField name="e.state" type="number">A number for the skater's physics state in this step, as the game selects it. It names no game memory. Compare it between steps to see a change; it has no fixed meaning to rely on. Absent when it could not be read.</ResponseField>
+<ResponseField name="e.bodies[name].point" type="table">Where the body's hardest contact in the step is, in the world: `{x, y, z}`, metres. Absent when unknown.</ResponseField>
+<ResponseField name="e.bodies[name].normal" type="table">The surface's normal at that contact, in the world: `{x, y, z}`. Absent when unknown.</ResponseField>
+<ResponseField name="e.poses" type="table">Every body of the local skater ReSkate could read, by name, airborne ones included, and whether or not it touches anything. Each is a table with `transform`, a list of 16 numbers, and `velocity`, `{x, y, z}` in metres per second. The transform is the body's place in the world as four rows of four: the body's x, y and z axes in the first three rows, its position in the first three numbers of the fourth (`transform[13]`, `transform[14]`, `transform[15]`). Empty when none could be read.</ResponseField>
+
+```lua
+-- "events.physics", "events.physics.geometry"
+local hits, pelvis_at = {}, nil
+reskate.on("physics_step", function(step)
+    for name, body in step.bodies do
+        if body.impact > 6 and body.point then
+            table.insert(hits, {name = name, at = vector.create(body.point[1], body.point[2], body.point[3])})
+        end
+    end
+    local pelvis = step.poses.Pelvis
+    if pelvis then
+        local t = pelvis.transform
+        pelvis_at = vector.create(t[13], t[14], t[15])
+    end
+end)
+
+reskate.on("tick", function()
+    for _, hit in hits do
+        reskate.log(string.format("%s hit at %s", hit.name, tostring(hit.at)))
+    end
+    table.clear(hits)
+end)
+```
+
 <Warning>
 A handler runs for every step, many times a second, so keep it short: count and keep what you need, and draw or log from a `tick` or `draw` handler. Each call has the usual 50 ms, and they add up towards the plugin's [time limits](/plugins/limits).
 </Warning>
@@ -610,6 +645,25 @@ end)
 reskate.on("screen_closed", function(title)
     reskate.log(title .. " closed")
 end)
+```
+
+## The menu
+
+### `favorites_changed`
+
+**Permission:** `menu`.
+
+Fires when the player's starred items change: an item starred or unstarred in the game's item grids, or the starred items read for the first time after the plugin started. It is checked once a tick. The handler gets no arguments: read the set again with [`reskate.menu.favorites`](/plugins/api/menu), a table of item keys, each `true`.
+
+What the set was when ReSkate first looked is not a change. A plugin that starts after the starred items were read hears nothing until the next change, so read them when it loads too.
+
+```lua
+local starred = {}
+local function refresh()
+    starred = reskate.menu.favorites() or {} -- nil until the starred items are read
+end
+reskate.on("load", refresh)
+reskate.on("favorites_changed", refresh)
 ```
 
 ## Music

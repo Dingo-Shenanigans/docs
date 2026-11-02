@@ -73,6 +73,30 @@ A titled tile, the kind the menu's own pages are built from. The widgets after i
 ui:card("GRIND EXITS", "Choose the side you pop out of a grind using LT/RT")
 ```
 
+### `ui:section(id, title, subtitle, open)`
+
+A card the player can fold away. The widgets after it go in it, until the next card or section, as a card's do. The player opens and folds it; your `open` only says how it starts.
+
+<ParamField path="id" type="string" required>1 to 32 characters, as other widgets' ids. The section remembers whether it is open by its id.</ParamField>
+<ParamField path="title" type="string" required>At most 60 characters.</ParamField>
+<ParamField path="subtitle" type="string">A line under the title, at most 120 characters.</ParamField>
+<ParamField path="open" type="boolean" default="true">Whether it starts open. `false` starts it folded.</ParamField>
+
+<ResponseField name="open" type="boolean">Whether it is open now: what the player did, when they opened or folded it since the last build; otherwise `open`.</ResponseField>
+
+A folded section's widgets are not drawn. Build them only when it returns `true`: that keeps a long page cheap, and its widgets out of the 160.
+
+```lua
+local look_open = false
+reskate.menu.page("My Mod", function(ui)
+    look_open = ui:section("look", "LOOK", "Colours and size", look_open)
+    if look_open then
+        tint = ui:colour("tint", "Tint", tint)
+        size = ui:stepper("size", "Size", size, 0.5, 2, 0.25, "%.2fx")
+    end
+end)
+```
+
 ### `ui:tabs(id, names, chosen)`
 
 A row of tabs on the page. Build the chosen tab's widgets after it: a page builds only the tab shown, so its 160 widgets are counted for that tab alone.
@@ -150,7 +174,7 @@ A horizontal line between widgets.
 
 ## Controls
 
-Widgets the player can use (`tabs`, `button`, `toggle`, `slider`, `dropdown`) take an `id`: 1 to 32 characters, different from the other widgets' ids in the same build of the page or panel. The id is how the player's action finds its widget, so keep it the same from one build to the next.
+Widgets the player can use (`tabs`, `section`, `button`, `buttons`, `toggle`, `slider`, `stepper`, `dropdown`, `list`, `text`, `colour`) take an `id`: 1 to 32 characters, different from the other widgets' ids in the same build of the page or panel. The id is how the player's action finds its widget, so keep it the same from one build to the next.
 
 ### `ui:button(id, text, primary)`
 
@@ -223,6 +247,93 @@ mode = ui:dropdown("mode", "Mode", modes, mode, "What the run is scored on.")
 ui:label("Playing " .. modes[mode])
 ```
 
+### `ui:buttons(id, names, lit)`
+
+A row of small buttons side by side, wrapping onto more rows as the card runs out of width. It suits a short row of choices, such as a preset or a mode, where a dropdown would hide them.
+
+<ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
+<ParamField path="names" type="table" required>A list of 1 to 32 names, each at most 40 characters.</ParamField>
+<ParamField path="lit" type="integer">The number of the button drawn as the one in use, from 1. Leave it out, or give a number that is not one of the buttons, for none.</ParamField>
+
+<ResponseField name="pressed" type="integer or nil">The number of the button the player pressed since the last build, or `nil`.</ResponseField>
+
+Pressing a button does not light it. Your plugin decides which one is lit: keep the number that comes back and pass it as `lit` next time.
+
+```lua
+local mode = 1
+reskate.menu.page("My Mod", function(ui)
+    mode = ui:buttons("mode", {"Off", "Slow", "Fast"}, mode) or mode
+end)
+```
+
+### `ui:text(id, label, value, hint)`
+
+A line the player types in.
+
+<ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
+<ParamField path="label" type="string" required>At most 60 characters.</ParamField>
+<ParamField path="value" type="string" default='""'>What the line holds, at most 200 characters.</ParamField>
+<ParamField path="hint" type="string">Shown in the line while it is empty, at most 120 characters.</ParamField>
+
+<ResponseField name="value" type="string">What the line holds now: what the player typed, when they typed since the last build (at most 200 characters); otherwise `value`.</ResponseField>
+
+```lua
+board_name = ui:text("name", "Board name", board_name, "Type a name")
+```
+
+### `ui:colour(id, label, colour)`
+
+A colour to pick. `ui:color` is the same function.
+
+<ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
+<ParamField path="label" type="string" required>At most 60 characters.</ParamField>
+<ParamField path="colour" type="table" required>`{r, g, b}` or `{r = , g = , b = }`, each 0 to 1. A number past 0 or 1 is held to it; one that is not finite raises an error.</ParamField>
+
+<ResponseField name="colour" type="table">The colour now, always as `{r = , g = , b = }`, each 0 to 1: what the player picked, when they picked one since the last build; otherwise `colour`.</ResponseField>
+
+```lua
+local tint = {r = 1, g = 0.4, b = 0}
+reskate.menu.page("My Mod", function(ui)
+    tint = ui:colour("tint", "Tint", tint)
+end)
+```
+
+### `ui:stepper(id, label, value, minimum, maximum, step, format)`
+
+A number that goes up and down by `step`. In a window it has - and + buttons with the value between them, which the player can also type; full screen, left and right step it.
+
+<ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
+<ParamField path="label" type="string" required>At most 60 characters.</ParamField>
+<ParamField path="value" type="number" required>Its value now.</ParamField>
+<ParamField path="minimum" type="number" required>The lowest it goes.</ParamField>
+<ParamField path="maximum" type="number" required>The highest it goes, above `minimum`.</ParamField>
+<ParamField path="step" type="number" required>How much one press changes it: above 0, and no more than `maximum - minimum`.</ParamField>
+<ParamField path="format" type="string" default='"%.2f"'>How the value shows, the same as `ui:slider`'s `format`. `%d` shows it rounded.</ParamField>
+
+<ResponseField name="value" type="number">The value now, between `minimum` and `maximum` and on a step from `minimum`: what the player set, when they changed it since the last build; otherwise `value`, put on the nearest step.</ResponseField>
+
+```lua
+size = ui:stepper("size", "Size", size, 0.5, 2, 0.25, "%.2fx")
+players = ui:stepper("players", "Players", players, 2, 8, 1, "%d")
+```
+
+### `ui:list(id, label, items, chosen, rows)`
+
+One item to pick from a long list. In a window, `rows` of it are in view at once and the rest scroll; full screen, each item is a row of the page. Use it where a dropdown's 32 choices are too few: tracks, spots, saved runs.
+
+<ParamField path="id" type="string" required>1 to 32 characters.</ParamField>
+<ParamField path="label" type="string" required>At most 60 characters.</ParamField>
+<ParamField path="items" type="table" required>A list of 1 to 200 strings, each at most 80 characters.</ParamField>
+<ParamField path="chosen" type="integer" default="0">The number of the item shown as chosen, from 1, or 0 for none.</ParamField>
+<ParamField path="rows" type="integer" default="6">How many rows are in view in a window, 3 to 12.</ParamField>
+
+<ResponseField name="chosen" type="integer">The number of the item the player picked, when they picked one since the last build; otherwise `chosen`. 0 for none, and for a number that is not one of the items.</ResponseField>
+
+```lua
+track = ui:list("track", "Track", track_names, track, 8)
+if track > 0 then ui:label("Playing " .. track_names[track]) end
+```
+
 ### `ui:bar(text, value, minimum, maximum)`
 
 A gauge the player cannot change: a progress bar with a label on it.
@@ -237,7 +348,7 @@ ui:bar(string.format("%d / %d goals", done, total), done, 0, total)
 ```
 
 <Note>
-A widget raises an error outside a build function, past 160 widgets in a page's build or 64 in a panel's, for an id that is empty, longer than 32 characters or used twice in the build, for text over its length, for a `maximum` that is not above `minimum`, for a number that is not finite (or is beyond a million either way), for a dropdown with no choices or more than 32, for tabs with no names or more than 8, and for a slider format that is not exactly one number.
+A widget raises an error outside a build function, past 160 widgets in a page's build or 64 in a panel's, for an id that is empty, longer than 32 characters or used twice in the build, for text over its length, for a `maximum` that is not above `minimum`, for a number that is not finite (or is beyond a million either way), for a dropdown with no choices or more than 32, for tabs with no names or more than 8, for buttons with no names or more than 32, for a list with no items, more than 200 or a `rows` outside 3 to 12, for a stepper whose `step` is not above 0 or is wider than its range, for a colour that is not three finite numbers, and for a slider or stepper format that is not exactly one number.
 </Note>
 
 ## A whole page
@@ -372,6 +483,35 @@ Returns nothing.
 
 <Note>Needs the `room` permission.</Note>
 
+### `reskate.room.pose(subject)`
+
+Where the game's menu draws its own board or skater, in the world: for a plugin that draws something beside the menu's board, or lines a camera up on the skater. It only reads, and takes nothing from the room: it needs no `open`.
+
+<ParamField path="subject" type="string" default="&quot;board&quot;">`"board"` (the board's deck) or `"skater"` (the skater's place).</ParamField>
+
+<ResponseField name="pose" type="table or nil">
+`nil` while the game's menu is closed, or when the menu has not drawn that rig in its room in the last quarter of a second.
+<Expandable title="fields">
+<ResponseField name="position" type="vector">Where it is, in the world.</ResponseField>
+<ResponseField name="rotation" type="table">Its rotation, `{x, y, z, w}`.</ResponseField>
+<ResponseField name="age" type="number">Seconds since the menu last drew it.</ResponseField>
+<ResponseField name="sequence" type="number">Counts up each time it is read from a drawn frame: the same number twice is the same frame.</ResponseField>
+</Expandable>
+</ResponseField>
+
+ReSkate watches the menu's rigs only while a plugin asks: each call keeps it watching for half a second more. So the first call returns `nil`; call it every tick while you want the pose. Only the rigs the menu draws in its room are read, never the skater and board you play with.
+
+```lua
+reskate.on("tick", function()
+    local board = reskate.room.pose("board")
+    if board and board.age < 0.1 then
+        deck_at = board.position
+    end
+end)
+```
+
+<Note>Needs the `room` permission. A subject that is not `"board"` or `"skater"` raises an error.</Note>
+
 ### `reskate.room.turn(value, stick)`
 
 Turns what the game's menu shows on its stick: the board on the Board screen, the skater on the Skaters page. It works as a player turning it on a controller would. It holds a stick of a stand-in pad over at `value` for 300 ms, with the rest of the pad at rest. Call it each tick to keep turning, and with 0 to let go.
@@ -403,6 +543,7 @@ What the game's own menu shows, for a plugin that does something on one of its s
 
 <ResponseField name="menu" type="table">
 <Expandable title="fields">
+<ResponseField name="known" type="boolean">True when ReSkate could read the game's screens. While it is `false`, `open` is `false` too, but that does not mean the menu is closed: it is not known.</ResponseField>
 <ResponseField name="open" type="boolean">True while the game's menu is open.</ResponseField>
 <ResponseField name="skaters" type="boolean">True while it shows the Skaters page.</ResponseField>
 <ResponseField name="buttons" type="table">Where each button of the open page goes, as the game names it, such as `"CASPresetPurchase"`. At most 64. Empty while the menu is closed.</ResponseField>
@@ -469,6 +610,31 @@ Puts the game's check mark on these items' tiles, where a tile shows its rarity 
 Returns nothing. Each call replaces your list; every plugin's marks show together.
 
 <Note>Needs the `menu` permission. The game's check is drawn from what its menus have loaded; where none is, the tiles show no check. Your marks go when your plugin stops.</Note>
+
+### `reskate.menu.favorites()`
+
+The items the player starred in the game's item grids.
+
+<ResponseField name="favorites" type="table or nil">A set of item keys: each starred key maps to `true`. An empty table is a set that was read and holds nothing. `nil` until the player's favorites are read this run.</ResponseField>
+<ResponseField name="why" type="string">With `nil`: why, `"not loaded"`.</ResponseField>
+
+```lua
+local function starred_count()
+    local favorites = reskate.menu.favorites()
+    if not favorites then return nil end
+    local n = 0
+    for _ in favorites do n += 1 end
+    return n
+end
+
+reskate.on("favorites_changed", function()
+    reskate.log("the player now has " .. tostring(starred_count()) .. " favorites")
+end)
+```
+
+The [`favorites_changed`](/plugins/events) event fires when the set changes, with no arguments. It also fires when the set is first read while your plugin runs. A plugin that starts after the set was read hears nothing until it changes, so call `favorites()` as it starts.
+
+<Note>Needs the `menu` permission, for the function and the event.</Note>
 
 ## Dialogs
 

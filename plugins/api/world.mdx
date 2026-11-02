@@ -1,16 +1,20 @@
 ---
 title: "World"
-description: "reskate.world, reskate.objects, reskate.entities, reskate.travel and reskate.ai: raycasts, time of day and world controls, park editor objects, your own world objects, travel and AI skaters."
+description: "reskate.world, reskate.objects, reskate.marker, reskate.entities, reskate.travel and reskate.ai: raycasts, time of day and world controls, park editor objects and their physics, marker events, your own world objects, travel and AI skaters."
 ---
 
 These tables read and change the world the local skater is in. Each function needs a permission, named in its section:
 
-- `world.raycast`: `reskate.world.raycast` and `pick`.
+- `world.raycast`: `reskate.world.raycast`, `pick` and `probe`.
 - `world.environment`: `reskate.world.set_time`, `set_control` and `set_park`.
-- `world.objects`: `reskate.objects.*`.
+- `world.objects`: `reskate.objects.catalog`, `list`, `place`, `move` and `remove`.
+- `objects.physics`: `reskate.objects.physics`, `velocity`, `motion`, `pose` and `contact`.
+- `marker.read`: `reskate.marker.events`.
 - `world.entities`: `reskate.entities.*`.
 - `travel`: `reskate.travel.*`.
 - `world.ai`: `reskate.ai.*`.
+
+Rigid bodies of your plugin's own are on [physics bodies](/plugins/api/bodies) (`reskate.world.physics`), and particle effects and decals on [effects](/plugins/api/effects).
 
 Calling a function without its permission raises an error. See [permissions](/plugins/permissions). Positions are Luau vectors in metres, `y` up; a position you pass must be finite and within 100 km of the map's centre, or the call raises an error. Headings are radians about world up, as the [skater's](/plugins/api/skater#positions-and-headings).
 
@@ -75,6 +79,39 @@ end
 
 <Note>
 Needs the `world.raycast` permission, and counts towards its 64 raycasts a tick. A ray longer than 1000 m raises an error. As with `raycast`, collision is loaded only near the skater.
+</Note>
+
+### `reskate.world.probe(from, to)`
+
+Like `raycast`, but it tells a clear ray from one that could not be cast. `raycast` and `pick` return `nil` for both; `probe` says which, so a plugin that needs real collision can wait instead of treating the way as clear.
+
+<ParamField path="from" type="vector" required>The ray's start.</ParamField>
+<ParamField path="to" type="vector" required>The ray's end, at most 1000 m from `from`.</ParamField>
+
+<ResponseField name="result" type="table">
+<Expandable title="fields">
+<ResponseField name="status" type="string">`"hit"`: the ray met the world. `"clear"`: the ray was cast and met nothing. `"unavailable"`: no valid answer this time, so assume nothing.</ResponseField>
+<ResponseField name="position" type="vector">Only on a hit: where the ray first meets the world.</ResponseField>
+<ResponseField name="fraction" type="number">Only on a hit: how far along the ray, 0 to 1.</ResponseField>
+</Expandable>
+</ResponseField>
+
+It gives no surface normal, no velocity and no object. A ray shorter than about 10 micrometres is `"unavailable"` without being cast. A hit that does not lie on the ray is `"unavailable"` too, never `"clear"`. A clear ray says only that this ray met nothing; collision far from the skater may not be loaded.
+
+```lua
+local s = reskate.skater.get()
+if s then
+    local r = reskate.world.probe(s.position + vector.create(0, 1, 0), s.position - vector.create(0, 50, 0))
+    if r.status == "hit" then
+        reskate.log(string.format("ground %.1f m down", s.position.y - r.position.y))
+    elseif r.status == "unavailable" then
+        -- try again on a later tick
+    end
+end
+```
+
+<Note>
+Needs the `world.raycast` permission. Takes exactly two arguments; any other count raises an error. Counts towards the 64 raycasts a tick. It also shares 64 casts in the game a tick with [ray batches](/plugins/api/bodies#ray-batches); once those are spent it returns `"unavailable"`.
 </Note>
 
 ## Time of day and world controls
@@ -260,11 +297,149 @@ Removes an object.
 
 <Note>Needs the `world.objects` permission.</Note>
 
+## Object physics
+
+`objects.physics` lets a plugin take over the physics of park objects already placed in the local park, and make them fall, roll and be knocked over: a QuickDrop that tumbles, a rail that slides when you hit it. The plugin decides what happens; ReSkate gives it the object's motion and the means to push it.
+
+<Warning>
+Object physics is for a plugin whose manifest says `"side": "client"`; any other plugin's call raises an error. It works offline only: in a multiplayer session, while objects cannot be placed, while the park is being cleared, and in the park editor or a menu, a claim is refused. Other players never see the motion.
+</Warning>
+
+- **Claims.** A plugin claims an object by its id, from [`reskate.objects.list`](#objects), with `physics`. Only objects that stand fixed can be claimed. One plugin holds an object at a time, and no other plugin can move, sample or release it. A plugin claims at most 32 objects, and all plugins together 128.
+- **Never saved.** A claimed object's moved pose is never saved with the park. When the claim is let go, the object goes back to where it was placed (or where a park editor edit put it since). To keep an object where it fell, move it there with [`reskate.objects.move`](#objects), which saves.
+- **Let go for you.** Clearing the park, a level change and your plugin stopping let go of every claim. The menu and the park editor hold claimed objects still while they are open.
+
+### `reskate.objects.physics(id, options)`
+
+Claims an object, changes its claim, or lets it go.
+
+<ParamField path="id" type="string" required>The object's id, a decimal string from `list()`.</ParamField>
+<ParamField path="options" type="table or nil">
+`nil` (or left out) lets go of your claim, and the object goes back to its placed pose. A table claims it, or changes your claim:
+<Expandable title="fields">
+<ParamField path="dynamic" type="boolean" default="true">True: the object moves under physics (it falls, rolls and can be knocked). False: it holds still where it is, and you place it with `pose`.</ParamField>
+<ParamField path="mass" type="number" default="80">Kilograms, 0.1 to 20000.</ParamField>
+<ParamField path="surface" type="boolean" default="false">True lets the skater ride and grind the object as a moving surface while it moves.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the claim is made, changed or let go.</ResponseField>
+<ResponseField name="why" type="string">Why not, such as `"object physics is offline-only and unavailable while editing or in a menu"`, `"not a live local placement"`, `"another plugin controls this object's physics"`, `"only fixed local placement bodies may be claimed"`, `"object physics limit reached"`, `"object changed; release its old physics claim first"`, `"object physics rate limit reached"`, `"this plugin does not control this object's physics"` or `"unavailable here"`.</ResponseField>
+
+The same options again change nothing. Different options change a claim at most every 16 ms.
+
+```lua
+local o = reskate.objects.list()[1]
+if o then
+    local ok, why = reskate.objects.physics(o.id, {dynamic = true, mass = 25})
+    if not ok then reskate.log("no physics: " .. why) end
+end
+```
+
+<Note>Needs the `objects.physics` permission and a client-only plugin. An id that is not a decimal string of a whole number from 1, or a mass that is not a number from 0.1 to 20000, raises an error.</Note>
+
+### `reskate.objects.motion(id)`
+
+Where a claimed object is and how it moves now.
+
+<ParamField path="id" type="string" required>The object's id.</ParamField>
+
+<ResponseField name="motion" type="table or nil">
+`nil` when you do not hold the object, or its body cannot be read.
+<Expandable title="fields">
+<ResponseField name="position" type="vector">Where it is.</ResponseField>
+<ResponseField name="rotation" type="table">Its rotation as a list `{x, y, z, w}`.</ResponseField>
+<ResponseField name="velocity" type="vector">Metres per second.</ResponseField>
+<ResponseField name="dynamic" type="boolean">Whether it moves under physics.</ResponseField>
+<ResponseField name="surface" type="boolean">Whether it is a moving surface.</ResponseField>
+<ResponseField name="mass" type="number">The mass you gave it.</ResponseField>
+<ResponseField name="authored_mass" type="number">The mass the object was made with.</ResponseField>
+<ResponseField name="editing" type="boolean">True while the park editor is moving it. `velocity` and `pose` are refused then.</ResponseField>
+<ResponseField name="edit_revision" type="string">An opaque string that changes when an editor edit of the object is committed.</ResponseField>
+<ResponseField name="generation" type="string">An opaque string for this object's life. When the same id names a different object (it was replaced), it changes: forget what you kept about the old one.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `objects.physics` permission and a client-only plugin.</Note>
+
+### `reskate.objects.velocity(id, velocity)`
+
+Sets a claimed, dynamic object moving.
+
+<ParamField path="id" type="string" required>The object's id.</ParamField>
+<ParamField path="velocity" type="vector" required>Metres per second, in the world: a speed of at most 45 m/s.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it was set.</ResponseField>
+<ResponseField name="why" type="string">`"object physics is unavailable"` (offline only, not while it is being edited, and only for a dynamic claim), `"object velocity rate limit reached"`, or `"this plugin does not control this object's physics"`.</ResponseField>
+
+<Note>Needs the `objects.physics` permission and a client-only plugin. Once every 16 ms for each object. A velocity that is not finite or faster than 45 m/s raises an error.</Note>
+
+### `reskate.objects.pose(id, position, rotation)`
+
+Puts a claimed object somewhere, and stops it moving.
+
+<ParamField path="id" type="string" required>The object's id.</ParamField>
+<ParamField path="position" type="vector" required>Where it goes, within 100 km.</ParamField>
+<ParamField path="rotation" type="table" required>A unit quaternion as a list `{x, y, z, w}` (its squared length between 0.95 and 1.05).</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it was placed.</ResponseField>
+<ResponseField name="why" type="string">`"object physics is unavailable"`, `"object pose rate limit reached"`, `"object pose could not be applied"` (try again), or `"this plugin does not control this object's physics"`.</ResponseField>
+
+```lua
+-- Stand a tumbled object back up where it lies.
+local m = reskate.objects.motion(id)
+if m then reskate.objects.pose(id, m.position + vector.create(0, 0.2, 0), {0, 0, 0, 1}) end
+```
+
+<Note>Needs the `objects.physics` permission and a client-only plugin. Once every 250 ms for each object. A rotation that is not four numbers of a unit quaternion raises an error.</Note>
+
+### `reskate.objects.contact(from, to)`
+
+Which of your claimed objects a short ray meets first.
+
+<ParamField path="from" type="vector" required>The ray's start.</ParamField>
+<ParamField path="to" type="vector" required>The ray's end, at most 10 m from `from`.</ParamField>
+
+<ResponseField name="hit" type="table or nil">
+`nil` when the ray meets nothing, or meets something before any object you hold: it never sees through the world.
+<Expandable title="fields">
+<ResponseField name="id" type="string">The object's id.</ResponseField>
+<ResponseField name="position" type="vector">Where the ray meets it.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `objects.physics` permission and a client-only plugin. Counts towards the 64 raycasts a tick, past which it raises an error. A ray longer than 10 m raises an error.</Note>
+
+## Marker events
+
+### `reskate.marker.events()`
+
+The marker saves and returns the local skater made since your last call: for a plugin that keeps something of its own with each marker, such as where its objects were.
+
+<ResponseField name="events" type="table or nil">A list, oldest first, of `"saved"` (a marker was set) and `"returned"` (the skater went back to the marker). Only the game's own return to the saved marker counts as `"returned"`, not other teleports. `nil` and `"unavailable here"` when it cannot be read.</ResponseField>
+<ResponseField name="overflow" type="boolean">True when events were missed since your last call: act on none of the old ones.</ResponseField>
+
+The first call starts listening and returns an empty list: events from before it are not replayed. ReSkate keeps the last 32 events. A level change drops the ones not yet read.
+
+```lua
+reskate.on("tick", function()
+    local events, overflow = reskate.marker.events()
+    if not events then return end
+    if overflow then snapshot = nil end
+    for _, e in ipairs(events) do
+        if e == "saved" then snapshot = take_snapshot()
+        elseif e == "returned" and snapshot then restore(snapshot) end
+    end
+end)
+```
+
+<Note>Needs the `marker.read` permission and a client-only plugin.</Note>
+
 ## Your own world objects
 
 `reskate.entities` puts world objects of your plugin's own into the map: an entity of any world object blueprint the game has loaded, such as a prop, a gate's arch or a traffic cone, at a full transform. They are not park editor objects: they are not saved with the park, and the editor does not list them.
 
-You give each object a number of your own, its id, and say what it is and where. ReSkate makes the object, moves it and takes it away for you over the next frames. Calling `set` again with the same id moves the object in place (at most every 16 ms), or makes it again when the blueprint is a different one.
+You give each object a number of your own, its id, and say what it is and where. ReSkate makes the object, moves it and takes it away for you over the next frames. Calling `set` again with the same id moves the object in place, or makes it again when the blueprint is a different one. A solid object you move yourself moves at most every 16 ms; an object that is not solid, or is on a joint, follows its new transform every frame.
 
 <Warning>
 Only your game shows these objects. Another player sees them only when their copy of your plugin places them too. A dedicated server has none: `set` returns `false, "unavailable here"` there.
@@ -294,7 +469,7 @@ A transform is a table in one of three forms:
 `yaw` here is in degrees. Headings elsewhere, such as the [skater's](/plugins/api/skater#positions-and-headings), are radians: convert with `math.deg`.
 </Note>
 
-### `reskate.entities.set(id, blueprint, transform, hidden, attach)`
+### `reskate.entities.set(id, blueprint, transform, hidden, attach, options)`
 
 Makes, moves or changes one of your objects.
 
@@ -309,11 +484,17 @@ Keeps the object on a joint of a skater, moved with it every frame: a camera in 
 <ParamField path="player" type="string or table">Another player in your session, by id or [player table](/plugins/api/session). Nothing for your own skater. Their joint is where your game draws their skater.</ParamField>
 <ParamField path="upright" type="boolean" default="false">True keeps the object standing level at the joint, turned only about world up as the joint turns, instead of leaning with it: a prop worn by a hider stays upright whatever the skater's body does. The `transform` is then in that level frame.</ParamField>
 <ParamField path="turn" type="boolean" default="true">False makes the object follow only the joint's position: its rotation is the `transform`'s, in the world, whatever the skater does, and its position is an offset along the world's axes. Turn it yourself by setting it again with another `yaw`. A prop hunt's disguise uses it so the prop turns only when the player says.</ParamField>
+<ParamField path="ground" type="number or boolean" default="0">Stands the object on the floor found below the joint, at most this many metres down (0 to 50; `true` is 2 m): the `transform`'s height is then above that floor. The object's own shapes are not floor. Where no floor is found in reach, it stays at the joint.</ParamField>
+</Expandable>
+</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="solid" type="boolean" default="true">False lets skaters go through the object: a visual only. Such an object follows every new transform on every frame, without the 16 ms wait.</ParamField>
 </Expandable>
 </ParamField>
 
 <ResponseField name="ok" type="boolean">True when ReSkate keeps the object. It is made over the next frames: use `status` to know when it is there.</ResponseField>
-<ResponseField name="why" type="string">Why not: `"an object's blueprint is a name of 1 to 200 characters"`, `"an object's transform must be finite, within 100 km, each axis at most 200 long"`, `"at most 512 objects"` or `"the world holds as many objects as ReSkate keeps"`.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"an object's blueprint is a name of 1 to 200 characters"`, `"an object's transform must be finite, within 100 km, each axis at most 200 long"`, `"at most 512 objects"`, `"the world holds as many objects as ReSkate keeps"`, or `"objects that are not solid or stand on the ground are unavailable for this game build"`.</ResponseField>
 
 ```lua
 -- A cone 4 m ahead of the skater, turned as the skater is.
@@ -333,7 +514,7 @@ reskate.entities.set(2, cone, {position = vector.create(0, 0.25, 0)}, false, {jo
 ```
 
 <Note>
-Needs the `world.entities` permission. An id that is not a whole number from 1, a blueprint longer than 200 characters, a `transform` that is not a table, a `matrix` that is not 16 numbers, a `scale` that is neither a number nor a vector, an axis that is not a vector, or an angle that is not finite raises an error. So does an `attach` that is not a table, a joint that is not a whole number from 0 to 394 or one of the five names, or a `player` that is not a player's id. A plugin keeps at most 512 objects, and ReSkate keeps at most 1024 for all plugins together. Moving or changing an object you already have does not count again.
+Needs the `world.entities` permission. An id that is not a whole number from 1, a blueprint longer than 200 characters, a `transform` that is not a table, a `matrix` that is not 16 numbers, a `scale` that is neither a number nor a vector, an axis that is not a vector, or an angle that is not finite raises an error. So does an `attach` that is not a table, a joint that is not a whole number from 0 to 394 or one of the five names, a `player` that is not a player's id, a `ground` outside 0 to 50, or an `options` that is not a table. A plugin keeps at most 512 objects, and ReSkate keeps at most 1024 for all plugins together. Moving or changing an object you already have does not count again.
 </Note>
 
 #### Objects on a joint

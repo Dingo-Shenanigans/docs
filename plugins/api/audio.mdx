@@ -33,11 +33,23 @@ How loud a sound is depends on how far it is from the camera: it is at its `volu
 
 A sound is a WAV file in your package:
 
-- RIFF WAVE, 8, 16, 24 or 32-bit PCM, or 32-bit float;
+- RIFF WAVE, 8, 16, 24 or 32-bit PCM, 32-bit float, or 4-bit IMA ADPCM (format `0x11`, the layout ffmpeg's `adpcm_ima_wav` writes);
 - 1 to 8 channels, 4,000 to 192,000 samples a second;
 - at most 30 seconds long, and at most 8 MB.
 
-ReSkate turns it into 16 kHz mono when it first plays it (channels are mixed down). A plugin plays at most 32 different files in all; each is read once and kept.
+ReSkate turns it into 16 kHz mono 16-bit when it first plays it (channels are mixed down), the form the game's positioned sound takes. A higher rate or more channels only make your package bigger.
+
+IMA ADPCM is a quarter of the size of 16-bit PCM, so a plugin with many sounds ships much smaller. To make one with ffmpeg:
+
+```sh
+ffmpeg -i hit.wav -ac 1 -ar 16000 -c:a adpcm_ima_wav sounds/hit.wav
+```
+
+#### Sounds held
+
+A plugin can play any number of different files over a session. It holds at most 32 of them, read and turned into 16 kHz mono, and at most 64 MB of their samples, at once. Past either, the file played longest ago that no sound is playing now is let go. It is read from your package again if you play it again. Only when every file the plugin holds is still playing does `play` raise an error for a new one: `a plugin holds at most 32 different sounds (64 MB) at once, and all it holds are playing`.
+
+At 16 kHz mono, 64 MB is about 35 minutes of sound.
 
 ### `reskate.audio.play(sound, options)`
 
@@ -76,7 +88,7 @@ if not motor then reskate.log("no motor: " .. why) end
 ```
 
 <Note>
-Needs `audio`. A plugin plays at most 8 sounds at once (and all plugins 48), and starts at most 20 in a second; past those, it returns `false` and why. Raises an error for a file that is not in the package, cannot be read, is not a WAV it can play or is longer than 30 seconds, for a 33rd different file, and for an option out of its range.
+Needs `audio`. A plugin plays at most 8 sounds at once (and all plugins 48), and starts at most 20 in a second; past those, it returns `false` and why. Raises an error for a file that is not in the package, cannot be read, is not a WAV it can play or is longer than 30 seconds, for a new file while every file the plugin holds is playing (see [sounds held](#sounds-held)), and for an option out of its range.
 </Note>
 
 ### `reskate.audio.set(id, options)`

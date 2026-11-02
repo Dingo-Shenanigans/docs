@@ -251,15 +251,29 @@ reskate.animation.play(clip, {floor = true})
 
 ### `reskate.animation.sample(clip, joint, seconds)`
 
-One joint of a clip at a time, blended between the frames around it.
+A clip's joints at a time, blended between the frames around it. Pass one joint for one joint, or a list of joints to read them all from one sampling of the clip.
 
 <ParamField path="clip" type="string" required>The clip's name.</ParamField>
-<ParamField path="joint" type="number or string" required>A joint, as [`reskate.skater.joint`](/plugins/api/skater) takes one (0 to 394, or a name), or `"board"`.</ParamField>
+<ParamField path="joint" type="number, string or table" required>A joint, as [`reskate.skater.joint`](/plugins/api/skater) takes one (0 to 394, or a name), or `"board"`. Or a list of them, such as `{0, 1, "Head", "board"}`.</ParamField>
 <ParamField path="seconds" type="number" required>Seconds into the clip; before its start is its start, past its end its end.</ParamField>
 
-<ResponseField name="joint" type="table or nil">`{position, rotation, scale}` in the joint's parent's frame (the board's: relative to joint 1, the skater's placement). `nil` for a joint the clip does not hold, or `"board"` in a clip without the board.</ResponseField>
+<ResponseField name="joint" type="table or nil">For one joint: `{position, rotation, scale}` in the joint's parent's frame (the board's: relative to joint 1, the skater's placement). `nil` for a joint the clip does not hold, or `"board"` in a clip without the board.
 
-<Note>Needs the `skater.animation` permission. A joint that is not one of those, or a time that is not a number, raises an error.</Note>
+For a list: a table keyed by each joint exactly as you gave it (a number stays a number, a name stays a name), each value `{position, rotation, scale}`. A joint the clip does not hold is left out.</ResponseField>
+
+```lua
+-- A whole pose at 0.5 s, sampling the clip once instead of once per joint.
+local wanted = {}
+for _, j in reskate.animation.joints() do table.insert(wanted, j.joint) end
+local pose = reskate.animation.sample(clip, wanted, 0.5)
+for joint, t in pose do
+    reskate.log(tostring(joint) .. " at " .. tostring(t.position))
+end
+```
+
+Reading a whole skeleton joint by joint samples the clip once per call. The list form samples the clip once (and its board once, when you ask for `"board"`), so use it when you want more than a joint or two.
+
+<Note>Needs the `skater.animation` permission. A joint that is not one of those (in the list too), or a time that is not a finite number, raises an error.</Note>
 
 ### `reskate.animation.joints()`
 

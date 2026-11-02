@@ -1,9 +1,9 @@
 ---
 title: "Music"
-description: "reskate.music: read and control the music an outside player plays, and the game's own soundtrack."
+description: "reskate.music: read and control the music an outside player plays and the game's own soundtrack, and play the music through a speaker you place with reskate.spatialize_music."
 ---
 
-`reskate.music` reads the song playing and skips it. Every function, and the `track_changed` event, needs the `music` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+`reskate.music` reads the song playing and skips it, and [`reskate.spatialize_music`](#a-speaker-in-the-world) plays the music through a speaker you place. Every function, and the `track_changed` event, needs the `music` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
 
 There are two kinds of music:
 
@@ -113,6 +113,58 @@ Skips the game's soundtrack to its next song.
 <ResponseField name="why" type="string">Why not: `"asked more than twice in a second"` or `"the game's music cannot skip now (a Spotify station is on, or no song has started)"`.</ResponseField>
 
 <Note>Needs the `music` permission. Shares the budget of 2 calls a second with the outside player's commands.</Note>
+
+## A speaker in the world
+
+### `reskate.spatialize_music(speaker)`
+
+Plays the music through a speaker your plugin places: a boombox on the ground, a car stereo, a club's sound system. Your plugin works out where the speaker is relative to the listener and passes the result. ReSkate applies it to the music as the game streams it:
+
+- the song a Spotify station is playing, and
+- any other stream of 45 seconds or more: the game's own songs, and songs from the world's speakers.
+
+Shorter streams are the world's short music loops. `mute_loops` silences them instead. Each long stream has its own filters, so the two songs of a crossfade never share a filter's state.
+
+<ParamField path="speaker" type="table, nil or false" required>
+The speaker's settings, or `nil` or `false` to turn it off at once.
+<Expandable title="fields">
+<ParamField path="active" type="boolean" default="true">`false` turns it off, as passing `nil` does.</ParamField>
+<ParamField path="left" type="number" default="1">The left ear's gain, 0 to 4.</ParamField>
+<ParamField path="right" type="number" default="1">The right ear's gain, 0 to 4.</ParamField>
+<ParamField path="lpf" type="number" default="1">Both ears' low-pass, 0.04 to 1. 1 lets everything through; lower is more muffled, as through a wall.</ParamField>
+<ParamField path="lpf_l" type="number" default="lpf">The left ear's low-pass, 0.04 to 1, in place of `lpf`.</ParamField>
+<ParamField path="lpf_r" type="number" default="lpf">The right ear's low-pass, 0.04 to 1, in place of `lpf`.</ParamField>
+<ParamField path="itd" type="number" default="0">The delay between the ears, in samples, -32 to 32. Negative delays the left ear. Taken as a whole number.</ParamField>
+<ParamField path="env" type="number" default="0">How much of a small room's reverb is mixed in, 0 to 0.65.</ParamField>
+<ParamField path="mute_loops" type="boolean" default="true">Silences the world's short music loops while the station's song plays through the speaker. Only then: with no station song going through it, the loops play.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="on" type="boolean">True when the speaker is on now. Always `false` on a dedicated server, which plays no music.</ResponseField>
+
+A number past its range is held to it. A number that is not finite raises an error, and so does anything but a table, `nil` or `false`.
+
+A setting lasts about 2 seconds. Call it every tick you want the speaker. When your plugin stops or crashes, the music is back as it was within 2 seconds. Turned on again after it was off or ran out, the speaker starts with fresh filters.
+
+```lua
+local speaker = vector.create(12, 0, -40)
+
+reskate.on("tick", function()
+    local me = reskate.skater.position()
+    if not me then return end
+    local distance = vector.magnitude(speaker - me)
+    local gain = math.clamp(8 / math.max(distance, 1), 0, 1)
+    reskate.spatialize_music({
+        left = gain, right = gain,
+        lpf = math.clamp(1 - distance / 60, 0.1, 1),
+        env = 0.2,
+    })
+end)
+```
+
+A real speaker pans: work out which side of the listener it is on (with the camera's `right` from [`reskate.camera.get`](/plugins/api/camera), which needs `camera`) and give that ear more gain, a clearer low-pass and the earlier sound (`itd`). The example above needs `skater.read` for the skater's position.
+
+<Note>Needs the `music` permission. It changes only how the music sounds on your game. Plugins cannot change the game's volume or sound settings.</Note>
 
 ## The `track_changed` event
 

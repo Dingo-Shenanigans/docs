@@ -39,6 +39,18 @@ Named constants for the strings the API takes, read-only and built from ReSkate'
 <Expandable title="fields">
 <ResponseField name="Side" type="table">The copies a plugin runs as: `client`, `server` and `both`, each its own name (`reskate.Enums.Side.server` is `"server"`).</ResponseField>
 <ResponseField name="Event" type="table">Every event `reskate.on` takes, each its own name (`reskate.Enums.Event.tick` is `"tick"`). See [events](/plugins/events).</ResponseField>
+<ResponseField name="Key" type="table">The named keys [`reskate.input`](/plugins/api/input) takes, besides letters and digits: `Enter`, `Backspace`, `Escape`, `End`, `Home`, `PageUp`, `PageDown`, `Space`, `Shift`, `Ctrl`, `Alt`, `Tab`, `Left`, `Up`, `Right`, `Down`, `[`, `]`, `Delete`, `LeftMouse`, `RightMouse` and `MiddleMouse`.</ResponseField>
+<ResponseField name="LogLevel" type="table">`info`, `warn` and `error`, for `reskate.log`.</ResponseField>
+<ResponseField name="Align" type="table">`left`, `centre`, `center` and `right`, for text on the [overlay](/plugins/api/overlay).</ResponseField>
+<ResponseField name="Launch" type="table">`grind`, `ollie`, `no_comply` and `boneless`, for [launches](/plugins/api/skater#launches).</ResponseField>
+<ResponseField name="Stance" type="table">`regular` and `goofy`, as [`reskate.animation.info`](/plugins/api/animation) gives a clip's stance.</ResponseField>
+<ResponseField name="Pop" type="table">`low`, `mid` and `high`, the pops [`reskate.animation.replace`](/plugins/api/animation) takes.</ResponseField>
+<ResponseField name="Space" type="table">`local` and `world`, for bones set in a parent's frame or in the world ([board](/plugins/api/board)).</ResponseField>
+<ResponseField name="Throwdown" type="table">`jam`, `spot_battle` and `skate`, the [throwdown](/plugins/api/throwdowns) modes.</ResponseField>
+<ResponseField name="Card" type="table">`skate`, `spot`, `spot_battle` and `jam`, the throwdown cards.</ResponseField>
+<ResponseField name="EntityStatus" type="table">`waiting`, `loading`, `missing`, `ready` and `hidden`, what [`reskate.entities.status`](/plugins/api/world#your-own-world-objects) says.</ResponseField>
+<ResponseField name="Target" type="table">`all` and `server`, where [`reskate.net.send`](/plugins/api/session) sends.</ResponseField>
+<ResponseField name="ItemSource" type="table">`mod`, `changed`, `game` and `unknown`, what [`reskate.mods.item_origins`](/plugins/api/mods) says.</ResponseField>
 </Expandable>
 </ResponseField>
 

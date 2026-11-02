@@ -1,0 +1,122 @@
+---
+title: "Strings"
+description: "reskate.strings: change the text the game shows for its ids, in its menus and store, to translate the game or rename what it shows."
+---
+
+`reskate.strings` changes the game's own text. The lines the game shows, in its menus and its store, come from ids such as `ID_MENU_PLAY`; a plugin gives an id a text of its own, and the game shows that text wherever it shows the id. It replaces text the game ships, and adds text for an id the game lacks. Use it for a translation, or for the names your mod's own items and modes show.
+
+`set`, `set_many`, `exists` and `set_case_rules` need the `strings` [permission](/plugins/permissions). `hash` needs none. Calling a function without its permission raises an error.
+
+<Warning>
+The player is told, when they turn your plugin on, that it can change the text the game shows, in its menus and its store. The text shows on your game only; other players see their own.
+</Warning>
+
+## Ids and keys
+
+A key is one of two things:
+
+- an id, such as `"ID_MENU_PLAY"`: 1 to 255 printable ASCII characters, without spaces, not starting with `#`;
+- `"#"` and 1 to 8 hex digits, such as `"#1a2b3c4d"`, for a text known only by its hash. A dump of the game's text names those strings this way. `hash` (below) gives an id's key in this form.
+
+A text is UTF-8, without a NUL character, and at most 511 characters (counted as UTF-16 units, so a character outside the Basic Multilingual Plane counts as two).
+
+## How texts are applied
+
+- A text shows from the next ticks on. ReSkate stores 256 texts a tick, so a whole translation causes no hitch; a long one takes a few ticks to show in full.
+- Texts are stored once the game's text is loaded, and all of them again when the player changes the game's language.
+- When two plugins set the same id, the last to set it shows.
+- A plugin holds at most 65,536 texts. Setting an id again replaces your own text and does not count twice.
+- When your plugin stops, an id another plugin also set shows that plugin's text again. Any other id keeps your text until the game restarts: the game's text store has no way to take one out.
+
+## Setting text
+
+### `reskate.strings.set(key, text)`
+
+Shows `text` wherever the game shows the id's text.
+
+<ParamField path="key" type="string" required>An id or a `#hash`, as [above](#ids-and-keys).</ParamField>
+<ParamField path="text" type="string" required>UTF-8, at most 511 characters.</ParamField>
+
+<ResponseField name="ok" type="boolean">`true` when the text is taken.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"a plugin sets at most 65536 strings"`, `"the game's text store differs from the supported build"`, or `"unavailable here"` on a dedicated server.</ResponseField>
+
+A key or text that breaks the rules above raises an error, such as `reskate.strings.set: an id is printable ASCII, without spaces` or `reskate.strings.set: a text is at most 511 characters (UTF-16 units)`.
+
+```lua
+reskate.strings.set("ID_MENU_PLAY", "Skate")
+```
+
+<Note>Needs the `strings` permission.</Note>
+
+### `reskate.strings.set_many(texts)`
+
+Sets many texts at once, from a table of keys and texts. Keys that start with `_` are left out, so a data file can carry notes.
+
+<ParamField path="texts" type="table" required>`{[key] = text, ...}`. Every key a string, as [above](#ids-and-keys); every text a string. At most 65,536 pairs.</ParamField>
+
+<ResponseField name="count" type="number or nil">How many texts it took. `nil` when the game refused them.</ResponseField>
+<ResponseField name="why" type="string">Why not, as for `set`.</ResponseField>
+
+Nothing is taken when one pair is refused. A pair that breaks the rules raises an error that names its key, such as `reskate.strings.set_many: "ID_MENU_PLAY": a text is a string`.
+
+```lua
+-- strings/tr.json in your package: {"_note": "Turkish", "ID_MENU_PLAY": "Oyna", ...}
+local texts = reskate.package.read_json("strings/tr.json")
+local count, why = reskate.strings.set_many(texts)
+if count then
+    reskate.log("set " .. count .. " strings")
+else
+    reskate.log("strings refused: " .. why, "warn")
+end
+```
+
+<Note>Needs the `strings` permission.</Note>
+
+## Reading
+
+### `reskate.strings.exists(key)`
+
+Whether the game has text for a key: its own, or a plugin's already stored.
+
+<ParamField path="key" type="string" required>An id or a `#hash`.</ParamField>
+
+<ResponseField name="exists" type="boolean or nil">`nil` while it cannot say: before the game's text is up, or on a dedicated server.</ResponseField>
+
+```lua
+if reskate.strings.exists("ID_MYMOD_TITLE") == false then
+    reskate.strings.set("ID_MYMOD_TITLE", "My Mod")
+end
+```
+
+<Note>Needs the `strings` permission.</Note>
+
+### `reskate.strings.hash(id)`
+
+The id's `#hash` key: `"#"` and 8 lowercase hex digits. Use it to match an id to a dump of the game's text that names strings by hash. It only computes, and needs no permission.
+
+<ParamField path="id" type="string" required>1 to 255 characters.</ParamField>
+
+<ResponseField name="key" type="string">Such as `"#0a1b2c3d"`.</ResponseField>
+
+```lua
+reskate.log(reskate.strings.hash("ID_MENU_PLAY"))
+```
+
+## Casing
+
+### `reskate.strings.set_case_rules(rules)`
+
+Some of the game's text is capitalized by the game itself, such as an upper-case heading. Its own rules know no language, so a Turkish `i` becomes `I`. With `"tr"`, `i` becomes `İ` (U+0130) in upper case, and `I` becomes `ı` (U+0131) in lower case, the rules of Turkish and Azerbaijani.
+
+<ParamField path="rules" type="string">`"tr"`, or `""` or `nil` to give back the game's own rules.</ParamField>
+
+<ResponseField name="ok" type="boolean">`true` when taken.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"the game's text casing differs from the supported build"`, or `"unavailable here"` on a dedicated server.</ResponseField>
+
+The Turkish rules hold while any plugin that asked for them is loaded; your `""`, or your plugin stopping, gives up only your own request. Any other value raises an error.
+
+```lua
+reskate.strings.set_case_rules("tr")
+```
+
+<Note>Needs the `strings` permission.</Note>

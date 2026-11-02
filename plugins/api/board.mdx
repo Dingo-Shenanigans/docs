@@ -1,6 +1,6 @@
 ---
 title: "Board"
-description: "reskate.board: read the skateboard's motion and bones, move, hide, park or toss its parts as they are drawn, fit every board to a deck model of your own, and colour its shader parameters."
+description: "reskate.board: read the skateboard's motion and bones, move, hide, size, park or toss its parts as they are drawn, fit every board to a deck model of your own, and colour its shader parameters."
 ---
 
 `reskate.board` reads the local skateboard and changes what is drawn of it. `reskate.board.motion` needs the `skater.read` permission; every other function needs the `board` permission. Calling a function without its permission raises an error. See [permissions](/plugins/permissions).
@@ -8,7 +8,7 @@ description: "reskate.board: read the skateboard's motion and bones, move, hide,
 A plugin changes only what is drawn. The next animation update writes the whole pose again, and what the plugin asked for is written over it every frame, as the pose goes to the renderer. The board itself, its physics and the skater riding it do not change.
 
 <Warning>
-`reskate.board` sends nothing to other players. `set`, `hide`, `toss` and `set_parameter` change your own board as your game draws it. `park` and `fit` change every board your game draws, other players' boards included, but only on your game.
+`set`, `toss` and `set_parameter` change your own board as your game draws it, and `hide` does too unless you ask for `others`. `park` and `fit` change every board your game draws, other players' boards included, but only on your game. `scale` is the one change other players see without asking: a board's sizes travel with your skater, held to the session's limit.
 </Warning>
 
 ## The rig
@@ -64,7 +64,7 @@ end
 
 ### `reskate.board.bones()`
 
-The local board's 16 bones as last drawn, each in its parent's frame.
+The local board's 16 bones as last drawn, each in its parent's frame. Only the board the local skater has now: after a map load, `nil` until that board is drawn.
 
 <ResponseField name="bones" type="table or nil">
 `nil` without a board. A table indexed 0 to 15 (note the 0: `ipairs` skips it).
@@ -137,6 +137,31 @@ reskate.board.hide(3) -- the deck goes, the trucks and wheels stay
 ```
 
 <Note>Needs the `board` permission.</Note>
+
+### `reskate.board.scale(bone, size)`
+
+Draws a bone bigger or smaller, until you end it. The animation still turns and places the bone; only its size changes, along the bone's own axes. What hangs on the bone grows with it: a bigger deck mount (bone 2) is a bigger board, trucks and wheels included.
+
+<ParamField path="bone" type="number" required>2 to 15.</ParamField>
+<ParamField path="size" type="number or vector">One number for every axis, or a vector for each axis on its own, each 0.25 to 4. Leave it out to end your size on this bone.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the size is held (or ended).</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"a bone's size is 0.25 to 4 on each axis"`, or `"<plugin> sizes that bone"` while another plugin sizes it.</ResponseField>
+
+```lua
+-- The whole board a quarter bigger: the mount carries the deck, trucks and wheels.
+reskate.board.scale(2, 1.25)
+-- Big wheels.
+for _, wheel in {6, 7, 10, 11} do reskate.board.scale(wheel, 1.6) end
+-- The mount back to its own size; the wheels stay big.
+reskate.board.scale(2)
+```
+
+Unlike `set` and `hide`, sizes do not take the board: one plugin sizes a bone at a time, and different plugins can size different bones. `clear` ends your sizes too, on that bone or on every bone.
+
+Sizes show to the other players. They go in the pose your game sends, and a board's bones are held there as a skater's resized bones are: a dedicated server holds them to its `bone_scale_limit` (2 unless its owner changed it), and every game holds a pose it receives to 8. The limit counts down the board's rig, so a big board with big wheels on it shows within it together, and a board bone never shows past 4. On your own screen the board is as big as you asked.
+
+<Note>Needs the `board` permission. A bone that is not 2 to 15 raises an error. When the plugin stops, its sizes end.</Note>
 
 ### `reskate.board.clear(bone)`
 

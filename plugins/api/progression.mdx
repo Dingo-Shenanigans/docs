@@ -1,13 +1,13 @@
 ---
 title: "Progression and settings"
-description: "reskate.progression and reskate.settings: read the player's progress, and read the game's settings or hold one at a value of yours."
+description: "reskate.progression and reskate.settings: read the player's progress, read the game's settings or hold one at a value of yours, and hold a gameplay option for a moment."
 ---
 
 These tables read the player's progress in the game and the game's own settings. Nothing here changes the profile. A plugin can hold a game setting at a value of its own while it runs, and the setting goes back to what it was after.
 
 - `reskate.progression.get` needs the `progression.read` permission.
-- `reskate.settings.game` and `reskate.settings.names` need the `settings.read` permission.
-- `reskate.settings.set` needs the `settings.write` permission.
+- `reskate.settings.game`, `reskate.settings.names` and `reskate.settings.gameplay` need the `settings.read` permission.
+- `reskate.settings.set` and `reskate.settings.hold_gameplay` need the `settings.write` permission.
 
 Calling a function without its permission raises an error. See [permissions](/plugins/permissions).
 
@@ -114,4 +114,48 @@ end
 
 <Note>
 Needs the `settings.write` permission. During a multiplayer session, settings that change how the game plays are refused, as they are from the console: those of the `SimulationTime`, `Physics`, `PhysicsQuality`, `FBCorePhysics`, `DingoGameplay`, `DingoActivity`, `DingoThrowdowns`, `DingoThrowdown`, `DelMarGame`, `AutoPlayers` and `SkaterRecord` groups. One your plugin held before the session goes back when it starts. Letting go of a setting you do not hold does nothing.
+</Note>
+
+## Gameplay options
+
+The player's on and off gameplay preferences, as the game reads them while you play. A plugin can hold one at a value of its own for a moment, such as a controller layer that needs a preference set one way while its scheme runs. Nothing is saved: the player's profile, and the game's own **Settings** screen, keep the player's value.
+
+An option is known by the name the game reads it by. A name is known only once the game has read that option this session; before that, `gameplay` returns `nil` and `hold_gameplay` refuses it.
+
+### `reskate.settings.gameplay(name)`
+
+The player's own value of a gameplay option, whatever a plugin holds.
+
+<ParamField path="name" type="string" required>The option's name, 1 to 120 characters, with no zero byte. Anything else raises an error.</ParamField>
+
+<ResponseField name="value" type="boolean or nil">The player's value. `nil` until the game has read that option.</ResponseField>
+
+<Note>Needs the `settings.read` permission.</Note>
+
+### `reskate.settings.hold_gameplay(name, value)`
+
+Holds a gameplay option at `value` for the next 300 ms, as the game reads it during play.
+
+<ParamField path="name" type="string" required>The option's name, 1 to 120 characters, with no zero byte.</ParamField>
+<ParamField path="value" type="boolean or nil" required>`true` or `false`. `nil` lets go of your hold.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the option holds your value (or you let go).</ResponseField>
+<ResponseField name="why" type="string">
+When `ok` is false:
+- `"gameplay input is unavailable"`: the game window does not have the focus, ReSkate's menu is open, or the game holds gameplay input.
+- `"the host has turned boosts off"`, in a session whose host turned boosts off, or `"not while a throwdown runs"` (unless the game's stock physics is on, as a game mode has it).
+- `"this boolean gameplay option has not been read by the game yet"`.
+- `"<plugin> holds this gameplay option"`: another plugin's hold is live.
+- `"at most 32 gameplay options per plugin"`.
+</ResponseField>
+
+```lua
+-- Keep an option off while the plugin's control scheme runs.
+reskate.on("tick", function()
+    if scheme_on then reskate.settings.hold_gameplay(option_name, false) end
+end)
+```
+
+<Note>
+Needs the `settings.write` permission. A hold lasts 300 ms: call it every tick to keep it. One plugin holds each option at a time, and a plugin holds at most 32 at once. The trainer's own overrides come first. While the player is changing settings in the game's menu, the game reads the player's value. A name that is not 1 to 120 characters, or a value that is not a boolean or `nil`, raises an error. Letting go always works, and when the plugin stops its holds end.
 </Note>

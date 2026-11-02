@@ -38,6 +38,7 @@ Starts recording. Calling it again while your capture records starts it over.
 <ParamField path="skip" type="number" default="0">Frames let go first, 0 to 600. For example, frames while something gets up to speed.</ParamField>
 <ParamField path="frames" type="number" default="2400">Frames taken at most, 1 to 20000. Then it stops.</ParamField>
 <ParamField path="seconds" type="number" default="60">How long it records at most, 1 to 120. Then it stops.</ParamField>
+<ParamField path="background" type="boolean" default="false">Cut each frame out away from the game's drawing, so recording costs the frame rate less. See [background capture](#background-capture).</ParamField>
 </Expandable>
 </ParamField>
 
@@ -58,6 +59,19 @@ if not ok then reskate.log("no capture: " .. why, "warn") end
 ```
 
 <Note>Needs the `capture` permission. At most 4 calls a second, a budget shared with the plugin's other control calls (`skater.noclip`, `boost`, `freeze`, `camera.follow`, `ai.spawn`, `animation.play`, `board.toss`, `outfit.set`).</Note>
+
+### Background capture
+
+By default each frame is cut out while the game draws, which can cost frames on a slow PC. With `background = true`, each frame's area (and its depth) is copied and cut out on a separate thread, and the game draws on.
+
+- At most 3 frames, and at most 64 MB of them, are being cut out at once. A frame taken while that many are is let go and counted in `state().dropped`. A frame let go is not counted in `taken` and gets no number.
+- An area too big to copy within 64 MB fails the capture, with `"capture area exceeds background-processing memory limit"` as its message.
+- A picture cut out by depth is cropped to what it holds, so more pictures fit in the 1000 MB.
+- `stop` and `save` wait for the frames still being cut out.
+
+```lua
+reskate.capture.start({area = {0.3, 0.1, 0.7, 0.9}, background = true, seconds = 10})
+```
 
 ### `reskate.capture.stop()`
 
@@ -84,6 +98,8 @@ How your capture is going. Another plugin's capture reads as `"idle"`.
 <ResponseField name="state" type="string">`"idle"`, `"recording"`, `"stopped"`, `"saving"`, `"saved"` or `"failed"`.</ResponseField>
 <ResponseField name="taken" type="number">Frames taken so far.</ResponseField>
 <ResponseField name="kept" type="number">Pictures kept.</ResponseField>
+<ResponseField name="pending" type="number">With `background`: frames taken and still being cut out. 0 otherwise.</ResponseField>
+<ResponseField name="dropped" type="number">With `background`: frames let go because too many were still being cut out. 0 otherwise.</ResponseField>
 <ResponseField name="depth" type="boolean">True when every kept picture was cut out by the game's depth.</ResponseField>
 <ResponseField name="message" type="string">When there is one. For `"stopped"`: `"the recording reached its time"`. For `"saved"`: `"cut out by depth"`, `"cut out by colour"` or `"not cut out"`. For `"failed"`: why, such as `"the area is not on the screen"`, or `"not saved: "` and why the file was not saved.</ResponseField>
 <ResponseField name="file" type="string">For `"saved"`: the path you saved to.</ResponseField>

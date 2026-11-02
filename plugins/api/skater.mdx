@@ -1,14 +1,15 @@
 ---
 title: "Skater"
-description: "reskate.skater, reskate.physics, reskate.score, reskate.tricks, reskate.trainer and reskate.hud: read, move, push and hold the local skater, read its telemetry and stance, pick its grind exits, show its x-ray and Bone Cam, switch to stock physics, read the score and the trick list, keep a save point and hide the HUD."
+description: "reskate.skater, reskate.physics, reskate.score, reskate.tricks, reskate.trainer and reskate.hud: read, move, push and hold the local skater, read its telemetry, movement and stance, slow its flips, pick its grind exits and rail targets, write its physics outputs, show its x-ray and Bone Cam, switch to stock physics, read the score and the trick list, keep a save point and hide the HUD."
 ---
 
 These tables work on the local skater: the player's own, on their own game. Each function needs a permission, named in its section:
 
-- `skater.read`: `reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`, `telemetry` and `goofy`.
+- `skater.read`: `reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`, `telemetry`, `movement`, `goofy`, `frame`, `animation_values` and `rail_target`; `reskate.physics.tuning` and `find`.
 - `skater.teleport`: `reskate.skater.teleport`.
 - `events.skater`: `reskate.skater.state`.
-- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `shape_launch`, `hide`, `push`, `push_wait`, `push_reset` and `hold`; `reskate.physics.competition`, `stock_ready` and `prepare`.
+- `skater.control`: `reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `shape_launch`, `hide`, `push`, `push_wait`, `push_reset`, `hold`, `set_velocity`, `cruise`, `flip_speed` and `select_rail_target`; `reskate.physics.tune`, `competition`, `stock_ready` and `prepare`.
+- `skater.animation`: `reskate.skater.reach`, `pose`, `carry` and `set_animation_value`.
 - `overlay`: `reskate.skater.xray`.
 - `camera`: `reskate.skater.bone_cam`.
 - `events.tricks`: `reskate.score.current`, `reskate.tricks.feed` and `reskate.tricks.gesture`.
@@ -183,6 +184,35 @@ end)
 Needs the `skater.read` permission. `slam` and `struck` are news since your plugin's own last read: each plugin hears of a slam once, whatever other plugins read. The first read only takes your place, so slams before it are not reported. They are followed only while the Bone Cam would show or a plugin asks for it (see `bone_cam`). Read the telemetry once a tick and keep what you need.
 </Note>
 
+### `reskate.skater.movement()`
+
+How the local skater is moving, on the board or on foot, and where the player is pushing the movement stick. For a plugin that moves something with the skater, or steers by the stick the way the game's own walking does.
+
+<ResponseField name="movement" type="table or nil">
+`nil` without a local skater, or when its velocity does not read as one (a number that is not finite, or over 100 m/s on an axis).
+<Expandable title="fields">
+<ResponseField name="velocity" type="vector">The skater's velocity in the world, metres per second.</ResponseField>
+<ResponseField name="physics_state" type="number">The physics state the game chose, as `telemetry` gives it (504 is on foot).</ResponseField>
+<ResponseField name="on_foot" type="boolean">True while the skater is off the board on foot.</ResponseField>
+<ResponseField name="grounded" type="boolean">True while the skater walks on the ground: on foot, not a ragdoll and not in the air.</ResponseField>
+<ResponseField name="walking_velocity" type="vector">The walk's own velocity while `grounded`, metres per second; a zero vector otherwise.</ResponseField>
+<ResponseField name="stick" type="vector">With the `input` permission only: the movement stick (or the movement keys) turned into the camera's frame, flat (`y` is 0), its length how far it is pushed, 0 to 1. A zero vector while it is centred or `focused` is false.</ResponseField>
+<ResponseField name="device" type="number">With the `input` permission only: a number for the set of controllers the input comes from. 0 means none; it changes when a controller connects or disconnects, or the input switches to another.</ResponseField>
+<ResponseField name="focused" type="boolean">With the `input` permission only: true while the game window has the focus and no game menu, free camera or park editor is up.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+reskate.on("tick", function()
+    local m = reskate.skater.movement()
+    if m and m.on_foot and m.grounded then
+        reskate.log(string.format("walking at %.1f m/s", vector.magnitude(m.walking_velocity)))
+    end
+end)
+```
+
+<Note>Needs the `skater.read` permission. `stick`, `device` and `focused` are there only when the plugin also has `input`.</Note>
+
 ### `reskate.skater.goofy()`
 
 The stance the player chose in the game.
@@ -198,14 +228,19 @@ reskate.log("riding " .. stance)
 
 ## Moving the skater
 
-### `reskate.skater.teleport(position, heading)`
+### `reskate.skater.teleport(position, heading, options)`
 
 Moves the skater to `position`, facing `heading`. The teleport is sent at once and happens within a few seconds.
 
 <ParamField path="position" type="vector" required>Where the skater goes. Finite, within 100 km.</ParamField>
 <ParamField path="heading" type="number" default="the skater's heading now">Radians. Any finite number; it is wrapped into -pi to pi.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="on_board" type="boolean">True to arrive on the board, false to arrive on foot. Left out, the skater arrives as the game's own arrival preference has it. Any other key, or a value that is not a boolean, raises an error.</ParamField>
+</Expandable>
+</ParamField>
 
-<ResponseField name="ok" type="boolean">True when the teleport was sent.</ResponseField>
+<ResponseField name="ok" type="boolean">True when the teleport was sent. It does not mean the skater has arrived.</ResponseField>
 <ResponseField name="why" type="string">Why not, when `ok` is false: `"asked more than twice in a second"`, `"the host has turned teleporting off"` or `"teleporting is unavailable now (no skater, or a load)"`.</ResponseField>
 
 ```lua
@@ -215,6 +250,13 @@ if not ok then reskate.log("no teleport: " .. why, "warn") end
 ```
 
 A position or heading that is not finite raises an error. The game's refusals return `false` and why.
+
+`on_board` sets the game's own arrival preference as the move is carried out. The game can keep that preference for later teleports: leaving the option out keeps it as it is, and nothing puts it back. Pass `on_board` on every teleport whose arrival matters to you. When the preference cannot be set, the move still happens, with the board as it is: during a match that holds the skater on or off its board, or while No Bail holds the board.
+
+```lua
+-- Start a run on foot at the top of the stairs.
+reskate.skater.teleport(vector.create(42, 12, -8), math.pi, {on_board = false})
+```
 
 <Note>
 Needs the `skater.teleport` permission. At most 2 teleports a second, counted together with `reskate.trainer.back`. In a session whose host has turned teleporting (and noclip) off, every teleport is refused.
@@ -412,6 +454,32 @@ end)
 Needs the `skater.control` permission. It lasts 300 ms: call it every tick to keep it on. A speed that is not 0 or 1 to 30 raises an error. One cruise speed is kept for every plugin together: the last call wins.
 </Note>
 
+## Flip speed
+
+### `reskate.skater.flip_speed(factor)`
+
+Makes flip tricks in the air turn faster or slower for a moment, on top of the player's own **Flip trick speed** in the trainer, which it never changes. For a flip that slows while the flick is held, mid-air.
+
+<ParamField path="factor" type="number" default="1">0.05 to 10 times the speed the flip would turn at. 1 (or nothing) ends your plugin's factor at once.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the factor is in force (or ended).</ResponseField>
+<ResponseField name="why" type="string">When `ok` is false: `"the host has turned boosts off"`, in a session whose host turned boosts off; `"the host sets the physics"`, in a session whose host's physics everyone skates with; or `"not while a throwdown runs"` (unless the game's stock physics is on, as a game mode has it). Ending your factor always works.</ResponseField>
+
+```lua
+-- Half-speed flips while the right trigger is held in the air.
+reskate.on("tick", function()
+    local pad = reskate.input.gamepad()
+    local s = reskate.skater.get()
+    if pad and s and s.airborne and pad.right_trigger > 0.5 then
+        reskate.skater.flip_speed(0.5)
+    end
+end)
+```
+
+<Note>
+Needs the `skater.control` permission (the example also needs `input` and `skater.read`). A factor lasts 300 ms: call it every tick to keep it. Every plugin's factor counts, multiplied together. The game still finishes a slowed flip before the landing. A `factor` outside 0.05 to 10 raises an error. When the plugin stops, its factor ends.
+</Note>
+
 ## Stock physics
 
 `reskate.physics` puts the local skater on the game's stock physics while the player competes, so everyone in a game mode rides the same tuning.
@@ -472,7 +540,7 @@ Each value has an id, the trainer's name for it, such as `"PhysicsMode.JumpMaxHe
 <ParamField path="id" type="string" required>The value's id, 1 to 200 characters.</ParamField>
 
 <ResponseField name="value" type="table or nil">
-`nil`, with a second result saying why: `"the game's physics tuning is not read yet"` (it is read in the background once the game is up) or `"no tuning value is called \"<id>\""`.
+`nil`, with a second result saying why: `"the game's physics tuning is not read yet"` or `"no tuning value is called \"<id>\""`. The tuning is read once a level's copy of it is loaded: on the splash screen, before any level, every value is not read yet.
 <Expandable title="fields">
 <ResponseField name="id" type="string">Its id, as the trainer writes it.</ResponseField>
 <ResponseField name="label" type="string">Its name in the trainer's list.</ResponseField>
@@ -492,7 +560,7 @@ The values whose id has every word of `text` in it, case aside. A word starting 
 
 <ParamField path="text" type="string" required>At most 200 characters. `""` lists from the start.</ParamField>
 
-<ResponseField name="values" type="table">A list of at most 64 values, each as `tuning` gives it, in the trainer's order. Empty while the tuning is not read.</ResponseField>
+<ResponseField name="values" type="table">A list of at most 64 values, each as `tuning` gives it, in the trainer's order. Empty while the tuning is not read (before a level's copy is loaded).</ResponseField>
 
 ```lua
 for _, v in reskate.physics.find("jump !hippy") do
@@ -512,7 +580,8 @@ Sets a value over the player's own. The value stays until you let go of it, the 
 <ResponseField name="ok" type="boolean">True when the value is set (or let go).</ResponseField>
 <ResponseField name="why" type="string">
 When `ok` is false:
-- `"the game's physics tuning is not read yet"`, or `"no tuning value is called \"<id>\""`.
+- `"the game's physics tuning is not read yet"`: before a level's copy of the tuning is loaded, no value is set. Letting go works at any time.
+- `"no tuning value is called \"<id>\""`.
 - `"<plugin> tunes <id>"`: another plugin has set it.
 - `"This session's host sets everyone's physics: you skate with the host's."`: you are a guest in a session whose host's tuning everyone skates with.
 - `"the player has locked <id> in the trainer"`.
@@ -580,9 +649,9 @@ Where one of your skater's hand joints is in the world, as the pose was last wor
 
 <Note>Needs the `skater.read` permission. To keep an object in a hand every frame, attach it to the joint with [`reskate.entities.set`](/plugins/api/world#your-own-world-objects) instead of moving it yourself.</Note>
 
-### `reskate.skater.pose(joints, weight)`
+### `reskate.skater.pose(joints, weight, options)`
 
-Turns and scales joints of your skater on top of whatever the animation (or a clip) does, in the pose your game draws and sends, so other players see it too. For a style of your own, a head shrunk out of a first-person view, a pose held. A reach bends the arm after this.
+Turns, scales and moves joints of your skater on top of whatever the animation (or a clip) does, or sets them to a place of your own, in the pose your game draws and sends, so other players see it too. For a style of your own, a head shrunk out of a first-person view, a pose held, a tail of spare joints. A reach bends the arm after this.
 
 <ParamField path="joints" type="table or nil" required>
 Keyed by joint, as `reskate.skater.joint` takes one (a number from 2 to 394, or a name), each with:
@@ -591,6 +660,16 @@ Keyed by joint, as `reskate.skater.joint` takes one (a number from 2 to 394, or 
 <ParamField path="angles" type="vector">The same as degrees about the joint's own X, then Y, then Z. Used instead of `rotation` when both are given.</ParamField>
 <ParamField path="scale" type="number" default="1">0 to 10: the joint's size, its children's with it. 0 hides it.</ParamField>
 <ParamField path="offset" type="vector">Metres added to the joint's position in its parent's frame, at most 2 on each axis: the hips moved, say.</ParamField>
+<ParamField path="place" type="table">
+Sets the joint to a place instead of moving it on top of the animation. It needs a `position`, a `rotation` or both; a part left out stays as the animation has it.
+<Expandable title="fields">
+<ParamField path="position" type="vector">Where the joint goes, in the frame `relative_to` names. Finite, within 100 km.</ParamField>
+<ParamField path="rotation" type="table">Its rotation in that frame, `{x, y, z, w}`.</ParamField>
+<ParamField path="angles" type="vector">The same as degrees about X, then Y, then Z. Used instead of `rotation` when both are given.</ParamField>
+<ParamField path="relative_to" type="number or string" default="the joint's parent">Another joint (as `joint` takes one), for a chain of joints that do not hang from each other; `"skater"` for the skater's own frame; or `"world"`. The skeleton's parents never change: the place is worked out under the joint's real parent each frame.</ParamField>
+</Expandable>
+</ParamField>
+<ParamField path="keep_children" type="boolean">True to keep the joint's children where they were in the world while the joint moves.</ParamField>
 </Expandable>
 `nil` (or `{}`) ends your pose.
 </ParamField>
@@ -612,8 +691,10 @@ end)
 ```
 
 <Note>
-Needs the `skater.animation` permission. A pose lasts 300 ms: call it every tick to keep it. One plugin poses at a time; `nil` from another plugin does nothing. Joints 0 and 1 place the skater in the world and cannot be posed. At most 64 joints at once, each once. A joint that is not one of those, a `rotation` that is not 4 finite numbers with a length, `angles` that are not a finite vector, a `scale` outside 0 to 10, an `offset` over 2 m, or a `weight` outside 0 to 1 raises an error. It also works while a throwdown runs. When the plugin stops, its pose ends.
+Needs the `skater.animation` permission. A pose lasts 300 ms: call it every tick to keep it. One plugin poses at a time; `nil` from another plugin does nothing. Joints 0 and 1 place the skater in the world and cannot be posed. At most 128 joints at once, each once. A joint that is not one of those, a `rotation` that is not 4 finite numbers with a length, `angles` that are not a finite vector, a `scale` outside 0 to 10, an `offset` over 2 m, a `place` with neither a position nor a rotation, a `keep_children` that is not a boolean, or a `weight` outside 0 to 1 raises an error. So does a joint placed relative to itself or to a joint that hangs from it, and joints placed relative to each other in a circle. Joints are posed in an order that puts each after the joints it hangs from and the joint it is placed relative to. It also works while a throwdown runs. When the plugin stops, its pose ends.
 </Note>
+
+A pose made only of `offset`, `rotation`, `angles` and `scale` (no `place`, no `keep_children`), with no clip, carry, reach or [character room](/plugins/api/menu#the-character-room) on the pose drawn, goes on as the pose is drawn, on top of each joint as the game's body physics left it. The game's body physics moves some joints after the animation (the hips as the skater pops from standing still), and this keeps that movement. Any other pose is written whole over the animation's pose. Other players are sent the same pose either way.
 
 ### `reskate.skater.joint(joint)`
 
@@ -721,6 +802,114 @@ A `from` not one of the four, a shape that is not a table or sets nothing, or a 
 Needs the `skater.control` permission (and `events.skater` to hear the `launch` event). One plugin shapes each kind of launch at a time: the first to call this with a shape, until it calls it with `nil` or stops. It works in any session; other players see the launch as your skater makes it. The [grind-exits](/plugins/examples) mod picks the side of a pop out of a grind with it, from `right` and `switch` in `reskate.skater.get()`.
 </Note>
 
+## Rider observations and requests
+
+General building blocks for a control scheme written in Luau, such as a dual-stick layout: how the game sees the rider's stance, its named animation values, the rail it targets, and requests that go through the game's own checks. With [`reskate.input.write`](/plugins/api/input#controller-layers) and [`reskate.settings.hold_gameplay`](/plugins/api/progression#gameplay-options) they cover what a controller layer needs. None of them gives a game address.
+
+### `reskate.skater.frame()`
+
+The local rider's frame and stance, as the game holds them.
+
+<ResponseField name="frame" type="table or nil">
+`nil` without a local skater, or when the game's values do not agree with each other this tick.
+<Expandable title="fields">
+<ResponseField name="position" type="vector">The rider's position.</ResponseField>
+<ResponseField name="forward" type="vector">The rider's forward direction, a vector of length 1.</ResponseField>
+<ResponseField name="backwards" type="boolean">True while the game has the rider going backwards.</ResponseField>
+<ResponseField name="mirrored" type="boolean">True while the game mirrors the rider's frame.</ResponseField>
+<ResponseField name="fakie" type="boolean">True while the game has the rider in fakie.</ResponseField>
+<ResponseField name="basis" type="boolean">The game's basis flag for the rider's frame.</ResponseField>
+<ResponseField name="serial" type="number">A number for the rider the game holds now: it changes when the game replaces it. Compare it only for equality.</ResponseField>
+</Expandable>
+</ResponseField>
+
+These are the game's own flags, not worked out from the body: `mirrored` and `fakie` do not say by themselves which foot is in front.
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.skater.animation_values()`
+
+The local rider's named animation values: the inputs the game's animation reads and the outputs its physics writes, whose names start with `"Animation/Dingo/"`.
+
+<ResponseField name="values" type="table">
+Keyed by each value's full name, such as `"Animation/Dingo/Bool.Anim.DoingTrick"`. Empty without a local skater. Only values the rider holds now are listed; one that does not read as its kind is left out.
+<Expandable title="each value">
+<ResponseField name="value" type="boolean or number">A boolean; an integer from 0 to 4095 for a value the game keeps as a choice; or a finite number within a million.</ResponseField>
+<ResponseField name="output" type="boolean">True for an output of the physics, false for an input to the animation.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+for name, v in pairs(reskate.skater.animation_values()) do
+    reskate.log(string.format("%s = %s%s", name, tostring(v.value), v.output and " (output)" or ""))
+end
+```
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.skater.set_animation_value(name, value)`
+
+Writes one of the rider's physics outputs once, now. It is a request for this moment, not a value held: the game's physics writes the output again on its own, so call it each time you want it.
+
+<ParamField path="name" type="string" required>The value's full name, 1 to 120 characters. Only a number output whose name starts with `"Animation/Dingo/Float.Physics."` can be written: never an input, a boolean, a choice or another rider's value.</ParamField>
+<ParamField path="value" type="number" required>Finite, within a million either way.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the value was written.</ResponseField>
+<ResponseField name="why" type="string">
+When `ok` is false:
+- `"gameplay input is unavailable"`: the game window does not have the focus, ReSkate's menu is open, or the game holds gameplay input (see [`input.allowed`](/plugins/api/input#who-has-the-input)).
+- `"the host has turned boosts off"`, in a session whose host turned boosts off, or `"not while a throwdown runs"` (unless the game's stock physics is on, as a game mode has it).
+- `"the local skater is unavailable"`, `"not a live numeric physics output"`, `"the local skater changed"`, `"the animation property changed"` or `"the animation property could not be written"`.
+</ResponseField>
+
+<Note>
+Needs the `skater.animation` permission. A name that is not 1 to 120 characters, or a value that is not a finite number within a million, raises an error. The value is looked up twice, before and after the rider is checked again, and is written only when both agree.
+</Note>
+
+### `reskate.skater.rail_target()`
+
+The rail the game is targeting for the rider, as it approaches one in the air.
+
+<ResponseField name="target" type="table or nil">
+`nil` without a local skater, or when the game's target cannot be read.
+<Expandable title="fields">
+<ResponseField name="available" type="boolean">True once `select_rail_target` is ready to work in this game.</ResponseField>
+<ResponseField name="targeting" type="boolean">True while the game targets a rail.</ResponseField>
+<ResponseField name="direction" type="vector">The direction the game holds for the target.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `skater.read` permission.</Note>
+
+### `reskate.skater.select_rail_target(class, negative)`
+
+Asks the game for one class of rail target the next time it picks a rail for the rider. The game's own geometry and acceptance checks still run: it is a preference, not a forced grind.
+
+<ParamField path="class" type="number or nil" required>The game's rail target class, an integer from 0 to 6. `nil` lets go of your request.</ParamField>
+<ParamField path="negative" type="boolean" default="false">Which of the class's two alignment signs to ask for: true for the negative one.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when your request is held (or let go).</ResponseField>
+<ResponseField name="why" type="string">
+When `ok` is false:
+- `"gameplay input is unavailable"`.
+- `"the host has turned boosts off"`, or `"not while a throwdown runs"` (unless the game's stock physics is on, as a game mode has it).
+- `"<plugin> selects rail targets"`: another plugin's request is live.
+- `"rail candidate selection is unavailable"`: no local skater, or the game does not match what ReSkate expects.
+</ResponseField>
+
+```lua
+reskate.on("tick", function()
+    local t = reskate.skater.rail_target()
+    if t and t.available and t.targeting then
+        reskate.skater.select_rail_target(chosen_class)
+    end
+end)
+```
+
+<Note>
+Needs the `skater.control` permission. A request lasts 100 ms: call it every tick to keep it. One plugin holds it at a time. It applies only while the rider is in the air from an ordinary pop (physics state 201), the game is targeting a rail, and gameplay input is allowed; the game's own request is put back after each pick. A class that is not an integer from 0 to 6, or a `negative` that is not a boolean, raises an error. Letting go always works. When the plugin stops, its request ends.
+</Note>
+
 ## Hiding your skater
 
 ### `reskate.skater.hide(on)`
@@ -822,6 +1011,7 @@ The score HUD as it is now: the line's score, its multiplier and the trick going
 <ResponseField name="trick" type="string">The HUD's sequence header: the trick it names. Empty when it shows none.</ResponseField>
 <ResponseField name="detail" type="string">The HUD's descriptor line, such as `"Manual"` or `"Kickflip"`. Empty when it shows none.</ResponseField>
 <ResponseField name="manual" type="boolean">True while a manual is going on, as the HUD names it.</ResponseField>
+<ResponseField name="timer" type="number">The HUD's line timer: what is left of the line's time to keep its multiplier, as the multiplier ring shows it. 0 with no line. A plugin that hides the HUD corner (which hides the ring) can draw its own from it.</ResponseField>
 </Expandable>
 </ResponseField>
 

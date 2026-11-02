@@ -178,6 +178,16 @@ Each name is 1 to 260 characters of printable ASCII, with `/` between folders an
 Like `variants`, `resident` is read by ReSkate's mod loader: a list that breaks these rules does not stop the plugin, the mod keeps nothing resident, and the log says why: `Mod <folder>: reskate-plugin.json's resident list could not be read (<why>)`.
 </Note>
 
+### `effects`
+
+<ParamField path="effects" type="string[]">
+  The particle effects and decals your mod ships that [`reskate.effects`](/plugins/api/effects) may play: at most 128 exact asset names. Needs the `effects` permission.
+</ParamField>
+
+A particle effect's name starts with `effects/reskate/`, and a decal's with `world/materials/decal/reskate_`: the game's own effects and store assets are refused. Every name must be covered by a [`resident`](#resident) entry for the bundle `win32/levels/game/dingolevel_root/dingolevel_root`. [Effects](/plugins/api/effects#your-mods-own-assets) has an example.
+
+Unlike `variants` and `resident`, `effects` is checked with the rest of the manifest. A list without the permission, longer than 128, with a name that breaks the rules or that no `resident` root covers, stops the plugin from loading. For a plugin with `effects`, a `resident` list that cannot be read stops it too.
+
 ## Errors
 
 When the manifest breaks a rule, the plugin does not load. The log says why, and so does `plugin list` (as the plugin's reason):
@@ -199,7 +209,11 @@ Plugin speedo was not loaded: "side" must be "client", "server" or "both"
 | `"entry" must be a .lua or .luau file` | `entry` ends in something else. |
 | `"side" must be "client", "server" or "both"` | `side` is another value, or not a string. |
 | `"permissions" must be a list of names` | `permissions` is not a list, or holds something other than strings. |
-| `unknown permission "<name>": check the spelling, or update ReSkate` | A name is not one of the 45. |
+| `unknown permission "<name>": check the spelling, or update ReSkate` | A name is not one of the 59. |
+| `events.physics.geometry also needs the events.physics permission` | `events.physics.geometry` is listed without `events.physics`. |
+| `effects needs the effects permission and at most 128 private asset names` | `effects` is listed without the `effects` permission, is not a list, or has more than 128 names. |
+| `effects accepts private reskate particle/material paths only; stock and store assets are refused` | An `effects` name is not one of your mod's own effects or decals. |
+| `every effect must be covered by resident roots in <bundle>: <name>` | No `resident` root covers an `effects` name. |
 | `"domains" must be a list of at most 16 host names` | `domains` is not a list, or has more than 16 entries. |
 | `"domains" must be a list of host names` | An entry is not a string. |
 | `"<entry>" is not a host name for "domains" (such as api.example.com: no scheme, port, path or *)` | An entry breaks a host name rule. |

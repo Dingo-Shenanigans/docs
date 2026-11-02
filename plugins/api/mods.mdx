@@ -1,6 +1,6 @@
 ---
 title: "Mods"
-description: "reskate.mods: which mods the player has in their Mods folder, whether each is on, and the files other mods ship for your plugin."
+description: "reskate.mods: which mods the player has in their Mods folder, whether each is on, which mod an item comes from, and the files other mods ship for your plugin."
 ---
 
 `reskate.mods` tells your plugin which mods are installed, so it can work with another mod or warn about one. It needs the `mods.read` [permission](/plugins/permissions).
@@ -32,6 +32,8 @@ A list of tables, one for each mod, in the order the mod list has them:
 - `folder` (string): its folder name in `Mods`.
 - `title` (string): the name it gives itself in its `manifest.json` (or `reskate-mod.json`), or its folder name when it gives none.
 - `on` (boolean): whether it is on.
+- `author` (string): the author its manifest names, at most 64 characters. Left out when it names none.
+- `version` (string): the version its manifest names (`version_number`, or the older `version`), at most 32 characters. Left out when it names none.
 </ResponseField>
 
 ```lua
@@ -41,6 +43,45 @@ end
 ```
 
 <Note>Needs `mods.read`.</Note>
+
+### `reskate.mods.item_origins(keys)`
+
+Where each of these cosmetic items comes from: a mod, the game, or a mod that changes one of the game's items. For an item picker that groups or filters by mod, or a card that names the mod an item is from.
+
+<ParamField path="keys" type="table" required>Items' keys, as [`reskate.menu.grid`](/plugins/api/menu#the-game-menu) gives them: at most 4000, each at most 255 characters.</ParamField>
+
+<ResponseField name="origins" type="table">
+Keyed by each key you gave. Each value is a table:
+<Expandable title="fields">
+<ResponseField name="source" type="string">`"mod"` (a mod adds it), `"changed"` (the game ships it and a mod changes it), `"game"` (the game's own) or `"unknown"`.</ResponseField>
+<ResponseField name="folder" type="string">For `"mod"` and `"changed"`: the mod's folder name, as `reskate.mods.list` reports it. The mod that wins, where several change one item.</ResponseField>
+<ResponseField name="title" type="string">The mod's title, with spaces for underscores.</ResponseField>
+<ResponseField name="author" type="string">The mod's author.</ResponseField>
+<ResponseField name="version" type="string">The mod's version.</ResponseField>
+</Expandable>
+A field the mod does not name is left out.
+</ResponseField>
+<ResponseField name="ready" type="boolean">`false` until ReSkate has read which mod each item came from and the game's item catalogues are loaded. Until then every key is `"unknown"`, never `"game"`: ask again later.</ResponseField>
+
+The four words are `reskate.Enums.ItemSource`.
+
+```lua
+local grid = reskate.menu.grid()
+if grid then
+    local origins, ready = reskate.mods.item_origins(grid.items)
+    if ready then
+        local from_mods = 0
+        for _, origin in origins do
+            if origin.source == "mod" then from_mods += 1 end
+        end
+        reskate.log(from_mods .. " items in this grid come from mods")
+    end
+end
+```
+
+A list that is not a table of strings, has more than 4000 keys, or a key longer than 255 characters raises an error.
+
+<Note>Needs `mods.read`. ReSkate reads which mod an item came from again when the mods change, at most every 2 seconds.</Note>
 
 ## Shared content
 

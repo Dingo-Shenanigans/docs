@@ -139,7 +139,7 @@ Any line it prints starting with `ESCAPED` is a hole in the sandbox. Its manifes
 | `buffer` | A 1 GB buffer. | Stopped: more than 64 MB. |
 | `coroutines` | Makes coroutines forever. | Stopped by its time or its memory. |
 | `errors` | A tick handler that raises an error every tick. | Stopped after more than 5 errors in 10 s. |
-| `slow` | A tick handler that takes 4 ms. | Stopped after 3 s over 2 ms a tick. |
+| `slow` | A tick handler that runs long every tick. | Stopped after 5 s over 6 ms a tick. |
 | `recursion` | Endless recursion. | An error, not a crash; it keeps running. |
 | `slow-unload` | An unload handler that never ends. | Cut off at 20 ms when it is switched off (`plugin off reskate-hostile`). |
 | `trick-loop` | A `trick_landed` handler that never returns. | Stopped at the next trick landed. |

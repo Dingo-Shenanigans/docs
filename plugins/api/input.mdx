@@ -1,9 +1,9 @@
 ---
 title: "Input"
-description: "reskate.input: named actions on keys and pad combos, flight keys and mouse look, gamepads, joysticks and radios (all 8 channels, and which controller), raw pad bits, keys and the mouse wheel, keeping the controller or some of its buttons from the game, and whether the game has the input."
+description: "reskate.input: named actions on keys and pad combos, flight keys and mouse look, gamepads (all of them or one), joysticks and radios (all 8 channels, and which controller), controller layers that replace a controller's input, raw pad bits, keys and the mouse wheel, keeping the controller or some of its buttons from the game, and whether the game has the input."
 ---
 
-`reskate.input` gives your plugin actions the player can press, and reads the keyboard, mouse, gamepad and joystick for a plugin that flies something or runs a game of its own. Every function, and the `action` event, needs the `input` permission; calling one without it raises an error. See [permissions](/plugins/permissions).
+`reskate.input` gives your plugin actions the player can press, and reads the keyboard, mouse, gamepad and joystick for a plugin that flies something or runs a game of its own. Every function, and the `action` event, needs the `input` permission, except `reskate.input.write`, which needs `input.write`; calling one without its permission raises an error. See [permissions](/plugins/permissions).
 
 ## Actions
 
@@ -112,12 +112,14 @@ The mouse's movement is used up as it is read, and it is read once a tick: two c
 
 ## Controllers
 
-### `reskate.input.gamepad()`
+### `reskate.input.gamepad(controller)`
 
-The gamepad's sticks, triggers and buttons. It reads the pad even while the game is kept from it (see `capture`).
+A gamepad's sticks, triggers and buttons. It reads the pad even while the game is kept from it (see `capture`), and it reads the real controller: a replacement from [`write`](#controller-layers) is not what it returns.
+
+<ParamField path="controller" type="number or string">Left out: the pads together, as the game sees them. An integer from 0 to 3: that one Xbox (XInput) controller. `"playstation"`: the PlayStation controller ReSkate reads. Anything else raises an error.</ParamField>
 
 <ResponseField name="pad" type="table or nil">
-`nil` when no pad is connected or the game window does not have the focus.
+`nil` when no such pad is connected or the game window does not have the focus.
 <Expandable title="fields">
 <ResponseField name="left_x" type="number">The left stick, -1 (left) to 1 (right).</ResponseField>
 <ResponseField name="left_y" type="number">The left stick, -1 (down) to 1 (up).</ResponseField>
@@ -242,6 +244,51 @@ end)
 
 <Note>
 Needs the `input` permission. Unlike `capture`, it needs no camera of your own and lasts until you change it. A control stays hidden while any plugin hides it. Your plugin reads the pad once a tick, so the game may see a trigger for a frame before you hide it. When the plugin stops, everything it hid is given back.
+</Note>
+
+## Controller layers
+
+A controller layer reads a real controller with `gamepad(controller)`, changes what it likes (sticks swapped, a button moved, a stick turned into another control), and hands the game the result with `write`. The control scheme lives in your Luau: ReSkate knows none. The [rider observations](/plugins/api/skater#rider-observations-and-requests) and [gameplay options](/plugins/api/progression#gameplay-options) go with it.
+
+### `reskate.input.write(pad, controller)`
+
+Replaces everything the game reads from one real controller with `pad`, for the next 100 ms.
+
+<ParamField path="pad" type="table or nil" required>
+The whole controller, in the units `gamepad()` gives. A control left out is neutral: centred, released, not pressed. `nil` lets go of your replacement.
+<Expandable title="fields">
+<ParamField path="left_x" type="number" default="0">-1 to 1.</ParamField>
+<ParamField path="left_y" type="number" default="0">-1 to 1.</ParamField>
+<ParamField path="right_x" type="number" default="0">-1 to 1.</ParamField>
+<ParamField path="right_y" type="number" default="0">-1 to 1.</ParamField>
+<ParamField path="left_trigger" type="number" default="0">0 to 1.</ParamField>
+<ParamField path="right_trigger" type="number" default="0">0 to 1.</ParamField>
+<ParamField path="buttons" type="table">A boolean for each button pressed, by the names `gamepad()` uses: `up`, `down`, `left`, `right`, `start`, `back`, `left_stick`, `right_stick`, `lb`, `rb`, `a`, `b`, `x`, `y`.</ParamField>
+</Expandable>
+</ParamField>
+<ParamField path="controller" type="number or string" default="0">An integer from 0 to 3 for that Xbox controller, or `"playstation"` for the PlayStation controller.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the replacement is in force (or let go).</ResponseField>
+<ResponseField name="why" type="string">When `ok` is false: `"the game does not have gameplay input"` (see [`allowed`](#who-has-the-input)), or `"<plugin> replaces this controller"` when another plugin's replacement is live.</ResponseField>
+
+```lua
+-- Swap the sticks on controller 0, and stop the moment the game loses the input.
+reskate.on("tick", function()
+    local pad = reskate.input.allowed() and reskate.input.gamepad(0)
+    if not pad then
+        reskate.input.write(nil, 0)
+        return
+    end
+    pad.left_x, pad.right_x = pad.right_x, pad.left_x
+    pad.left_y, pad.right_y = pad.right_y, pad.left_y
+    reskate.input.write(pad, 0)
+end)
+```
+
+A number outside its range or not finite, a value of the wrong type, a button that is not a boolean, or a `controller` that is not 0 to 3 or `"playstation"` raises an error. Your table is copied when you call: changing it afterwards changes nothing.
+
+<Note>
+Needs the `input.write` permission; the player is asked for it apart from `input`, and `input` alone does not give it. A replacement lasts 100 ms: call it every tick. One plugin replaces each controller at a time, and another plugin cannot take or let go of a live one. Every replacement is dropped the moment the game window loses the focus, a menu takes the input or the cursor, or the game holds gameplay input, so an old one is never played back afterwards. Controls a plugin hides with `hide` stay hidden from the game on top of a replacement. Only a controller that is really there is replaced: `write` does not make up a controller that is not connected. Your plugin reads and writes once a tick, so changes between ticks can be missed. When the plugin stops, reloads or is stopped for its limits, its replacements end.
 </Note>
 
 ## Raw input

@@ -1,0 +1,218 @@
+---
+title: "Viewmodel"
+description: "reskate.viewmodel: draw a rigged, animated model of your own in front of the camera, as shooters draw the player's arms and gun."
+---
+
+`reskate.viewmodel` draws one rigged, animated model in front of the camera, over the game's finished frame. It is what a first-person mod uses for arms and something held. Every function needs the `viewmodel` [permission](/plugins/permissions). Calling one without it raises an error.
+
+The model is drawn on your screen only. Other players see nothing of it.
+
+<Note>
+The viewmodel has its own lens and its own depth, so it looks the same whatever the game camera's field of view, and the world never cuts into it. It is drawn before your plugin's [overlay](/plugins/api/overlay), so `draw` handlers draw on top of it. It is never drawn over the game's own menu.
+</Note>
+
+## The model file
+
+A viewmodel is a `.rsvm` file in your plugin's package, with its pictures beside it. The ReSkate repository makes one from any rigged, animated model Blender can open (FBX, glTF or `.blend`) with `contrib/viewmodel_export.py`:
+
+```sh
+blender -b --python contrib/viewmodel_export.py -- arms.fbx viewmodel --name pistol
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `--camera-bone NAME` | `Head_Cam` | The bone the view is from. Without such a bone, the scene's origin looking along -Y with +Z up, Blender's front view. |
+| `--textures DIR` | | Where the model's pictures are, when the paths saved in it are wrong. |
+| `--size N` | `2048` | The largest a picture is written. |
+| `--name NAME` | `viewmodel` | The file's name. |
+
+It writes `<name>.rsvm` and three pictures for each material: `<material>_albedo.png` (colour), `<material>_normal.png` (tangent-space normals) and `<material>_surface.png` (red roughness, green ambient occlusion, blue specular). Every action in the file becomes a clip, named as in Blender. Ship the pictures in the same folder as the `.rsvm`.
+
+ReSkate refuses a model with more than 128 bones, a file or picture larger than 64 MB, and a picture that is not a PNG or JPG. It scales a picture larger than 2048 pixels down as it reads it.
+
+Positions in this API are in the view: x to the right, y up, z forward, in metres from the eye.
+
+The FPS plugin in the ReSkate repository (`contrib/plugins/fps`) draws a pistol and arms this way.
+
+## Loading
+
+One plugin has the viewmodel at a time. The first `load` takes it; another plugin's `load` is refused until the holder unloads or stops. A plugin's viewmodel is unloaded when the plugin stops.
+
+### `reskate.viewmodel.load(path)`
+
+Starts reading a `.rsvm` file, and the pictures it names, in the background. It replaces any viewmodel your plugin had. Check `info` (below) for when it is ready.
+
+<ParamField path="path" type="string" required>A `.rsvm` file in your package, at most 200 characters, such as `"viewmodel/pistol.rsvm"`.</ParamField>
+
+<ResponseField name="ok" type="boolean">`true` when reading has started.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"<plugin> has the viewmodel"`, or `"unavailable here"` on a dedicated server.</ResponseField>
+
+It raises an error for a path that is not a `.rsvm` file (`a viewmodel is a .rsvm file (contrib/viewmodel_export.py makes one)`), or that is not a file in the package.
+
+<Note>Needs the `viewmodel` permission.</Note>
+
+### `reskate.viewmodel.unload()`
+
+Forgets your viewmodel. Nothing is drawn until one is loaded again, and another plugin may take the viewmodel. Returns nothing; it does nothing when your plugin has none.
+
+<Note>Needs the `viewmodel` permission.</Note>
+
+### `reskate.viewmodel.info()`
+
+What your viewmodel holds.
+
+<ResponseField name="info" type="table or nil">
+`nil` when your plugin has no viewmodel loaded.
+<Expandable title="fields">
+<ResponseField name="status" type="string">`"loading"`, `"ready"` or `"failed"`.</ResponseField>
+<ResponseField name="why" type="string or nil">When it failed: what was wrong with the file, such as `"\"arms_albedo.png\" is not a PNG or JPG that can be read"`.</ResponseField>
+<ResponseField name="clips" type="table">A list of `{name, duration}`, the duration in seconds. Empty until it is ready.</ResponseField>
+<ResponseField name="bones" type="table">A list of the bones' names. Empty until it is ready.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local ok, why = reskate.viewmodel.load("viewmodel/pistol.rsvm")
+if not ok then reskate.log("no viewmodel: " .. why, "warn") end
+
+local durations = {}
+reskate.on("tick", function()
+    local info = reskate.viewmodel.info()
+    if info and info.status == "ready" and next(durations) == nil then
+        for _, clip in info.clips do durations[clip.name] = clip.duration end
+    elseif info and info.status == "failed" then
+        reskate.log(info.why, "error")
+    end
+end)
+```
+
+<Note>Needs the `viewmodel` permission.</Note>
+
+## Showing
+
+### `reskate.viewmodel.show(look)`
+
+Draws the viewmodel for the next 300 ms, so call it every tick you want it shown. Until the file is ready nothing is drawn, but the call still succeeds.
+
+<ParamField path="look" type="table">
+Each field is optional; a field left out takes its default.
+<Expandable title="fields">
+<ParamField path="offset" type="vector" default="vector.create(0, 0, 0)">Where the model sits, in the view, in metres. Each part -5 to 5.</ParamField>
+<ParamField path="yaw" type="number" default="0">Degrees the whole model turns about y, -360 to 360. Positive turns it right.</ParamField>
+<ParamField path="pitch" type="number" default="0">Degrees about x, -360 to 360. Positive tips its front up.</ParamField>
+<ParamField path="roll" type="number" default="0">Degrees about z, -360 to 360.</ParamField>
+<ParamField path="fov" type="number" default="60">The viewmodel's own lens, in vertical degrees, 20 to 120.</ParamField>
+<ParamField path="light" type="vector" default="vector.create(-0.35, 0.75, -0.55)">The direction toward the one light, in the view. Each part -1000 to 1000; its length does not matter.</ParamField>
+<ParamField path="light_colour" type="vector" default="vector.create(1, 0.96, 0.9)">The light's colour, red, green and blue, each 0 to 4.</ParamField>
+<ParamField path="sky" type="vector" default="vector.create(0.55, 0.62, 0.75)">The ambient light from above, each part 0 to 4.</ParamField>
+<ParamField path="ground" type="vector" default="vector.create(0.32, 0.29, 0.26)">The ambient light from below, each part 0 to 4.</ParamField>
+<ParamField path="ambient" type="number" default="0.6">How strong the sky and ground are, 0 to 4.</ParamField>
+<ParamField path="brightness" type="number" default="1">Everything, after lighting, 0 to 4.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">`true` when it is shown.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"this plugin has no viewmodel loaded"` or `"the game's menu is open"`.</ResponseField>
+
+A number or vector part outside its range raises an error that names the field and its range.
+
+```lua
+reskate.on("tick", function()
+    reskate.viewmodel.show({offset = vector.create(0.12, -0.14, 0.3), yaw = 2, fov = 55})
+end)
+```
+
+<Note>Needs the `viewmodel` permission.</Note>
+
+### `reskate.viewmodel.hide()`
+
+Stops drawing the viewmodel now, rather than letting the last `show` run out. The model stays loaded.
+
+<ResponseField name="ok" type="boolean">`true` when hidden.</ResponseField>
+<ResponseField name="why" type="string">`"this plugin has no viewmodel loaded"`.</ResponseField>
+
+<Note>Needs the `viewmodel` permission.</Note>
+
+## Animating
+
+### `reskate.viewmodel.play(clip, options)`
+
+Plays a clip from its start, faded in over what was playing.
+
+<ParamField path="clip" type="string" required>A clip's name, as `info().clips` lists it, at most 120 characters.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="loop" type="boolean" default="false">Play it again from the start each time it ends.</ParamField>
+<ParamField path="speed" type="number" default="1">0 to 10. 0 holds the first frame.</ParamField>
+<ParamField path="fade" type="number" default="0.1">Seconds to fade from what was playing, 0 to 2.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">`true` when it plays.</ResponseField>
+<ResponseField name="why" type="string">Why not: `"this plugin has no viewmodel loaded"`, `"the viewmodel is still loading"`, `"no viewmodel is loaded"` (it failed) or `"the viewmodel has no clip \"<clip>\""`.</ResponseField>
+
+A clip that does not loop stops on its last frame.
+
+```lua
+-- On a shot: a short fade so the kick starts at once.
+local function fire()
+    reskate.viewmodel.play("fire", {fade = 0.04})
+end
+```
+
+<Note>Needs the `viewmodel` permission.</Note>
+
+### `reskate.viewmodel.stop()`
+
+Stops the clip. The model is drawn unanimated until the next `play`. Returns nothing.
+
+<Note>Needs the `viewmodel` permission.</Note>
+
+### `reskate.viewmodel.state()`
+
+The clip playing now.
+
+<ResponseField name="state" type="table or nil">
+`nil` when nothing plays, or your plugin has no viewmodel ready.
+<Expandable title="fields">
+<ResponseField name="clip" type="string">Its name.</ResponseField>
+<ResponseField name="time" type="number">Seconds into it. A looping clip starts again from 0.</ResponseField>
+<ResponseField name="duration" type="number">Its length in seconds.</ResponseField>
+<ResponseField name="done" type="boolean">`true` once a clip that does not loop has reached its end.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local now = reskate.viewmodel.state()
+if now and now.clip == "reload" and now.done then
+    reskate.viewmodel.play("idle", {loop = true, fade = 0.2})
+end
+```
+
+<Note>Needs the `viewmodel` permission.</Note>
+
+### `reskate.viewmodel.bone(name)`
+
+Where a bone of the model is now, in the view, with the last `show`'s placement applied. Use it to start a muzzle flash, a tracer or a shell from the right place.
+
+<ParamField path="name" type="string" required>A bone's name, as `info().bones` lists it, at most 120 characters.</ParamField>
+
+<ResponseField name="bone" type="table or nil">
+`nil` when there is no such bone, or your plugin has no viewmodel ready.
+<Expandable title="fields">
+<ResponseField name="position" type="vector">The bone's place in the view, in metres.</ResponseField>
+<ResponseField name="x" type="vector">The bone's x axis, in the view.</ResponseField>
+<ResponseField name="y" type="vector">Its y axis.</ResponseField>
+<ResponseField name="z" type="vector">Its z axis.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local muzzle = reskate.viewmodel.bone("Muzzle")
+if muzzle then
+    local tip = muzzle.position + muzzle.y * 0.05
+    reskate.log(string.format("muzzle %.2f m ahead of the eye", tip.z))
+end
+```
+
+<Note>Needs the `viewmodel` permission.</Note>

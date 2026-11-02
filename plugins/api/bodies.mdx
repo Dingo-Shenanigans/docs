@@ -1,0 +1,274 @@
+---
+title: "Physics bodies"
+description: "reskate.world.physics: rigid bodies of your plugin's own in the local physics world, pushed one physics step at a time, read back, and probed with ray batches."
+---
+
+`reskate.world.physics` lets a plugin make rigid bodies of its own in the local physics world: a ball, a cart, a crate, a vehicle. Each body is a compound of capsules. The plugin reads where the body is, asks for a force, torque or impulse on the next physics step, and reads what happened. What a body is for, and how it is steered, is up to your plugin.
+
+Every function needs the `world.physics` [permission](/plugins/permissions). `probe_batch` needs `world.raycast` as well, and three of its options need `world.physics.observe`. Calling a function without its permission raises an error.
+
+<Warning>
+Bodies are local. They exist on your game only, and nothing about them is sent to other players. Every function works in the client copy only: in a server copy it raises `native bodies are client phase only`. Making, reading and pushing bodies is refused during a multiplayer session and while joining a lobby.
+</Warning>
+
+<Warning>
+The game has room for eight bodies, shared by every plugin, every reload and every level, until it restarts. A released body is stopped and parked, not destroyed, and keeps its room. Once the eight are used, `create` answers `nil, "the eight retained body slots are exhausted; native destruction is unproven"`. A plugin you reload while you work on it runs out after eight bodies: restart the game.
+</Warning>
+
+## How a body moves
+
+The physics world steps 60 times a second. Each `read` gives a sample of the body at one step, with an `epoch`: an opaque token for that step of that body. You compute a command from the sample and `submit` it with the epoch. The command is applied on the very next step and on no other: if that step is missed, or 100 ms pass, it expires.
+
+Every command gets a receipt. The receipt says whether the command was applied, and later carries the first sample taken after it (its `successor`), so your plugin reads what actually happened. Acknowledge each receipt once you are done with it. A body keeps at most four receipts; while all four wait, `submit` is refused.
+
+```lua
+local P = reskate.world.physics
+local body
+
+reskate.on("tick", function()
+    if not body then
+        local ready = P.prepare()
+        if not ready then return end
+        local why
+        body, why = P.create({
+            mass = 12,
+            inertia = vector.create(2, 3, 4),
+            position = vector.create(0, 2, 0),
+            rotation = {0, 0, 0, 1},
+            capsules = {{a = vector.create(0, 0, 0), b = vector.create(0, 0.5, 0), radius = 0.1}},
+        })
+        if not body then reskate.log("no body: " .. why) end
+        return
+    end
+    local sample = P.read(body)
+    if not sample then return end
+    -- Hold it up against gravity.
+    P.submit(body, sample.epoch, {force = vector.create(0, 12 * 9.81, 0)})
+    local receipt = P.receipt(body)
+    if receipt.outcome ~= "none" and receipt.outcome ~= "queued" then
+        P.acknowledge(body, receipt.sequence)
+    end
+end)
+```
+
+When your plugin stops, reloads or fails, ReSkate releases all of its bodies. A level change, a multiplayer session starting, or the local skater's world changing lets go of every body too: it stops answering `read`, and still takes its place among the eight.
+
+## Preparing
+
+### `reskate.world.physics.prepare()`
+
+Asks for the game's one-time setup for bodies, so that `create` is not the call that finds it pending. Call it, and after `true`, make your first `create`.
+
+Takes no arguments; passing any raises an error.
+
+<ResponseField name="ready" type="boolean">True when the setup is done and the local skater's physics step can be read now. It reserves nothing: the room for bodies can still run out before `create`.</ResponseField>
+<ResponseField name="why" type="string">
+Why not:
+
+| Reason | Meaning |
+| --- | --- |
+| `native body producer setup pending; call prepare again explicitly` | This call asked for the setup. Call again on a later tick. |
+| `waiting for a fresh qualified 60 Hz physics step` | Set up, but the local skater's physics step cannot be read now. |
+| `native body ABI or producer hook unavailable; another producer may own it` | The setup ran once and failed. It is not tried again. |
+| `owned bodies require the current local client phase outside multiplayer` | Not in the client's phase, or a session is on. |
+| `asked to prepare native bodies more than once in one tick` | Each plugin may call `prepare` once a tick. |
+| `native body preparation failed closed` | An error was caught before anything was asked. |
+</ResponseField>
+
+<Note>Needs the `world.physics` permission. Once a tick.</Note>
+
+## Making and reading
+
+### `reskate.world.physics.create(definition)`
+
+Makes a body.
+
+<ParamField path="definition" type="table" required>
+Any field not listed raises an error.
+<Expandable title="fields">
+<ParamField path="capsules" type="table" required>1 to 8 capsules, each `{a = vector, b = vector, radius = number}`: the two end points in the body's own frame, each axis within 10 m of its centre, and the radius 0.01 to 2 m. The body's centre of mass is its own origin.</ParamField>
+<ParamField path="mass" type="number" required>1 to 1000 kg.</ParamField>
+<ParamField path="inertia" type="vector" required>The principal moments of inertia, each 0.01 to 10000 kg m².</ParamField>
+<ParamField path="position" type="vector" required>Where it starts in the world, within 100 km.</ParamField>
+<ParamField path="rotation" type="table" required>A unit quaternion as a list `{x, y, z, w}`.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="body" type="userdata or nil">The body: an opaque handle that only this plugin, until it reloads, can use.</ResponseField>
+<ResponseField name="why" type="string">Why not, such as `"waiting for a fresh qualified 60 Hz physics step"`, `"owned bodies require the current local client phase outside multiplayer"`, `"the eight retained body slots are exhausted; native destruction is unproven"` or `"a previous partial allocation in this world prohibits another native allocation"`.</ResponseField>
+
+The capsules collide with the world only. A plugin cannot choose what a body collides with. A failed `create` is not tried again for you.
+
+<Note>Needs the `world.physics` permission. A definition out of these ranges raises `invalid native body: mass 1..1000, inertia .01..10000, unit XYZW rotation, capsule endpoints +/-10m and radius .01..2m`.</Note>
+
+### `reskate.world.physics.read(body)`
+
+The body at its latest physics step.
+
+<ParamField path="body" type="userdata" required>A body from `create`. Another plugin's body raises an error.</ParamField>
+
+<ResponseField name="sample" type="table or nil">
+`nil` and why when the body cannot be read now, such as `"body owner or generation unavailable"` for a released body, or `"body snapshot or native epoch changed; no sample published"`.
+<Expandable title="fields">
+<ResponseField name="epoch" type="userdata">This step of this body, for `submit` and `probe_batch`. It cannot be made from numbers, used for another body, or kept past a reload.</ResponseField>
+<ResponseField name="serial" type="string">The step's number, as a decimal string.</ResponseField>
+<ResponseField name="time" type="number">Seconds of physics steps so far.</ResponseField>
+<ResponseField name="seconds" type="number">The step's length: 1/60 s.</ResponseField>
+<ResponseField name="position" type="vector">Where the body is.</ResponseField>
+<ResponseField name="rotation" type="table">Its rotation as a list `{x, y, z, w}`.</ResponseField>
+<ResponseField name="velocity" type="vector">Metres per second.</ResponseField>
+<ResponseField name="angular_velocity" type="vector">Radians per second about each axis.</ResponseField>
+<ResponseField name="mass" type="number">Kilograms.</ResponseField>
+<ResponseField name="inertia" type="vector">Its principal moments of inertia.</ResponseField>
+</Expandable>
+</ResponseField>
+
+<Note>Needs the `world.physics` permission.</Note>
+
+## Pushing
+
+### `reskate.world.physics.submit(body, epoch, command)`
+
+Asks for a force, torque or impulse on the body for the step after `epoch`.
+
+<ParamField path="body" type="userdata" required>A body from `create`.</ParamField>
+<ParamField path="epoch" type="userdata" required>The `epoch` of a sample of the same body, from `read` or a receipt's `successor`.</ParamField>
+<ParamField path="command" type="table" required>
+Any field not listed raises an error. A vector left out is zero.
+<Expandable title="fields">
+<ParamField path="force" type="vector">Newtons, in the world, at most 40000 long.</ParamField>
+<ParamField path="torque" type="vector">Newton metres, at most 4000 long.</ParamField>
+<ParamField path="impulse" type="vector">A one-shot push in newton seconds, at most 600 long. The force and the impulse spread over the step, together, are at most 40000 N.</ParamField>
+<ParamField path="impulse_id" type="number">Needed with an impulse: a whole number from 1 to 4294967295, higher than the last impulse's, so an impulse is never applied twice.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the command waits for its step.</ResponseField>
+<ResponseField name="why" type="string or nil">`nil` when it waits. Otherwise why not: `"measured native body epoch expired"` (a newer step has been read), `"body owner or generation changed"`, `"body commands require the current local client phase"` or `"body command invalid, repeated, stopped, pending or receipt ring full"`.</ResponseField>
+<ResponseField name="sequence" type="string">The command's number, as a decimal string, for `receipt` and `acknowledge`.</ResponseField>
+
+One command waits at a time for each body, and each must come from a newer step than the last. A plugin that reads and submits every step drives its body at 60 Hz. A command the game takes only in part fails the body for good: it is quarantined, and only `receipt`, `acknowledge` and `release` still answer for it.
+
+<Note>Needs the `world.physics` permission. A command out of these bounds, or an epoch of another body, raises an error.</Note>
+
+### `reskate.world.physics.receipt(body, sequence)`
+
+What became of a command.
+
+<ParamField path="body" type="userdata" required>A body from `create`.</ParamField>
+<ParamField path="sequence" type="string">A `sequence` exactly as `submit` gave it. Left out, the oldest receipt not yet acknowledged.</ParamField>
+
+<ResponseField name="receipt" type="table or nil">
+`nil` and why for a sequence this body does not hold.
+<Expandable title="fields">
+<ResponseField name="outcome" type="string">`"queued"` (waiting for its step), `"applied"`, `"partial"`, `"rejected"`, `"expired"`, or `"none"` when there is no receipt.</ResponseField>
+<ResponseField name="sequence" type="string">The command's number.</ResponseField>
+<ResponseField name="requested_serial" type="string">The step it was computed from.</ResponseField>
+<ResponseField name="produced_serial" type="string">The step that took it.</ResponseField>
+<ResponseField name="force_attempted" type="boolean">Whether the force was handed to the game.</ResponseField>
+<ResponseField name="torque_attempted" type="boolean">Whether the torque was handed to the game.</ResponseField>
+<ResponseField name="retained" type="boolean">Whether the body has been let go: released, or by a level change or a session.</ResponseField>
+<ResponseField name="quarantined" type="boolean">Whether the body failed, or was let go without being parked, and is no longer touched.</ResponseField>
+<ResponseField name="successor" type="table or nil">The first sample read after the step that took the command, in `read`'s form. Only for an applied command, once it has been read.</ResponseField>
+</Expandable>
+</ResponseField>
+
+`"applied"` says the game took the force and torque. It does not say how the body moved: read the `successor`.
+
+<Note>Needs the `world.physics` permission. A `sequence` that is not a decimal string raises an error.</Note>
+
+### `reskate.world.physics.acknowledge(body, sequence)`
+
+Frees the oldest receipt, so another command can be submitted.
+
+<ParamField path="body" type="userdata" required>A body from `create`.</ParamField>
+<ParamField path="sequence" type="string" required>The oldest receipt's `sequence`.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when it was freed.</ResponseField>
+<ResponseField name="why" type="string">`"receipt unavailable, already acknowledged or awaiting a measured successor"`: receipts are freed oldest first, a queued one cannot be, and an applied one waits for its `successor`.</ResponseField>
+
+<Note>Needs the `world.physics` permission.</Note>
+
+### `reskate.world.physics.release(body)`
+
+Stops the body: its waiting command is cancelled, its force and velocity are cleared, it stops colliding, and it is parked. It still takes one of the eight places.
+
+<ParamField path="body" type="userdata" required>A body from `create`.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the body was released.</ResponseField>
+<ResponseField name="why" type="string">Why not, such as `"body owner or generation unavailable"`.</ResponseField>
+
+The receipts of a released body can still be read and acknowledged.
+
+<Note>Needs the `world.physics` permission.</Note>
+
+## Ray batches
+
+### `reskate.world.physics.probe_batch(body, epoch, rays, options)`
+
+Casts up to 32 rays at the moment of one sample of a body: what is under a wheel, what a bumper is about to meet. A batch is all or nothing. When anything about the body or the world changed between the first ray and the last, every ray is discarded and the batch is `"unavailable"`.
+
+<ParamField path="body" type="userdata" required>A body from `create`. Its own capsules are never a hit.</ParamField>
+<ParamField path="epoch" type="userdata" required>The `epoch` of the latest sample of that body.</ParamField>
+<ParamField path="rays" type="table" required>1 to 32 rays, each exactly `{from = vector, to = vector}`, in a list with no gaps. Each end within 100 km; each ray at least 10 micrometres and at most 1000 m long.</ParamField>
+<ParamField path="options" type="table">
+Any field not listed raises an error. Each flag takes only `true` or `false`.
+<Expandable title="fields">
+<ParamField path="exclude_bodies" type="table">Up to 8 more of your own bodies whose capsules are not a hit either.</ParamField>
+<ParamField path="require_contact" type="boolean" default="false">Every hit must carry its `normal` and `surface_velocity`, or the whole batch is `"unavailable"` with `contact_measurement_unavailable`.</ParamField>
+<ParamField path="query_preset" type="string" default="camera">What the rays test: `"camera"`, the shapes `world.raycast` meets; `"terrain"`, the game's terrain shapes only; or `"all"`, every shape, skaters included, which needs `world.physics.observe`.</ParamField>
+<ParamField path="exclude_local_actor" type="boolean" default="false">`true` is refused today with `local_actor_exclusion_unavailable`, before any ray is cast.</ParamField>
+<ParamField path="require_named_actor_categories_absent" type="boolean">`true` refuses the batch when a hit is a shape of a character, ragdoll, skateboard or skater. It cannot be used with `"all"`. The result then has `named_actor_categories_absent`.</ParamField>
+<ParamField path="include_shape_categories" type="boolean" default="false">Adds each hit shape's collision categories, `in_categories`. Needs `world.physics.observe`.</ParamField>
+<ParamField path="include_hit_owner" type="boolean" default="false">Adds `owner_assigned` and `owner` to each hit. Needs `world.physics.observe`.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="batch" type="table">
+<Expandable title="fields">
+<ResponseField name="status" type="string">`"available"` or `"unavailable"`.</ResponseField>
+<ResponseField name="reason" type="string">Only when unavailable: why, such as `"body_epoch_or_observation_changed"`, `"native_cast_budget_exhausted"`, `"owned_body_hit"` (the nearest hit was one of your excluded bodies), `"hit_identity_unqualified"`, `"contact_measurement_unavailable"`, `"client_phase_unavailable"`, `"body_exclusions_unavailable"`, `"query_preconditions_unavailable"` or `"query_unavailable"`.</ResponseField>
+<ResponseField name="native_casts" type="number">How many casts the game made.</ResponseField>
+<ResponseField name="budget_exhausted" type="boolean">True when the tick's casts ran out.</ResponseField>
+<ResponseField name="epoch" type="userdata">The epoch you passed.</ResponseField>
+<ResponseField name="owned_bodies_excluded" type="boolean">True on an available batch: its nearest hits were checked against your bodies.</ResponseField>
+<ResponseField name="local_actor_excluded" type="boolean">Always false today.</ResponseField>
+<ResponseField name="requested_query_preset" type="string">Only when you named `query_preset`: the preset you asked for.</ResponseField>
+<ResponseField name="named_actor_categories_absent" type="boolean">Only when you named `require_named_actor_categories_absent`.</ResponseField>
+<ResponseField name="rays" type="table">
+One row for each ray, in order.
+<Expandable title="each ray">
+<ResponseField name="status" type="string">`"hit"`, `"clear"` or `"unavailable"`.</ResponseField>
+<ResponseField name="position" type="vector">A hit's point.</ResponseField>
+<ResponseField name="fraction" type="number">How far along the ray, 0 to 1.</ResponseField>
+<ResponseField name="normal_available" type="boolean">Whether `normal` is there.</ResponseField>
+<ResponseField name="normal" type="vector">The surface's unit normal at the hit, facing the ray.</ResponseField>
+<ResponseField name="surface_velocity_available" type="boolean">Whether `surface_velocity` is there.</ResponseField>
+<ResponseField name="surface_velocity" type="vector">How fast the surface moved at the hit, in metres per second.</ResponseField>
+<ResponseField name="motion" type="string">`"measured"` with a `surface_velocity`, else `"unknown"`.</ResponseField>
+<ResponseField name="in_categories" type="number">With `include_shape_categories`: the hit shape's collision categories as a whole number. Missing means they could not be read; 0 is a known empty set.</ResponseField>
+<ResponseField name="owner_assigned" type="boolean">With `include_hit_owner`: whether the hit shape has an owner.</ResponseField>
+<ResponseField name="owner" type="userdata">With `include_hit_owner`, when `owner_assigned`: a token that compares equal (`==`) to another hit's token when both shapes have the same owner, within the same sample. It says nothing else.</ResponseField>
+</Expandable>
+</ResponseField>
+</Expandable>
+</ResponseField>
+
+Without `require_contact`, a hit's normal and surface velocity are left out. A hit never names the body, object or face it met.
+
+```lua
+local sample = reskate.world.physics.read(body)
+if sample then
+    local batch = reskate.world.physics.probe_batch(body, sample.epoch, {
+        {from = sample.position, to = sample.position - vector.create(0, 1, 0)},
+    }, {require_contact = true})
+    if batch.status == "available" and batch.rays[1].status == "hit" then
+        local ground = batch.rays[1]
+        reskate.log(string.format("ground %.2f m below", (sample.position - ground.position).y))
+    end
+end
+```
+
+<Note>
+Needs the `world.physics` and `world.raycast` permissions, and `world.physics.observe` for `query_preset = "all"`, `include_shape_categories` and `include_hit_owner`. Each ray is one of the plugin's 64 raycasts a tick, shared with `reskate.world.raycast`, `pick`, `probe` and `reskate.session.raycast`; past them the call raises an error. Batch rays and [`reskate.world.probe`](/plugins/api/world#raycasts) also share 64 casts in the game a tick, each ray using at most two; when they run out the batch is `"unavailable"` with `budget_exhausted`.
+</Note>

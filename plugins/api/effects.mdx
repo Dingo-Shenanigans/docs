@@ -1,0 +1,151 @@
+---
+title: "Effects"
+description: "reskate.effects: particle effects and decals your mod ships, placed, moved and faded in the world."
+---
+
+`reskate.effects` plays particle effects and places decals that your mod ships: sparks off a grind, smoke behind a board, a stain where a skater bails. Every function needs the `effects` [permission](/plugins/permissions); calling one without it raises an error.
+
+<Warning>
+Effects are local: only your game shows them. Another player sees them only when their copy of your plugin makes them too. A dedicated server has no renderer: `state()` returns `false` there, and `particle` and `decal` return `nil`.
+</Warning>
+
+## Your mod's own assets
+
+A plugin plays only effects its mod ships, never the game's own: the game's effects include store cosmetics. Every asset you play is named in the manifest twice:
+
+- in `effects`, a list of at most 128 exact asset names, which needs the `effects` permission;
+- under a `resident` entry for the bundle `win32/levels/game/dingolevel_root/dingolevel_root`, whose `roots` cover each name: the exact name, or a prefix ending in `/`. See [`resident`](/plugins/manifest#resident).
+
+```json
+{
+    "api": 1,
+    "side": "client",
+    "entry": "plugin/main.lua",
+    "permissions": ["effects"],
+    "effects": ["effects/reskate/example/ebp_spark", "world/materials/decal/reskate_example/stain_dv"],
+    "resident": [{
+        "bundle": "win32/levels/game/dingolevel_root/dingolevel_root",
+        "roots": ["effects/reskate/example/", "world/materials/decal/reskate_example/"]
+    }]
+}
+```
+
+A particle effect's name starts with `effects/reskate/`, and a decal's with `world/materials/decal/reskate_`. Names are at most 240 characters of lowercase letters, digits, `/`, `_` and `-`, with no empty folder and no `/` at the end. A manifest that lists an effect without the permission, breaks these rules, or names one no `resident` root covers is refused, and the plugin does not start.
+
+Naming an asset does not make it. Build your effects and what they use into that shared bundle with your mod. A particle asset must be an effect blueprint and a decal asset a decal volume template; effects in a part of the map that streams in and out are refused.
+
+## Transforms
+
+A transform is a list of 16 numbers: the effect's X, Y and Z axes in the world, each followed by 0, then its position followed by 1.
+
+```lua
+-- Upright at a point, 1 m across.
+local function at(p)
+    return {1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  p.x, p.y, p.z, 1}
+end
+```
+
+Every number is finite. The axes are at right angles to each other (within 1%), each 0.001 to 20 m long, which scales the effect. The position is within 100 km of the map's centre. Any other transform raises an error. A particle effect emits along its Y axis. A decal projects along its Y axis, which sets how deep it reaches; X and Z set its size.
+
+## When effects show
+
+Effects are made only while the game can show them: not without a local skater, while a level loads, in a replay, in Noclip or in the park editor. `state()` says whether they can be made now, and which world they belong to.
+
+Whenever effects stop being able to show (a level change, a world reset, Noclip, the park editor, a replay, or the local skater going), every effect is let go, and `state()`'s epoch changes. Watch the epoch: when it changes, call `clear()`, forget your handles and start again once `ready` is true.
+
+```lua
+local epoch
+reskate.on("tick", function()
+    local ready, now = reskate.effects.state()
+    if now ~= epoch then
+        reskate.effects.clear()
+        epoch = now
+        -- forget every handle here
+    end
+    if not ready then return end
+    -- make and move effects
+end)
+```
+
+An effect lasts at most 10 minutes, then the game lets go of it. Let go of yours sooner. Handles of effects that ended, expired or were let go by the world are dropped from your plugin for you, and give back their room. When your plugin stops, reloads or fails, all its effects go.
+
+## Making
+
+### `reskate.effects.particle(asset, transform)`
+
+Starts a particle effect.
+
+<ParamField path="asset" type="string" required>A particle effect named in the manifest's `effects`.</ParamField>
+<ParamField path="transform" type="table" required>Where it plays: 16 numbers, as above.</ParamField>
+
+<ResponseField name="handle" type="number or nil">The effect's handle, a whole number from 1. Only your plugin can use it.</ResponseField>
+<ResponseField name="why" type="string">`"effect limit reached"` (your plugin holds 24 particle effects), or `"effect asset or renderer unavailable"` (the asset is not loaded, effects cannot show now, or every plugin together holds 64).</ResponseField>
+
+```lua
+local spark = reskate.effects.particle("effects/reskate/example/ebp_spark", at(reskate.skater.position()))
+```
+
+<Note>Needs the `effects` permission. An asset not in the manifest, or a stock or store effect, raises an error.</Note>
+
+### `reskate.effects.decal(asset, transform, options)`
+
+Places a decal.
+
+<ParamField path="asset" type="string" required>A decal named in the manifest's `effects`.</ParamField>
+<ParamField path="transform" type="table" required>Where it goes: 16 numbers, as above.</ParamField>
+<ParamField path="options" type="table">
+<Expandable title="fields">
+<ParamField path="attach" type="boolean" default="false">True looks for the surface around the decal's centre, along its Y axis, and sticks the decal to it. A decal on a moving surface follows it, and goes when that surface goes. When no surface is found, `decal` returns `nil`.</ParamField>
+<ParamField path="lift" type="number" default="0">With `attach`, how far the decal's centre sits off the surface: 0 to 1 m.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="handle" type="number or nil">The decal's handle.</ResponseField>
+<ResponseField name="why" type="string">`"effect limit reached"` (your plugin holds 2048 decals), or `"effect asset or renderer unavailable"` (also when every plugin together holds 4096).</ResponseField>
+
+The game makes room to draw the decals over the next second, so a burst of new decals may take up to a second to all show.
+
+<Note>Needs the `effects` permission. A `lift` outside 0 to 1 raises an error.</Note>
+
+## Changing
+
+Each of these takes a handle your plugin made. A handle that is not a whole number from 1, or that is not your plugin's (another plugin's, released or dropped), raises an error. They return nothing.
+
+### `reskate.effects.move(handle, transform)`
+
+Moves a particle effect, or a decal that is not attached, to a new transform.
+
+<Note>Needs the `effects` permission.</Note>
+
+### `reskate.effects.stop(handle)`
+
+Stops a particle effect emitting. The particles already out finish as they would.
+
+<Note>Needs the `effects` permission.</Note>
+
+### `reskate.effects.opacity(handle, alpha)`
+
+Fades a decal: `alpha` is 0 (gone) to 1. Outside that raises an error.
+
+<Note>Needs the `effects` permission.</Note>
+
+### `reskate.effects.release(handle)`
+
+Stops the effect and lets go of it. Its handle is no longer yours.
+
+<Note>Needs the `effects` permission.</Note>
+
+### `reskate.effects.clear()`
+
+Lets go of every effect your plugin made. Safe to call any time, and again.
+
+<Note>Needs the `effects` permission.</Note>
+
+## Reading
+
+### `reskate.effects.state()`
+
+<ResponseField name="ready" type="boolean">Whether effects can be made now.</ResponseField>
+<ResponseField name="epoch" type="number">A number for the current world. It changes when the world does: then clear your effects and start again.</ResponseField>
+
+<Note>Needs the `effects` permission. Every `reskate.effects` call counts towards 8192 effect calls a tick, past which a call raises an error.</Note>

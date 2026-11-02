@@ -121,7 +121,9 @@
               "plugins/api/audio",
               "plugins/api/input",
               "plugins/api/camera",
-              "plugins/api/capture"
+              "plugins/api/capture",
+              "plugins/api/viewmodel",
+              "plugins/api/strings"
             ]
           },
           {
@@ -131,7 +133,9 @@
               "plugins/api/board",
               "plugins/api/outfit",
               "plugins/api/animation",
-              "plugins/api/world"
+              "plugins/api/world",
+              "plugins/api/bodies",
+              "plugins/api/effects"
             ]
           },
           {
