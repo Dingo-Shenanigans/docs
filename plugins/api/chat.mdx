@@ -1,9 +1,9 @@
 ---
 title: "Chat"
-description: "reskate.chat and the chat event: send to the session's chat, show lines only this player sees, and read what is said."
+description: "reskate.chat and the chat event: send to the session's chat, show lines only this player sees, add / commands, and read what is said."
 ---
 
-Your plugin can say something in the session's chat as the player (`reskate.chat.send`, which needs `chat.send`), show a line only this player sees (`reskate.chat.notice`, which needs `chat.local`), and hear every chat line (the `chat` event, which needs `chat.read`). See [permissions](/plugins/permissions).
+Your plugin can say something in the session's chat as the player (`reskate.chat.send`, which needs `chat.send`), show a line only this player sees (`reskate.chat.notice`, which needs `chat.local`), add its own `/` commands to the player's chat (`reskate.chat.command`, which needs `chat.commands`), and hear every chat line (the `chat` event, which needs `chat.read`). See [permissions](/plugins/permissions).
 
 Chat is the multiplayer session's: outside a session there is none.
 
@@ -46,6 +46,39 @@ reskate.chat.notice("Race starts in 10 seconds", 0x5ECDFAFF)
 ```
 
 <Note>Needs `chat.local`. At most 5 lines a second; past them it returns `false` and why. Raises an error for empty text, text over 200 characters or on more than one line, and a colour that is not a whole number from `0` to `0xFFFFFFFF`.</Note>
+
+### `reskate.chat.command(name, help, handler, args)`
+
+Adds a `/` command to this player's chat. When the player types `/name` and anything after it, your handler runs on their game. The line is not sent: nobody else sees it, the server never gets it, and no plugin hears it as a `chat` event. The command shows in the chat's `/` list as the player types, and in `/help`, with your plugin's folder name after its help.
+
+<ParamField path="name" type="string" required>One lowercase word without the `/`: 2 to 24 characters of `a-z`, `0-9`, `_` and `-`, starting with a letter.</ParamField>
+<ParamField path="help" type="string" required>What it does, at most 120 characters on one line.</ParamField>
+<ParamField path="handler" type="function" required>`function(text, words)`: `text` is the rest of the line after the name, with the spaces at its ends taken off (`""` for none), and `words` the same split at its spaces.</ParamField>
+<ParamField path="args" type="string" default="none">What goes after the name, as the `/` list shows it, such as `"<name|off>"`. At most 60 characters on one line.</ParamField>
+
+Returns nothing.
+
+```lua
+reskate.chat.command("emote", "Play an emote, or stop", function(text, words)
+    if text == "" or text == "off" then
+        stop_emote()
+        return
+    end
+    if not play_emote(words[1]) then
+        reskate.chat.notice("No emote called " .. words[1])
+    end
+end, "<name|off>")
+```
+
+The chat's own commands and a dedicated server's stay theirs, so these names are refused: `help`, `tp`, `p`, `party`, `w`, `whisper`, `tell`, `msg`, `msg-party`, `msg-admins`, `vote`, `votes`, `vote-cancel`, `yes`, `no`, `y`, `n`, `poll`, `kick`, `ban`, `unban`, `map`, `map-pool`, `rotation`, `tod`, `tpall`, `tphere`, `teleport`, `announce`, `announce-to`, `announcements`, `role`, `roles`, `park-mod` and `bone-scale`. In a session, any other command the chat lists comes first too, such as one of a server's own votes.
+
+- A name one plugin has is refused to every other plugin; the error names the plugin that has it.
+- The commands go when your plugin stops or reloads. Add them again when it starts.
+- Typed commands run at your plugin's next tick, in the order they were typed. At most 32 wait at once.
+- Chat needs a multiplayer session, so the commands work only in one.
+- Answer the player with [`reskate.chat.notice`](#reskate-chat-notice-text-colour) (which needs `chat.local`) or a [toast](/plugins/api/overlay). The chat does not answer for you.
+
+<Note>Needs `chat.commands`, in a client copy: a server copy hears the `/` commands a dedicated server does not know in the [`chat` event](/plugins/events#chat) instead. A plugin adds at most 8. Raises an error for a name that breaks the rules above or is taken, a help or args too long or on more than one line, a handler that is not a function, a name it added already, and a ninth command.</Note>
 
 ### The `chat` event
 

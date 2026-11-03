@@ -23,7 +23,7 @@ Going over a limit does one of two things.
 **The plugin is stopped.** ReSkate closes its VM at once:
 
 - Its unload handlers do not run. Its storage is saved.
-- Its console commands go, and so does everything it held of the game: its clips and trick replacements, its sounds, the items it put on the outfit, its board changes, a drop it hosts, the camera, a freeze, a hidden HUD, its nametags and its binds. Only its own: on a lobby's host, the server copy (`<folder>@server`) and the client copy hold their things apart, so one stopping leaves the other's alone.
+- Its console commands and chat `/` commands go, and so does everything it held of the game: its clips and trick replacements, its sounds, the items it put on the outfit, its board changes, a drop it hosts, the camera, a freeze, a hidden HUD, its nametags and its binds. Only its own: on a lobby's host, the server copy (`<folder>@server`) and the client copy hold their things apart, so one stopping leaves the other's alone.
 - The log says `[<id>] stopped: <why>`, and `plugin list` shows `stopped (<why>)`. For a server copy on a lobby's host, `<id>` is `<folder>@server`.
 - It stays stopped until you change one of its files (which reloads it) or run `plugin on <id>`.
 
@@ -62,7 +62,7 @@ The VM may hold 64 MB. An allocation past that fails, and the plugin stops, even
 
 ### Time for one call
 
-Every call ReSkate makes into a plugin has 50 ms: running the entry file, each event handler, each timer, each console command, each page, panel or screen build, each exposed function another plugin calls, and each web request's callback. `<what>` names the call, such as `the tick handler` or `the command speedo`.
+Every call ReSkate makes into a plugin has 50 ms: running the entry file, each event handler, each timer, each console command, each chat `/` command, each page, panel or screen build, each exposed function another plugin calls, and each web request's callback. `<what>` names the call, such as `the tick handler` or `the command speedo`.
 
 When a plugin unloads (its mod switched off, its files changed, `plugin off` or `plugin reload`), its `unload` handlers have 20 ms between them. Once they are spent, the rest are skipped.
 
@@ -107,6 +107,7 @@ These raise a Lua error. The plugin runs on.
 | Handlers | 256 per event | `more than 256 handlers for one event` |
 | Timers | 1024 at once | `more than 1024 timers` |
 | Console commands | 64 | `more than 64 commands` |
+| Chat `/` commands | 8 | `more than 8 chat commands` |
 | Storage | 1 MB, as compact JSON, the way it is saved | `storage is full: that would make it <n> KB, and a plugin has 1024 KB` |
 | Storage keys | 1 to 128 characters | `a storage key must be 1 to 128 characters` |
 | Package file reads | 16 MB a file | `<path> is larger than 16 MB` |
