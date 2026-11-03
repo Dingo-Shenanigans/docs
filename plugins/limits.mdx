@@ -108,6 +108,7 @@ These raise a Lua error. The plugin runs on.
 | Timers | 1024 at once | `more than 1024 timers` |
 | Console commands | 64 | `more than 64 commands` |
 | Chat `/` commands | 8 | `more than 8 chat commands` |
+| UI value names (`reskate.ui.values`) | 32 a plugin for the session, 256 for all plugins | `UI value limit reached` |
 | Storage | 1 MB, as compact JSON, the way it is saved | `storage is full: that would make it <n> KB, and a plugin has 1024 KB` |
 | Storage keys | 1 to 128 characters | `a storage key must be 1 to 128 characters` |
 | Package file reads | 16 MB a file | `<path> is larger than 16 MB` |
