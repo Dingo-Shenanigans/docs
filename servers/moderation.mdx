@@ -1,6 +1,6 @@
 ---
 title: "Moderation and anti-cheat"
-description: "Kicks and bans, the ReSkate team's global bans, chat words, players away from their game, locking one player's tools, and what the server's anti-cheat checks."
+description: "Kicks and bans, the ReSkate team's global bans, chat words, ignoring a player, players away from their game, locking one player's tools, and what the server's anti-cheat checks."
 ---
 
 ## Kicks and bans
@@ -33,6 +33,22 @@ The server has two word files of its own in `data/`, made empty the first time i
 `players.use_global_word_filter: false` (or `words global off`) leaves the team's lists out, so only `words_blocked.txt` is refused. Each player's own game still stars out the team's filtered words for a player with their chat filter on, and hides a server whose name has one of the team's words from the browser.
 
 To keep one player quiet, give them the `muted` [role](/servers/roles).
+
+## Ignoring a player
+
+Any player can ignore another, on a server or in a lobby, without asking anyone. Type `/ignore <player>` in chat (the start of their name, or their SteamID64), or ignore them from the menus: the **IGNORED PLAYERS** tab of the pause menu's online page, the **BANS AND IGNORED** tab of the ReSkate menu's Multiplayer page, or the **Ignore** button beside them on the **SESSION** and **VOICE** tabs. Both lists show everyone you ignore, whether they are in the session or not, with a button to stop.
+
+On the game of the player who ignores them, and nowhere else:
+
+- their skater, board, nametag, map marker and sounds are hidden
+- their voice is muted
+- their chat lines, chat bubbles and typing dots never show, and plugins don't hear their lines
+- their party invites are dropped unseen
+- their plugins' messages never reach this player's plugins, so nothing a plugin of theirs shows (a dance's boombox, a held prop) shows here
+
+They are not told. The list is saved and kept for every session, so they stay ignored when they join again. `/ignored` lists who you ignore, and `/unignore <player>` (or **UNIGNORE** in either list) stops it.
+
+Ignoring is not a server tool: to keep a player out of everyone's game, kick or ban them, or give them the `muted` role.
 
 ## Away players
 

@@ -70,7 +70,7 @@ reskate.chat.command("emote", "Play an emote, or stop", function(text, words)
 end, "<name|off>")
 ```
 
-The chat's own commands and a dedicated server's stay theirs, so these names are refused: `help`, `tp`, `p`, `party`, `w`, `whisper`, `tell`, `msg`, `msg-party`, `msg-admins`, `vote`, `votes`, `vote-cancel`, `yes`, `no`, `y`, `n`, `poll`, `kick`, `ban`, `unban`, `map`, `map-pool`, `rotation`, `tod`, `tpall`, `tphere`, `teleport`, `announce`, `announce-to`, `announcements`, `role`, `roles`, `park-mod` and `bone-scale`. In a session, any other command the chat lists comes first too, such as one of a server's own votes.
+The chat's own commands and a dedicated server's stay theirs, so these names are refused: `help`, `tp`, `p`, `party`, `ignore`, `unignore`, `ignored`, `w`, `whisper`, `tell`, `msg`, `msg-party`, `msg-admins`, `vote`, `votes`, `vote-cancel`, `yes`, `no`, `y`, `n`, `poll`, `kick`, `ban`, `unban`, `map`, `map-pool`, `rotation`, `tod`, `tpall`, `tphere`, `teleport`, `announce`, `announce-to`, `announcements`, `role`, `roles`, `park-mod` and `bone-scale`. In a session, any other command the chat lists comes first too, such as one of a server's own votes.
 
 - A name one plugin has is refused to every other plugin; the error names the plugin that has it.
 - The commands go when your plugin stops or reloads. Add them again when it starts.
