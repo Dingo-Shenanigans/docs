@@ -1054,6 +1054,8 @@ end)
 Needs the `events.tricks` permission. The feed is on while any plugin asks for it, and every plugin with `events.tricks` and a `trick_notes` handler hears it. At most 256 notes wait between two ticks; more are dropped. When the plugin stops, its ask is dropped.
 </Note>
 
+Only the trick list's own writes come through. Other parts of the HUD write text to the same fields, such as the title of the song playing, and those are left out. To tell them apart, a name or a spin is held until the trick list has written something only a trick has (a side, landing, stance or modifier), so the first name after a level loads can arrive a tick or two later than the rest. One that never gets that confirmation within 2 seconds is left out.
+
 ### `reskate.tricks.gesture(name)`
 
 The stick flick of a flip trick, as skate. reads it: the path the stick takes, for drawing the trick's diagram.
