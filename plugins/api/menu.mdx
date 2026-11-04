@@ -537,7 +537,7 @@ end)
 
 ## The game menu
 
-What the game's own menu shows, for a plugin that does something on one of its screens. Fit Check uses it to tell the Board screen from the Skaters page when V is pressed.
+What the game's own menu shows, for a plugin that does something on one of its screens. Fit Check uses it to tell the Board screen from the Skaters page when V is pressed. `reskate.menu.state` says which menus are up over the game, ReSkate's and the replay editor included.
 
 ### `reskate.menu.game()`
 
@@ -551,6 +551,35 @@ What the game's own menu shows, for a plugin that does something on one of its s
 </ResponseField>
 
 <Note>Needs the `menu` permission.</Note>
+
+### `reskate.menu.state()`
+
+What is up over the game: the game's pause menu, ReSkate's menu and the replay editor. For a plugin that hides its own HUD while one of them is up, say. The [`menu_changed`](/plugins/events#the-menu) event says when this changes.
+
+Takes no arguments.
+
+<ResponseField name="state" type="table">
+<Expandable title="fields">
+<ResponseField name="known" type="boolean">True when ReSkate could read the game's screens, as for `menu.game()`. It covers only `pause`: while it is `false`, `pause` is `false` too, but that does not mean the pause menu is closed: it is not known. The other fields are always read.</ResponseField>
+<ResponseField name="pause" type="boolean">True while the game's own pause menu is up, on any of its pages.</ResponseField>
+<ResponseField name="reskate" type="boolean">True while ReSkate's menu is up: its window over the game, or one of its pages in the pause menu.</ResponseField>
+<ResponseField name="replay_editor" type="boolean">True while the replay editor is open.</ResponseField>
+<ResponseField name="page" type="string or nil">Which of ReSkate's pages the pause menu shows: `"multiplayer"`, `"mod_options"` or `"mod_manager"` (the words of `reskate.Enums.MenuPage`). Left out when it shows none of them, and whenever the pause menu is not up.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local function covered(state)
+    return not state.known or state.pause or state.reskate or state.replay_editor
+end
+
+local hidden = covered(reskate.menu.state())
+reskate.on("menu_changed", function(state, previous)
+    hidden = covered(state) -- hide this plugin's HUD under any menu
+end)
+```
+
+<Note>Needs the `menu` permission, for the function and the event. Like `menu.game()`, it says what ReSkate saw, not what stays true, and it gives your plugin no hold on the player's input.</Note>
 
 ### `reskate.menu.grid()`
 

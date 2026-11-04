@@ -1,6 +1,6 @@
 ---
 title: "Permissions"
-description: "All 59 permissions a plugin can ask for: the functions and events each unlocks, and what other players see of it."
+description: "All 62 permissions a plugin can ask for: the functions and events each unlocks, and what other players see of it."
 ---
 
 This page lists every permission a plugin can name in its [manifest](/plugins/manifest)'s `permissions`, what each one unlocks, and what other players can see when a plugin uses it.
@@ -50,7 +50,7 @@ Every plugin has these without asking:
 | --- | --- | --- |
 | `console` | [`reskate.console.command`, `reskate.console.print`](/plugins/api/console) | Nothing. |
 | `overlay` | The `draw` event and its drawing object (`d:text`, `d:rect`, `d:line`, `d:circle`, `d:poly`, `d:gradient`, `d:world_text`, `d:world_line`, `d:world_circle`, `d:image`, `d:world_image`, `d:game_image`, `d:skeleton`, `d:size`, `d:world_to_screen`) ([overlay](/plugins/api/overlay)); [`reskate.screen.look`, `slap`](/plugins/api/overlay#screen-look); [`reskate.ui.toast`](/plugins/api/menu); [`reskate.skater.xray`](/plugins/api/skater) | Nothing: it draws on your screen only. |
-| `menu` | [`reskate.menu.game`, `reskate.menu.grid`, `grid_show`, `grid_mark`](/plugins/api/menu#the-game-menu): what the game's own menu shows, and your own list and marks in its item grids; [`reskate.menu.page`, `reskate.menu.panel`](/plugins/api/menu) and their widgets (`ui:card`, `ui:section`, `ui:tabs`, `ui:heading`, `ui:label`, `ui:note`, `ui:warn`, `ui:info`, `ui:separator`, `ui:bar`, `ui:button`, `ui:buttons`, `ui:toggle`, `ui:slider`, `ui:stepper`, `ui:dropdown`, `ui:list`, `ui:text`, `ui:colour`), on the plugin's own page in the menu's **PLUGINS** section; [`reskate.menu.favorites`](/plugins/api/menu#the-game-menu), the player's starred items, and the `favorites_changed` event | Nothing. |
+| `menu` | [`reskate.menu.game`, `reskate.menu.grid`, `grid_show`, `grid_mark`](/plugins/api/menu#the-game-menu): what the game's own menu shows, and your own list and marks in its item grids; [`reskate.menu.state`](/plugins/api/menu#the-game-menu) and the `menu_changed` event: whether the pause menu, ReSkate's menu or the replay editor is up; [`reskate.menu.page`, `reskate.menu.panel`](/plugins/api/menu) and their widgets (`ui:card`, `ui:section`, `ui:tabs`, `ui:heading`, `ui:label`, `ui:note`, `ui:warn`, `ui:info`, `ui:separator`, `ui:bar`, `ui:button`, `ui:buttons`, `ui:toggle`, `ui:slider`, `ui:stepper`, `ui:dropdown`, `ui:list`, `ui:text`, `ui:colour`), on the plugin's own page in the menu's **PLUGINS** section; [`reskate.menu.favorites`](/plugins/api/menu#the-game-menu), the player's starred items, and the `favorites_changed` event | Nothing. |
 | `ui.screen` | [`reskate.ui.screen`, `reskate.ui.open`, `reskate.ui.close`](/plugins/api/menu); the `screen_closed` event; [`reskate.ui.dialog`](/plugins/api/menu#dialogs) (which needs `throwdowns` too, for its answers) and `reskate.ui.close_dialog` | Nothing. |
 | `ui.models` | [`reskate.ui.symbol`, `reskate.ui.values`](/plugins/api/menu#values-for-your-mods-own-ui), in a client copy only | Nothing: the numbers reach only your own mod's UI, on your game. |
 | `input` | [`reskate.input.bind`, `flight`, `gamepad`, `joystick`, `joysticks`, `capture`, `hide`, `pad_bits`, `key`, `wheel`, `mouse`, `cursor`, `text`, `game_buttons`, `game_keys`, `allowed`, `focus`](/plugins/api/input); the `action` event | Nothing. Your binds show on your **Binds** page. |
@@ -86,6 +86,7 @@ Every plugin has these without asking:
 | `world.raycast` | [`reskate.world.raycast`, `pick` and `probe`](/plugins/api/world) | Nothing. |
 | `world.physics` | [`reskate.world.physics.prepare`, `create`, `read`, `submit`, `receipt`, `acknowledge`, `release`](/plugins/api/bodies), and `probe_batch` together with `world.raycast` | Nothing: the bodies are your game's own, in a client copy only, and refused in a multiplayer session. |
 | `world.physics.observe` | `probe_batch`'s `query_preset = "all"`, `include_shape_categories` and `include_hit_owner` ([physics bodies](/plugins/api/bodies#ray-batches)), with `world.physics` and `world.raycast` | Nothing. |
+| `world.physics.reuse` | [`reskate.world.physics.create(definition, {reuse = true})`](/plugins/api/bodies#bringing-a-parked-body-back): one of the plugin's own parked bodies brought back, at the place it asks, in place of a new one. Needs `world.physics` too. | Nothing: the bodies are your game's own. The player is told it can bring its bodies back anywhere in their world. |
 | `world.objects` | [`reskate.objects.catalog`, `list`, `place`, `move`, `remove`](/plugins/api/world) | The objects you place, as any park editor object, under the session's object rules and its limit on your objects. |
 | `objects.physics` | [`reskate.objects.physics`, `motion`, `velocity`, `pose`, `contact`](/plugins/api/world#object-physics): your own placed objects falling, rolling and knocked over, in a client-only plugin, offline | Nothing: it works offline only, and a moved object is never saved to the park. |
 | `marker.read` | [`reskate.marker.events`](/plugins/api/world#marker-events): the local skater's marker saves and returns, in a client-only plugin | Nothing. |
@@ -99,8 +100,8 @@ Every plugin has these without asking:
 
 | Permission | Unlocks | What other players see |
 | --- | --- | --- |
-| `session.read` | [`reskate.session.active`, `is_dedicated`, `players`, `me`, `host`, `spectate`, `world`](/plugins/api/session); the `player_joined` and `player_left` events | Nothing. |
-| `session.skaters` | [`reskate.session.skaters`, `joint`, `touch`, `touching`, `hide`, `hidden`, `raycast`](/plugins/api/session); the [`touch` and `touch_end` events](/plugins/events#touch) | Other players' skaters hidden on your screen while it hides them. Nothing on anyone else's game. |
+| `session.read` | [`reskate.session.active`, `is_dedicated`, `players`, `me`, `host`, `spectate`, `world`, `outfit`](/plugins/api/session); the `player_joined` and `player_left` events | Nothing. |
+| `session.skaters` | [`reskate.session.skaters`, `joint`, `touch`, `touching`, `hide`, `hidden`, `hide_items`, `raycast`](/plugins/api/session); the [`touch` and `touch_end` events](/plugins/events#touch) | Other players' skaters, or some of their items, hidden on your screen while it hides them. Nothing on anyone else's game. |
 | `session.nametags` | [`reskate.session.tag`, `nametags`](/plugins/api/session) | Nothing: the tags show beside nametags on your game, and the names held off are off on your game only. |
 | `net.session` | [`reskate.net.send`](/plugins/api/session); the `message` event | The same plugin on other players' games (or its server copy) gets your messages. The session says who sent them. |
 | `voice.control` | [`reskate.voice.set_volume`](/plugins/api/session) | Nothing: it sets how loud a player is to you. |
@@ -138,7 +139,7 @@ A permission says what a plugin may try, not that the game lets it. Many calls s
 
 Some functions under different permissions share one rate budget. They are easy to trip over together:
 
-- `reskate.skater.noclip`, `boost` and `freeze`, `reskate.camera.follow`, `reskate.ai.spawn`, `reskate.animation.play`, `reskate.board.toss`, `reskate.outfit.set`, `reskate.outfit.on_top`, `reskate.outfit.stand_ins` and `reskate.capture.start`: 4 calls a second between them.
+- `reskate.skater.noclip`, `boost` and `freeze`, `reskate.camera.follow`, `reskate.ai.spawn`, `reskate.animation.play`, `reskate.board.toss`, `reskate.outfit.set`, `reskate.outfit.on_top`, `reskate.outfit.stand_ins`, `reskate.session.hide_items` and `reskate.capture.start`: 4 calls a second between them.
 - `reskate.skater.teleport` and `reskate.trainer.back`: 2 a second between them.
 - `reskate.music.play`, `pause`, `next`, `previous` and `game_next`: 2 a second between them.
 - `reskate.chat.send` and `reskate.server.say` share one clock: a `chat.send` must come 3 s after the last line of either, and a `server.say` 1 s after.

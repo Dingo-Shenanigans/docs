@@ -1,6 +1,6 @@
 ---
 title: "Events"
-description: "All 32 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
+description: "All 33 events a plugin can handle: the permission each needs, when it fires, and exactly what its handler gets."
 ---
 
 This page lists every event `reskate.on` accepts. Five need no permission; each of the others needs the permission named in its section.
@@ -11,7 +11,7 @@ This page lists every event `reskate.on` accepts. Five need no permission; each 
 
 Registers a function to run each time the event fires. Register handlers when the entry file runs, usually at its top level.
 
-<ParamField path="event" type="string" required>The event's name, one of the 32 on this page, or the same name from `reskate.Enums.Event`.</ParamField>
+<ParamField path="event" type="string" required>The event's name, one of the 33 on this page, or the same name from `reskate.Enums.Event`.</ParamField>
 <ParamField path="handler" type="function" required>Called with the event's arguments, described in each section below.</ParamField>
 
 It returns nothing. These raise a Lua error:
@@ -664,6 +664,28 @@ local function refresh()
 end
 reskate.on("load", refresh)
 reskate.on("favorites_changed", refresh)
+```
+
+### `menu_changed`
+
+**Permission:** `menu`.
+
+Fires when what is up over the game changes: the game's pause menu, ReSkate's menu or the replay editor coming up or going, the ReSkate page the pause menu shows, or whether the game's screens could be read (`known`). It is checked once a tick, and fires once for each change.
+
+<ResponseField name="state" type="table">What is up now, as [`reskate.menu.state`](/plugins/api/menu#the-game-menu) gives it: `known`, `pause`, `reskate`, `replay_editor` and `page`.</ResponseField>
+<ResponseField name="previous" type="table">What was up before, in the same form.</ResponseField>
+
+What was up when ReSkate first looked is not a change. A plugin that starts while a menu is up hears nothing until the next change, so read `reskate.menu.state()` when it loads.
+
+```lua
+local paused = false
+local function covered(state)
+    return not state.known or state.pause or state.reskate or state.replay_editor
+end
+reskate.on("load", function() paused = covered(reskate.menu.state()) end)
+reskate.on("menu_changed", function(state, previous)
+    paused = covered(state)
+end)
 ```
 
 ## Music

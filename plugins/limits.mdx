@@ -151,6 +151,7 @@ These raise a Lua error. The plugin runs on.
 | Item origins (`reskate.mods.item_origins`) | 4000 keys | `at most 4000 items` |
 | Page widgets | `ui:buttons` 32 names of 40 characters; `ui:list` 200 items of 80 characters, 3 to 12 rows; `ui:text` 200 characters | `buttons are 1 to 32 names`, `a list has 1 to 200 items`, `a list shows 3 to 12 rows` |
 | Stand-ins (`reskate.outfit.stand_ins`) | 4096 items, 64 exclude rules, each name 1 to 255 characters | `items has at most 4096 names`, `exclude has at most 64 names` |
+| Hidden items (`reskate.session.hide_items`) | 4096 names in all, on at most 64 players; each name 1 to 255 characters | `at most 4096 item names`, `items of at most 64 players` |
 | Effects (`reskate.effects`) | 8192 calls a tick | see [effects](/plugins/api/effects) |
 | Texts (`reskate.strings`) | an id 1 to 255 characters; a text 511 UTF-16 units | see [strings](/plugins/api/strings) |
 | A viewmodel (`reskate.viewmodel.load`) | 128 bones; the file and each picture 64 MB; a path 200 characters | see [viewmodel](/plugins/api/viewmodel) |
@@ -165,7 +166,7 @@ These return `false` and a reason, and raise nothing. Check the result.
 | What | Limit | Reason |
 | --- | --- | --- |
 | `reskate.skater.teleport`, `reskate.trainer.back` | 2 a second, together | `asked more than twice in a second` |
-| `reskate.skater.noclip`, `boost`, `freeze`; `reskate.camera.follow`; `reskate.ai.spawn`; `reskate.animation.play`; `reskate.board.toss`; `reskate.outfit.set`, `on_top`, `stand_ins`; `reskate.capture.start` | 4 a second, together | `asked more than 4 times in a second` |
+| `reskate.skater.noclip`, `boost`, `freeze`; `reskate.camera.follow`; `reskate.ai.spawn`; `reskate.animation.play`; `reskate.board.toss`; `reskate.outfit.set`, `on_top`, `stand_ins`; `reskate.session.hide_items`; `reskate.capture.start` | 4 a second, together | `asked more than 4 times in a second` |
 | `reskate.skater.wipeout` | 1 every 2 s | `one wipeout every 2 s` |
 | `reskate.skater.reach` | one plugin at a time, for 300 ms after its last call | `<plugin> holds the skater's arm` |
 | `reskate.skater.pose` | one plugin at a time, for 300 ms after its last call; at most 128 joints | `<plugin> poses the skater` |
@@ -176,6 +177,7 @@ These return `false` and a reason, and raise nothing. Check the result.
 | `reskate.board.scale` | one plugin a bone; each axis 0.25 to 4 | `<plugin> sizes that bone`, `a bone's size is 0.25 to 4 on each axis` |
 | `reskate.viewmodel.load` | one plugin at a time | `<plugin> has the viewmodel` |
 | `reskate.world.physics.create` | 8 bodies for the whole game run, every plugin together | `the eight retained body slots are exhausted; native destruction is unproven` |
+| `reskate.world.physics.create` with `reuse` | once a tick, a refused one included | `asked to reuse a native body more than once in one tick` (with `nil`, not `false`) |
 | `reskate.world.physics.submit` | 4 receipts a body waiting | see [physics bodies](/plugins/api/bodies) |
 | `reskate.effects.particle`, `decal` | 24 particle effects and 2048 decals a plugin; 64 and 4096 for every plugin together | `effect limit reached`, `effect asset or renderer unavailable` |
 | `reskate.objects.physics` | 32 objects a plugin, 128 for every plugin together; a claim changes once every 16 ms | `object physics limit reached`, `object physics rate limit reached` |

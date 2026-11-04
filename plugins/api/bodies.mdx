@@ -5,14 +5,14 @@ description: "reskate.world.physics: rigid bodies of your plugin's own in the lo
 
 `reskate.world.physics` lets a plugin make rigid bodies of its own in the local physics world: a ball, a cart, a crate, a vehicle. Each body is a compound of capsules. The plugin reads where the body is, asks for a force, torque or impulse on the next physics step, and reads what happened. What a body is for, and how it is steered, is up to your plugin.
 
-Every function needs the `world.physics` [permission](/plugins/permissions). `probe_batch` needs `world.raycast` as well, and three of its options need `world.physics.observe`. Calling a function without its permission raises an error.
+Every function needs the `world.physics` [permission](/plugins/permissions). `probe_batch` needs `world.raycast` as well, and three of its options need `world.physics.observe`. `create`'s `reuse` option needs `world.physics.reuse`. Calling a function without its permission raises an error.
 
 <Warning>
 Bodies are local. They exist on your game only, and nothing about them is sent to other players. Every function works in the client copy only: in a server copy it raises `native bodies are client phase only`. Making, reading and pushing bodies is refused during a multiplayer session and while joining a lobby.
 </Warning>
 
 <Warning>
-The game has room for eight bodies, shared by every plugin, every reload and every level, until it restarts. A released body is stopped and parked, not destroyed, and keeps its room. Once the eight are used, `create` answers `nil, "the eight retained body slots are exhausted; native destruction is unproven"`. A plugin you reload while you work on it runs out after eight bodies: restart the game.
+The game has room for eight bodies, shared by every plugin, every reload and every level, until it restarts. A released body is stopped and parked, not destroyed, and keeps its room. Once the eight are used, `create` answers `nil, "the eight retained body slots are exhausted; native destruction is unproven"`. A plugin you reload while you work on it runs out after eight bodies: restart the game. A plugin with `world.physics.reuse` can bring one of its own parked bodies back instead of using another place: see [bringing a parked body back](#bringing-a-parked-body-back).
 </Warning>
 
 ## How a body moves
@@ -75,13 +75,15 @@ Why not:
 | `native body preparation failed closed` | An error was caught before anything was asked. |
 </ResponseField>
 
+`create` answers a pending setup and a skater, world or step it cannot read now alike, with `body_preallocation_unavailable`. `prepare` tells them apart.
+
 <Note>Needs the `world.physics` permission. Once a tick.</Note>
 
 ## Making and reading
 
-### `reskate.world.physics.create(definition)`
+### `reskate.world.physics.create(definition, options)`
 
-Makes a body.
+Makes a body, or with `reuse` brings back one of your own parked bodies.
 
 <ParamField path="definition" type="table" required>
 Any field not listed raises an error.
@@ -93,13 +95,33 @@ Any field not listed raises an error.
 <ParamField path="rotation" type="table" required>A unit quaternion as a list `{x, y, z, w}`.</ParamField>
 </Expandable>
 </ParamField>
+<ParamField path="options" type="table">
+Any field not listed raises an error, and so does a value that is not a table or `nil`.
+<Expandable title="fields">
+<ParamField path="reuse" type="boolean" default="false">True looks first among your own parked bodies for one to bring back, and makes a new body only when none can come. Needs `world.physics.reuse`. See [bringing a parked body back](#bringing-a-parked-body-back).</ParamField>
+</Expandable>
+</ParamField>
 
 <ResponseField name="body" type="userdata or nil">The body: an opaque handle that only this plugin, until it reloads, can use.</ResponseField>
-<ResponseField name="why" type="string">Why not, such as `"waiting for a fresh qualified 60 Hz physics step"`, `"owned bodies require the current local client phase outside multiplayer"`, `"the eight retained body slots are exhausted; native destruction is unproven"` or `"a previous partial allocation in this world prohibits another native allocation"`.</ResponseField>
+<ResponseField name="why" type="string">
+`nil` with a body. Otherwise why not. These are fixed codes, to compare against (see [refusal codes](#refusal-codes)):
+
+| Code | Meaning |
+| --- | --- |
+| `body_preallocation_unavailable` | The setup is still pending, or the local skater, the world or the 60 Hz step cannot be read now. Nothing was reserved or made: a later `create` may work. |
+| `body_reuse_pending` | Only with `reuse`: see [bringing a parked body back](#bringing-a-parked-body-back). |
+| `body_reactivation_failed` | Only with `reuse`: see [bringing a parked body back](#bringing-a-parked-body-back). |
+
+The other refusals are sentences meant for your log, such as `"owned bodies require the current local client phase outside multiplayer"`, `"the eight retained body slots are exhausted; native destruction is unproven"` or `"a previous partial allocation in this world prohibits another native allocation"`.
+</ResponseField>
+<ResponseField name="origin" type="string">Only when you pass `options`, with a body: `"reused"` (a parked body came back) or `"allocated"` (a new body).</ResponseField>
+<ResponseField name="miss" type="string">Only for a `reuse` that made a new body: why none of your parked bodies came back. See [bringing a parked body back](#bringing-a-parked-body-back).</ResponseField>
+
+Without `options`, or with `nil` in their place, `create` returns the body alone, or `nil` and why. With options it returns `body, nil, origin`, and `miss` after them for a `reuse` that made a new body.
 
 The capsules collide with the world only. A plugin cannot choose what a body collides with. A failed `create` is not tried again for you.
 
-<Note>Needs the `world.physics` permission. A definition out of these ranges raises `invalid native body: mass 1..1000, inertia .01..10000, unit XYZW rotation, capsule endpoints +/-10m and radius .01..2m`.</Note>
+<Note>Needs the `world.physics` permission, and `world.physics.reuse` for `reuse = true`. A definition out of these ranges raises `invalid native body: mass 1..1000, inertia .01..10000, unit XYZW rotation, capsule endpoints +/-10m and radius .01..2m`.</Note>
 
 ### `reskate.world.physics.read(body)`
 
@@ -144,10 +166,19 @@ Any field not listed raises an error. A vector left out is zero.
 </ParamField>
 
 <ResponseField name="ok" type="boolean">True when the command waits for its step.</ResponseField>
-<ResponseField name="why" type="string or nil">`nil` when it waits. Otherwise why not: `"measured native body epoch expired"` (a newer step has been read), `"body owner or generation changed"`, `"body commands require the current local client phase"` or `"body command invalid, repeated, stopped, pending or receipt ring full"`.</ResponseField>
+<ResponseField name="why" type="string or nil">
+`nil` when it waits. Otherwise why not. These two are fixed codes, to compare against (see [refusal codes](#refusal-codes)):
+
+| Code | Meaning |
+| --- | --- |
+| `body_clock_unavailable` | The body's physics step cannot be trusted now: no step in the last 250 ms, the latest step was not published or was another skater's or world's, the step is not 1/60 s, or it was being written at that moment. Try again on a later tick. |
+| `body_epoch_expired` | The step has moved past the sample your epoch came from, or a later `read` or `receipt` gave a newer sample. Read again and compute from the new sample. |
+
+The other refusals are sentences meant for your log: `"body owner or generation changed"`, `"body commands require the current local client phase"` or `"body command invalid, repeated, stopped, pending or receipt ring full"`.
+</ResponseField>
 <ResponseField name="sequence" type="string">The command's number, as a decimal string, for `receipt` and `acknowledge`.</ResponseField>
 
-One command waits at a time for each body, and each must come from a newer step than the last. A plugin that reads and submits every step drives its body at 60 Hz. A command the game takes only in part fails the body for good: it is quarantined, and only `receipt`, `acknowledge` and `release` still answer for it.
+Neither code assigns a sequence, takes the body's waiting place or changes a receipt. One command waits at a time for each body, and each must come from a newer step than the last. A plugin that reads and submits every step drives its body at 60 Hz. A command the game takes only in part fails the body for good: it is quarantined, and only `receipt`, `acknowledge` and `release` still answer for it.
 
 <Note>Needs the `world.physics` permission. A command out of these bounds, or an epoch of another body, raises an error.</Note>
 
@@ -191,7 +222,7 @@ Frees the oldest receipt, so another command can be submitted.
 
 ### `reskate.world.physics.release(body)`
 
-Stops the body: its waiting command is cancelled, its force and velocity are cleared, it stops colliding, and it is parked. It still takes one of the eight places.
+Stops the body: its waiting command is cancelled, its force and velocity are cleared, it stops colliding, and it is parked. It still takes one of the eight places. With `world.physics.reuse`, your plugin can [bring it back](#bringing-a-parked-body-back) later.
 
 <ParamField path="body" type="userdata" required>A body from `create`.</ParamField>
 
@@ -201,6 +232,70 @@ Stops the body: its waiting command is cancelled, its force and velocity are cle
 The receipts of a released body can still be read and acknowledged.
 
 <Note>Needs the `world.physics` permission.</Note>
+
+## Bringing a parked body back
+
+A released body keeps one of the eight places until the game restarts, so a plugin that makes and releases the same body again and again, such as a bike made on each mount and released on each return, would run out. `create(definition, {reuse = true})` brings back one of its own parked bodies in place of a new one, at the definition's position and rotation.
+
+```lua
+local P = reskate.world.physics
+local bike -- the definition, the same capsules, mass and inertia each time
+
+local function mount(at)
+    bike.position = at
+    local body, why, origin, miss = P.create(bike, {reuse = true})
+    if not body then
+        if why == "body_reuse_pending" then return nil end -- released just now: try next tick
+        reskate.log("no body: " .. why, "warn")
+        return nil
+    end
+    if origin == "allocated" then reskate.log("a new body (" .. miss .. ")") end
+    return body
+end
+```
+
+`reuse` looks only among the bodies this copy of your plugin parked itself: never another plugin's, and not those from before your plugin reloaded. A body can come back when:
+
+- your plugin released it with `release`, in the same world it was made or brought back in;
+- it never failed and was never quarantined;
+- its capsules, mass and inertia are exactly those of the new definition, to the last bit. Its position and rotation may differ: it comes back at the new ones.
+
+Any tick on which the world is not ready, such as a level load or the game leaving play, starts a new world. Every body parked before it stays parked, still takes its place among the eight, and is never brought back.
+
+Before it writes anything, ReSkate checks that the body is still as `release` left it. Then it places the body, lets it collide with the world again and sets it moving, as at the end of a creation. It comes back with a new handle: the old handle, its epochs and its receipts are gone.
+
+When no body can come back, `create` makes a new one, as without `reuse`, and its fourth result, `miss`, says why, from your own bodies only:
+
+| `miss` | Meaning |
+| --- | --- |
+| `none_parked` | Your plugin has no parked body. |
+| `definition_differs` | Its parked bodies have other capsules, mass or inertia. |
+| `world_changed` | They were parked in an earlier world. |
+| `quarantined` | They failed, or were barred by an earlier failure. |
+| `parked_body_changed` | The check above failed: that body is never brought back. |
+
+Two refusals come only from `reuse`:
+
+| Code | Meaning |
+| --- | --- |
+| `body_reuse_pending` | A body that could come back was released fewer than two physics steps ago. Nothing was reserved, written or made: ask again on a later tick. |
+| `body_reactivation_failed` | A write while bringing it back did not hold. The body is kept in quarantine, no handle is returned, and no more bodies can be made in that world, as after a partial creation. |
+
+`create` without `reuse` never brings a body back, so it is how a plugin asks for a new one.
+
+<Note>Needs `world.physics.reuse` as well as `world.physics`; a manifest with the first and not the second fails to load. A plugin may ask to reuse once a tick. A second request that tick, after a refused one too, returns `nil, "asked to reuse a native body more than once in one tick"` without reaching the game.</Note>
+
+## Refusal codes
+
+Five refusals are fixed codes rather than sentences, so a plugin can compare `why` with them and decide whether to try again. Every other refusal on this page is a sentence meant for your log, whose words can change. `probe_batch` has its own reasons, in [`batch.reason`](#ray-batches).
+
+| Code | From | Try again? |
+| --- | --- | --- |
+| `body_preallocation_unavailable` | `create` | Yes, on a later tick. Nothing was reserved or made. |
+| `body_reuse_pending` | `create` with `reuse` | Yes, on a later tick. Nothing was reserved or made. |
+| `body_reactivation_failed` | `create` with `reuse` | No: that world allows no more bodies. |
+| `body_clock_unavailable` | `submit` | Yes, on a later tick. |
+| `body_epoch_expired` | `submit` | Yes, with the epoch of a new `read`. |
 
 ## Ray batches
 

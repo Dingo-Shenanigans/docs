@@ -3,7 +3,7 @@ title: "Session and messages"
 description: "reskate.session, reskate.voice and reskate.net: who is in the multiplayer session, their skaters and voices, spectating them, the session's world, and messages between copies of your plugin."
 ---
 
-This page covers the multiplayer session: who is in it, spectating a player and the session's world (`reskate.session`, which needs `session.read`), other players' skaters, touching them, hiding them and rays at them (`session.skaters`), tags beside their nametags (`session.nametags`), their voice volume (`voice.control`), and messages between the copies of your plugin on every player's game (`reskate.net.send` and the `message` event, which need `net.session`). See [permissions](/plugins/permissions).
+This page covers the multiplayer session: who is in it, spectating a player, the session's world and what other players wear (`reskate.session`, which needs `session.read`), other players' skaters, touching them, hiding them or some of their items, and rays at them (`session.skaters`), tags beside their nametags (`session.nametags`), their voice volume (`voice.control`), and messages between the copies of your plugin on every player's game (`reskate.net.send` and the `message` event, which need `net.session`). See [permissions](/plugins/permissions).
 
 ## Players
 
@@ -300,6 +300,77 @@ if hit then reskate.log("looking at " .. hit.player .. "'s " .. hit.part) end
 ```
 
 <Note>Needs `session.skaters`, and no `world.raycast`. Each call counts towards the 64 raycasts a tick, with `reskate.world.raycast`'s. A ray longer than 1000 m, or a raycast past those 64, raises an error. Collision is loaded only near your skater, so far from it the world does not block.</Note>
+
+## Other players' items
+
+What another player wears, and items of theirs your game does not show. With [`reskate.mods.item_origins`](/plugins/api/mods) (which mod an item comes from) and [`reskate.outfit.stand_ins`](/plugins/api/outfit#stand-ins) (what shows in its place), a plugin can hide every item of one mod, or every mod item on one player. The rules, and the menu to choose them, are your plugin's.
+
+### `reskate.session.outfit(player)`
+
+The items another player wears, as their game sent them.
+
+<ParamField path="player" type="string or table" required>The player, by id or player table.</ParamField>
+
+<ResponseField name="outfit" type="table or nil">
+`nil` before their outfit has arrived, for a player not in the session, and for the local player (read yours with [`reskate.outfit`](/plugins/api/outfit)).
+<Expandable title="fields">
+<ResponseField name="skater" type="table">The item names their skater wears, empty slots left out.</ResponseField>
+<ResponseField name="board" type="table">The item names of their board, empty slots left out.</ResponseField>
+</Expandable>
+</ResponseField>
+
+The names are the ones `reskate.mods.item_origins` takes. An item your game does not have is in the list all the same: it is what they wear, not what your game shows. Paid store items are left out: your game never shows them on another player.
+
+```lua
+-- How many mod items each player wears (item_origins needs mods.read).
+for _, p in reskate.session.players() do
+    local outfit = reskate.session.outfit(p)
+    if outfit then
+        local origins, ready = reskate.mods.item_origins(outfit.skater)
+        if ready then
+            local from_mods = 0
+            for _, origin in origins do
+                if origin.source == "mod" then from_mods += 1 end
+            end
+            reskate.log(p.name .. " wears " .. from_mods .. " mod items")
+        end
+    end
+end
+```
+
+<Note>Needs `session.read`. A `player` that is not a player's id raises an error.</Note>
+
+### `reskate.session.hide_items(lists)`
+
+Items not to show on other players, on your screen. A hidden item shows the way an item your game does not have does: a plugin's [stand-in](/plugins/api/outfit#stand-ins), the slot's default, or nothing. Only your game changes: nothing is sent, and nobody else sees a difference.
+
+<ParamField path="lists" type="table or nil">
+Your plugin's whole list, which replaces the one before. `nil` (or empty lists) shows them all again.
+<Expandable title="fields">
+<ParamField path="items" type="table">Item names to hide on everyone.</ParamField>
+<ParamField path="players" type="table">Item names to hide on some players only: a table keyed by player id, each a list of names.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the list was taken.</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"asked more than 4 times in a second"`.</ResponseField>
+
+Names match in any case, and any item can be hidden, the game's own included: an item is a name, wherever it comes from. Every plugin's list applies together.
+
+```lua
+reskate.session.hide_items({
+    items = {"Own_Skull_Mask"},                      -- on everyone
+    players = {["76561198000000001"] = {"Own_Tee"}}, -- on this player only
+})
+-- later
+reskate.session.hide_items(nil) -- show them all again
+```
+
+Each change dresses the players your game shows again, one every 100 ms, so a change on a full server takes a few seconds to reach everyone. The same lists as last time change nothing. Send a list when your rules change, not every tick.
+
+<Note>
+Needs `session.skaters`. It shares 4 calls a second with `reskate.outfit.set`, `reskate.outfit.stand_ins` and the other control calls (see [shared budgets](/plugins/permissions#shared-budgets)); a call with the same lists still counts. At most 4096 names in all and 64 players; each name 1 to 255 characters. A list that is not a list of names, a `players` not keyed by player ids, or more than those raises an error. Your plugin's list goes when it stops.
+</Note>
 
 ## Voice
 
