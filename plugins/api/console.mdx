@@ -77,5 +77,5 @@ local ok, why = pcall(reskate.console.command, "load mine", "x", function() end)
 ```
 
 <Note>
-Needs `console`. Each command call has 50 ms, like any handler. A plugin's commands go away when it stops or unloads. `plugin commands` in the console lists every plugin's commands with their help. On a dedicated server, a plugin's command runs only for a line the server does not know itself.
+Needs `console`. Each command call is timed like any handler: a warning past 50 ms, stopped past 1000 ms (see [limits](/plugins/limits#time-for-one-call)). A plugin's commands go away when it stops or unloads. `plugin commands` in the console lists every plugin's commands with their help. On a dedicated server, a plugin's command runs only for a line the server does not know itself.
 </Note>

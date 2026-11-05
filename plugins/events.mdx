@@ -27,7 +27,7 @@ end)
 ```
 
 <Note>
-A handler stays registered until the plugin unloads; there is no way to remove one. Keep a flag and return early instead. Each handler call has 50 ms, and an error in a handler is logged and counts towards the plugin's [error limit](/plugins/limits#errors).
+A handler stays registered until the plugin unloads; there is no way to remove one. Keep a flag and return early instead. A handler call past 50 ms is logged as a warning and one past 1000 ms stops the plugin (see [limits](/plugins/limits#time-for-one-call)). An error in a handler is logged and counts towards the plugin's [error limit](/plugins/limits#errors).
 </Note>
 
 ### Order in a tick
@@ -401,7 +401,7 @@ end)
 ```
 
 <Warning>
-A handler runs for every step, many times a second, so keep it short: count and keep what you need, and draw or log from a `tick` or `draw` handler. Each call has the usual 50 ms, and they add up towards the plugin's [time limits](/plugins/limits).
+A handler runs for every step, many times a second, so keep it short: count and keep what you need, and draw or log from a `tick` or `draw` handler. Each call is timed as usual (a warning past 50 ms, stopped past 1000 ms), and they add up towards the plugin's [time limits](/plugins/limits).
 </Warning>
 
 ## Drawing

@@ -21,7 +21,7 @@ Other players see what is drawn: a clip on your skater shows on their games too.
 
 Every function that takes a clip takes its name:
 
-- A path in your plugin's package, such as `"clips/spin.fas"` (with `/` between folders, no `..`). The file is read once, the first time you name it, and kept under that name.
+- A path in your plugin's package, such as `"clips/spin.fas"` (with `/` between folders, no `..`). The file is read once, the first time you name it, and kept under that name. [`preload`](#preloading-a-clip) reads it ahead instead.
 - `"data:"` and a path in your plugin's [data folder](/plugins/api/files), such as `"data:anims/kick.fas"`, for a clip `save` wrote there. It needs the `files` permission too. It is read once and kept, like a package file: `forget` it to read it again after saving over it.
 - `"game:"` and the name of one of the game's own animations, such as `"game:animation/dingo/c_proto_onb_trick_o_kickflip_high"`, as `game_clips` (below) lists them. It is read out of the game's data once and kept, like a package file.
 - `"rec:1"`, `"rec:2"`... for a recording, as `recorded()` named it.
@@ -204,6 +204,52 @@ end)
 
 <Note>Needs the `skater.animation` permission. A `containing` longer than 64 characters raises an error. Each game clip counts towards your plugin's 48 MB of poses, about 1.9 MB for a two-second trick.</Note>
 
+## Preloading a clip
+
+A clip file in your package is read and decoded the first time you name it, inside that call. On a hard disk, that first read of a big clip in a tick can take long enough to be warned about, or even stopped (see [limits](/plugins/limits#time-for-one-call)). `preload` reads it ahead on a thread of its own, so `play`, `sample`, `info` and the others find it held instead of reading it.
+
+### `reskate.animation.preload(path, fn)`
+
+Starts reading and decoding a clip file in your package, off the game's thread.
+
+<ParamField path="path" type="string" required>The clip's path in your package, such as `"clips/dance.fas"`, at most 200 characters. Only a package file can be preloaded.</ParamField>
+<ParamField path="fn" type="function">Called as `fn(ok, why)` in a later tick, once the clip is held or cannot be: `ok` is true when it is held, and otherwise `why` says why not. Leave it out when you need no answer.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the read started.</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"it reads 8 clips and sounds already"`.</ResponseField>
+
+- `fn` comes at the start of a tick, before its timers and tick handlers.
+- A clip your plugin holds already is not read again. `fn` still comes, in the next tick.
+- A path being read already is read once. Each call's `fn` comes when it is done.
+- When the clip is handed over, it counts towards your plugin's 48 MB of poses. Past them, `fn` gets `false` and `"a plugin's clips hold at most 48 MB of poses"`.
+- A file that cannot be read gets `false` and `"it cannot be read: "` and the reason, such as `not found` or `is larger than 8 MB`. One that is not a clip gets `"it "` and what is wrong with it, such as `"it has more joints than the skater"`.
+- If your plugin stops or unloads first, the read is dropped and `fn` never comes.
+
+```lua
+-- When a dance is picked, read its clip and its song ahead (audio.preload needs audio).
+-- Each is played once it is held, so neither is read inside a tick.
+local function pick(dance)
+    local waiting = 2
+    local function ready(ok, why)
+        if not ok then
+            reskate.log("cannot play " .. dance.name .. ": " .. why, "warn")
+            return
+        end
+        waiting -= 1
+        if waiting == 0 then
+            reskate.animation.play(dance.clip, {loop = true})
+            reskate.audio.play(dance.song, {loop = true})
+        end
+    end
+    reskate.animation.preload(dance.clip, ready)
+    reskate.audio.preload(dance.song, ready)
+end
+
+pick({name = "robot", clip = "clips/robot.fas", song = "sounds/robot.wav"})
+```
+
+<Note>Needs the `skater.animation` permission. At most 8 preloads wait at once, clips and sounds together; past that it returns `false` and why. A `"game:"`, `"data:"`, `"rec:"`, `"clip:"` or `"edit:"` name raises `<path>: only a file in the plugin's own package is preloaded`, and so do a path longer than 200 characters or outside your package, and an `fn` that is not a function.</Note>
+
 ## Working on clips
 
 These read clips and make new ones from them, for a plugin that edits animations. Each clip they make counts towards your plugin's 48 MB of poses: `forget` the ones you are done with.
@@ -257,9 +303,7 @@ A clip's joints at a time, blended between the frames around it. Pass one joint 
 <ParamField path="joint" type="number, string or table" required>A joint, as [`reskate.skater.joint`](/plugins/api/skater) takes one (0 to 394, or a name), or `"board"`. Or a list of them, such as `{0, 1, "Head", "board"}`.</ParamField>
 <ParamField path="seconds" type="number" required>Seconds into the clip; before its start is its start, past its end its end.</ParamField>
 
-<ResponseField name="joint" type="table or nil">For one joint: `{position, rotation, scale}` in the joint's parent's frame (the board's: relative to joint 1, the skater's placement). `nil` for a joint the clip does not hold, or `"board"` in a clip without the board.
-
-For a list: a table keyed by each joint exactly as you gave it (a number stays a number, a name stays a name), each value `{position, rotation, scale}`. A joint the clip does not hold is left out.</ResponseField>
+<ResponseField name="joint" type="table or nil">For one joint: `{position, rotation, scale}` in the joint's parent's frame (the board's: relative to joint 1, the skater's placement). `nil` for a joint the clip does not hold, or `"board"` in a clip without the board. For a list: a table keyed by each joint exactly as you gave it (a number stays a number, a name stays a name), each value `{position, rotation, scale}`. A joint the clip does not hold is left out.</ResponseField>
 
 ```lua
 -- A whole pose at 0.5 s, sampling the clip once instead of once per joint.

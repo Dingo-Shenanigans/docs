@@ -46,7 +46,7 @@ Chat lines from `say` and `tell` start with the plugin's name in brackets (`[My 
 
 ## Players
 
-A player is a player's id (`"7656..."`, a string) or a player table with an `id`, such as `reskate.session.players()` and the `player_joined` event give. Anything else raises an error.
+A player is a player's id (`"7656..."`, a string of digits and nothing else) or a player table with an `id`, such as `reskate.session.players()` and the `player_joined` event give. A whole number works only while a Lua number holds it exactly, which a SteamID64 never is. Anything else raises an error, `"0"` and `0` included. See [players](/plugins/api/session#players).
 
 ### `reskate.server.kick(player, why)`
 

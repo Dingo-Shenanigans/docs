@@ -3,7 +3,7 @@ title: "Audio"
 description: "reskate.audio: the game's menu sounds, and your plugin's own sounds played in the world."
 ---
 
-`reskate.audio` plays two kinds of sound. `play_ui` plays one of the game's menu sounds and needs the `audio.ui` [permission](/plugins/permissions). `play`, `set`, `stop` and `playing` play your plugin's own WAV files, or a synthesised motor, at a place in the level, and need `audio`.
+`reskate.audio` plays two kinds of sound. `play_ui` plays one of the game's menu sounds and needs the `audio.ui` [permission](/plugins/permissions). `play`, `set`, `stop`, `playing` and `preload` play your plugin's own WAV files, or a synthesised motor, at a place in the level, and need `audio`.
 
 ## Menu sounds
 
@@ -37,7 +37,7 @@ A sound is a WAV file in your package:
 - 1 to 8 channels, 4,000 to 192,000 samples a second;
 - at most 30 seconds long, and at most 8 MB.
 
-ReSkate turns it into 16 kHz mono 16-bit when it first plays it (channels are mixed down), the form the game's positioned sound takes. A higher rate or more channels only make your package bigger.
+ReSkate turns it into 16 kHz mono 16-bit when it first plays it, or when you [preload](#preloading-a-sound) it (channels are mixed down), the form the game's positioned sound takes. A higher rate or more channels only make your package bigger.
 
 IMA ADPCM is a quarter of the size of 16-bit PCM, so a plugin with many sounds ships much smaller. To make one with ffmpeg:
 
@@ -142,3 +142,49 @@ end
 <Tip>
 For a sound every player hears, send a [message](/plugins/api/session) and let each player's copy of your plugin play it: a sound plays only on the game that started it.
 </Tip>
+
+## Preloading a sound
+
+A sound file is read and decoded the first time you play it, inside that call. On a hard disk, that first read of a big sound in a tick can take long enough to be warned about, or even stopped (see [limits](/plugins/limits#time-for-one-call)). `preload` reads it ahead on a thread of its own, so `play` finds it held instead of reading it.
+
+### `reskate.audio.preload(path, fn)`
+
+Starts reading and decoding a WAV file in your package, off the game's thread.
+
+<ParamField path="path" type="string" required>The sound's path in your package, such as `"sounds/song.wav"`, at most 200 characters. Only a package file can be preloaded.</ParamField>
+<ParamField path="fn" type="function">Called as `fn(ok, why)` in a later tick, once the sound is held or cannot be: `ok` is true when it is held, and otherwise `why` says why not. Leave it out when you need no answer.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the read started.</ResponseField>
+<ResponseField name="why" type="string">With `false`: `"it reads 8 clips and sounds already"`.</ResponseField>
+
+- `fn` comes at the start of a tick, before its timers and tick handlers.
+- A sound your plugin holds already is not read again. `fn` still comes, in the next tick.
+- A path being read already is read once. Each call's `fn` comes when it is done.
+- When the sound is handed over, it is held like one you played, under the same limits (see [sounds held](#sounds-held)). When every sound your plugin holds is playing, `fn` gets `false` and `"a plugin holds at most 32 different sounds (64 MB) at once, and all it holds are playing"`. A preloaded sound can be let go later to make room, like any other.
+- A file that cannot be read gets `false` and `"it cannot be read: "` and the reason, such as `not found` or `is larger than 8 MB`. One that is not a WAV it can play gets `"it cannot be played: "` and the reason.
+- If your plugin stops or unloads first, the read is dropped and `fn` never comes.
+
+```lua
+-- When a dance is picked, read its clip and its song ahead (animation.preload needs skater.animation).
+-- Each is played once it is held, so neither is read inside a tick.
+local function pick(dance)
+    local waiting = 2
+    local function ready(ok, why)
+        if not ok then
+            reskate.log("cannot play " .. dance.name .. ": " .. why, "warn")
+            return
+        end
+        waiting -= 1
+        if waiting == 0 then
+            reskate.animation.play(dance.clip, {loop = true})
+            reskate.audio.play(dance.song, {loop = true})
+        end
+    end
+    reskate.animation.preload(dance.clip, ready)
+    reskate.audio.preload(dance.song, ready)
+end
+
+pick({name = "robot", clip = "clips/robot.fas", song = "sounds/robot.wav"})
+```
+
+<Note>Needs `audio`. At most 8 preloads wait at once, clips and sounds together; past that it returns `false` and why. `"motor"` raises `motor: only a file in the plugin's own package is preloaded`, and so do a path longer than 200 characters or outside your package, and an `fn` that is not a function.</Note>

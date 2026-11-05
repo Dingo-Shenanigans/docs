@@ -17,7 +17,13 @@ A player is a table:
 | `host` | boolean | `true` for the player who hosts the lobby. On a dedicated server nobody is the host. |
 | `server` | boolean | `true` only for a message from the session's authority (see below). |
 
-Functions that take a player take either the table or its `id` string.
+Every function that takes a player reads it the same way, as one of these:
+
+- a player table, such as `reskate.session.players()` gives, read by its `id`;
+- a player's id as a string of digits and nothing else, such as `"76561197960287930"`;
+- a whole number, but only while a Lua number holds it exactly (below 2^53).
+
+A SteamID64 is past 2^53, so pass it as a string or a player table. A number that is not whole, or is too big for a Lua number to hold exactly, raises `a Steam ID is a string: a number cannot hold one exactly`. Anything else that is not a player raises an error too: `"123abc"`, `""`, `" 1"`, `"+1"`, `"0"` and `0`.
 
 The session is read four times a second, so a player who just joined may take up to a quarter of a second to appear. The `player_joined` and `player_left` events (they need `session.read`) say who came and went; see [events](/plugins/events).
 
@@ -66,18 +72,18 @@ On a plugin's server copy on a dedicated server, `active` and `is_dedicated` are
 
 Watches a session player's skater with the game's Spectate camera, as the party menu's Spectate does, or stops watching.
 
-<ParamField path="player" type="string">A player's id (`"7656..."`). `nil`, nothing or `"0"` stops a Spectate started this way.</ParamField>
+<ParamField path="player" type="string or table">A player, as [players](#players) says: their id (`"7656..."`) or a player table. `nil`, nothing, `"0"` or `0` stops a Spectate started this way.</ParamField>
 
 Returns nothing. A player whose skater cannot be watched now is ignored, and so is the player Spectate already watches.
 
 ```lua
 -- Watch whoever's turn it is; back to your own skater on yours.
 local function watch(turn)
-    if turn.me then reskate.session.spectate(nil) else reskate.session.spectate(turn.id) end
+    if turn.me then reskate.session.spectate(nil) else reskate.session.spectate(turn) end
 end
 ```
 
-A `player` that is not a string of digits (or a number) raises an error. Pass the id as a string: a Lua number cannot hold a SteamID64 exactly. Unlike `reskate.camera.follow`, it does not take a player table.
+A `player` that is none of those raises an error. Pass the id as a string or a player table: a Lua number cannot hold a SteamID64 exactly.
 
 <Note>
 Needs `session.read`. Spectate takes the camera from a plugin's view while it runs (see [camera](/plugins/api/camera)). A Spectate started with `spectate` or `camera.follow` is the same one: stopping either way ends it. It does not end when your plugin stops: stop it in an `unload` handler.

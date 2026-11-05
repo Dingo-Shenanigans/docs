@@ -269,7 +269,7 @@ Needs the `world.objects` permission. A map holds at most 1024 objects; in a ses
 
 Moves an object, and turns or resizes it if you ask. What you leave out keeps the object's own: with no `heading` it keeps its rotation, and with no `scale` its size.
 
-<ParamField path="id" type="string" required>The object's id, from `list()`.</ParamField>
+<ParamField path="id" type="string" required>The object's id, from `list()`: a decimal string of a whole number from 1, digits and nothing else. A number is not taken.</ParamField>
 <ParamField path="position" type="vector" required>Where it goes.</ParamField>
 <ParamField path="heading" type="number" default="the object's own">Radians about world up.</ParamField>
 <ParamField path="scale" type="number" default="the object's own">0.1 to 10.</ParamField>
@@ -284,18 +284,18 @@ if o then
 end
 ```
 
-<Note>Needs the `world.objects` permission. An id that is not a number, a heading that is not finite, or a scale out of range raises an error.</Note>
+<Note>Needs the `world.objects` permission. An id that is not a whole decimal string (a number, `""`, `"0"`, `"12abc"` or `" 12"`), a heading that is not finite, or a scale out of range raises an error.</Note>
 
 ### `reskate.objects.remove(id)`
 
 Removes an object.
 
-<ParamField path="id" type="string" required>The object's id, from `list()`.</ParamField>
+<ParamField path="id" type="string" required>The object's id, from `list()`: a decimal string of a whole number from 1, digits and nothing else. A number is not taken.</ParamField>
 
 <ResponseField name="ok" type="boolean">True when the edit was started.</ResponseField>
 <ResponseField name="why" type="string">Why not, such as `"The selected object no longer exists."` or any of `place`'s reasons.</ResponseField>
 
-<Note>Needs the `world.objects` permission.</Note>
+<Note>Needs the `world.objects` permission. An id that is not a whole decimal string raises an error.</Note>
 
 ## Object physics
 
@@ -567,12 +567,14 @@ end
 
 ### `reskate.entities.blueprints(start, meshes)`
 
-The world object blueprints the game has loaded now: what `set` can make on this map. Pick one at random, or offer a list.
+The world object blueprints the game has loaded: what `set` can make on this map. Pick one at random, or offer a list.
+
+The list comes from walking every asset table the game holds, on the game's thread, so reading it is slow: tens of milliseconds on a slow PC. Ask once a map, after the level has loaded, and keep the list. Do not ask every few seconds.
 
 <ParamField path="start" type="string">Only names starting with this, ASCII case ignored, such as `"World/Props/"`. At most 200 characters. Nothing for all of them.</ParamField>
 <ParamField path="meshes" type="boolean" default="false">True lists only the blueprints with a loaded mesh: the ones that show when made. Others are logic objects, widgets and the like, which `set` makes but nobody sees.</ParamField>
 
-<ResponseField name="names" type="table">The names, sorted, at most 4096. Empty before a level is loaded.</ResponseField>
+<ResponseField name="names" type="table">The names, sorted, at most 4096. Empty before a level is active.</ResponseField>
 
 ```lua
 -- A random prop this map has.
@@ -585,7 +587,7 @@ if #props > 0 then
 end
 ```
 
-<Note>Needs the `world.entities` permission. The list follows what is loaded: it changes as the map streams parts in and out, and with the level. It is read again at most every 2 seconds; calling more often gives the same list.</Note>
+<Note>Needs the `world.entities` permission. The list is read only while a level is active. Each pair of `start` and `meshes` is its own list, read once and kept for 30 seconds, or until the level changes; calling again in that time gives the same list. So a list kept that long can miss what the map has streamed in or out since.</Note>
 
 ### `reskate.entities.bounds(blueprint)`
 

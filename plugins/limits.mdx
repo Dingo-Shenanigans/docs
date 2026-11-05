@@ -34,7 +34,7 @@ Going over a limit does one of two things.
 
 ### Halts cannot be caught
 
-When a plugin goes over its memory or its time for a call, ReSkate halts it. A halt raises `the plugin was stopped` at every point Luau checks: every loop, call and return. A `pcall` in the script cannot catch it and carry on. Every `reskate` function the halted plugin calls raises the same error, and nothing it asks for is done. The plugin is then stopped.
+When a plugin goes over its memory, or a call runs past 1000 ms, ReSkate halts it. A halt raises `the plugin was stopped` at every point Luau checks: every loop, call and return. A `pcall` in the script cannot catch it and carry on. Every `reskate` function the halted plugin calls raises the same error, and nothing it asks for is done. The plugin is then stopped.
 
 ```lua
 -- This plugin is stopped all the same: the pcall cannot save it.
@@ -50,7 +50,7 @@ end)
 | Limit | Value | Reason it stops with |
 | --- | --- | --- |
 | Memory | 64 MB for the VM's heap | `it used more than 64 MB of memory` |
-| Time for one call | 50 ms | `<what> ran longer than 50 ms` |
+| Time for one call | 1000 ms (a warning past 50 ms) | `<what> ran longer than 1000 ms (at <where>)` |
 | Time for unloading | 20 ms for all `unload` handlers together | `the unload handler ran longer than <n> ms` |
 | Time a tick | 6 ms on average, over a 1 s window, 5 windows in a row | `it took <n> ms a tick for 5 s, over its 6 ms` |
 | Errors | more than 5 in 10 s | `more than 5 errors in 10 s` |
@@ -62,9 +62,35 @@ The VM may hold 64 MB. An allocation past that fails, and the plugin stops, even
 
 ### Time for one call
 
-Every call ReSkate makes into a plugin has 50 ms: running the entry file, each event handler, each timer, each console command, each chat `/` command, each page, panel or screen build, each exposed function another plugin calls, and each web request's callback. `<what>` names the call, such as `the tick handler` or `the command speedo`.
+ReSkate times every call it makes into a plugin: running the entry file, each event handler, each timer, each console command, each chat `/` command, each page, panel or screen build, each exposed function another plugin calls, each `on_plugin` handler, each web request's callback and each preload callback. `<what>` names the call, such as `the tick handler` or `the command speedo`.
 
-When a plugin unloads (its mod switched off, its files changed, `plugin off` or `plugin reload`), its `unload` handlers have 20 ms between them. Once they are spent, the rest are skipped.
+A call that runs past 50 ms is not stopped. ReSkate logs a warning with how long it took and where the script was when it passed 50 ms, and the plugin goes on:
+
+```
+[props] the tick handler took 66 ms, over its 50 ms (at plugin/main.lua:40 list_props < plugin/main.lua:52 refresh); ReSkate stops a plugin past 1000 ms
+```
+
+- The warning comes at most once every 10 s for each plugin.
+- `(at ...)` lists up to three of the script's own frames, innermost first, each as `file:line function`, joined by `<`.
+- ReSkate looks at the clock between the script's instructions. A slow `reskate` call shows as the line just after it, in the function that made it.
+
+A call that runs past 1000 ms is taken for a script stuck in a loop. ReSkate stops the plugin, and the reason says where it was: `the tick handler ran longer than 1000 ms (at plugin/main.lua:12 spin)`.
+
+When a plugin unloads (its mod switched off, its files changed, `plugin off` or `plugin reload`), its `unload` handlers have 20 ms between them. A handler still running when they are spent is cut off, and the rest are skipped. There is no warning first.
+
+#### ReSkate's own work
+
+Part of a call's time can be ReSkate's work, not your script's:
+
+- compiling a module `require` loads;
+- reading a file with `reskate.package.read` or `read_json`;
+- reading and decoding a clip or a sound the first time you name it.
+
+Up to 250 ms of that in one call does not count towards the 50 ms or the 1000 ms. Past 250 ms in one call, the rest counts as the script's, so a plugin that reads files in a loop is still stopped. That time still counts towards the plugin's [time a tick](#time-a-tick).
+
+<Tip>
+On a hard disk, the first read of a big clip or sound can take long enough to be warned about. Read it ahead, off the game's thread, with [`reskate.animation.preload`](/plugins/api/animation#preloading-a-clip) or [`reskate.audio.preload`](/plugins/api/audio#preloading-a-sound).
+</Tip>
 
 ### Time a tick
 
@@ -205,6 +231,7 @@ These return `false` and a reason, and raise nothing. Check the result.
 | `reskate.music.game_next` | 2 a second, with the others | `asked more than twice in a second` |
 | `reskate.throwdowns.host` | 1 every 5 s | `one drop every 5 s` |
 | `reskate.animation.record` | room for a 10 s recording in the 48 MB of clips | `its clips hold too much already (each recording can be 10 s of poses)` |
+| `reskate.animation.preload`, `reskate.audio.preload` | 8 waiting at once, together | `it reads 8 clips and sounds already` |
 | `reskate.ui.toast` | 3 in 5 s | returns `false` alone |
 | `reskate.audio.play_ui` | 10 a second | returns `false` alone |
 

@@ -130,7 +130,7 @@ end)
 These events need no permission: `load`, `unload`, `tick`, `level_loaded`, `level_unloading`. Every other event needs the permission [the events page](/plugins/events) names.
 
 <Note>
-Raises an error for an event there is none of, for an event whose permission the manifest does not list, and past 256 handlers for one event. Each handler call has 50 ms; see [limits](/plugins/limits).
+Raises an error for an event there is none of, for an event whose permission the manifest does not list, and past 256 handlers for one event. A handler call past 50 ms is logged as a warning, and one past 1000 ms stops the plugin; see [limits](/plugins/limits#time-for-one-call).
 </Note>
 
 ## Modules

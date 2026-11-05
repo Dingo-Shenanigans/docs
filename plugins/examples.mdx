@@ -130,7 +130,7 @@ Any line it prints starting with `ESCAPED` is a hole in the sandbox. Its manifes
 
 | Attack | What it does | What should happen |
 | --- | --- | --- |
-| `loop` | An endless loop. | Stopped: it ran longer than 50 ms. |
+| `loop` | An endless loop. | Stopped: it ran longer than 1000 ms. |
 | `caught-loop` | An endless loop inside `pcall`, in a loop. | Stopped the same way: the error cannot be caught. |
 | `tick-loop` | A tick handler that never returns. | Stopped at the next tick. |
 | `memory` | Builds strings until it runs out. | Stopped: more than 64 MB. |

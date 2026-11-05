@@ -59,7 +59,7 @@ A call raises an error, in your plugin, named `<plugin>.<function>: <why>`, when
 - an argument or the result cannot be copied as JSON.
 
 <Note>
-The function runs under the other plugin's limits: 50 ms a call, and its errors count against it, not you. A plugin can get its own library, but calling it raises "a plugin calls its own functions directly".
+The function runs under the other plugin's limits: a call past 50 ms is warned about and one past 1000 ms stops it (see [limits](/plugins/limits#time-for-one-call)), and its errors count against it, not you. A plugin can get its own library, but calling it raises "a plugin calls its own functions directly".
 </Note>
 
 <Tip>
@@ -102,4 +102,4 @@ reskate.on_plugin("*", "race_finished", function(source)
 end)
 ```
 
-<Note>Raises an error for a bad name, a handler that is not a function, and more than 64 `on_plugin` handlers in one plugin. There is no way to take a handler away. Each handler call has 50 ms.</Note>
+<Note>Raises an error for a bad name, a handler that is not a function, and more than 64 `on_plugin` handlers in one plugin. There is no way to take a handler away. Each handler call is timed like any handler: a warning past 50 ms, stopped past 1000 ms (see [limits](/plugins/limits#time-for-one-call)).</Note>

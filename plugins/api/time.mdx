@@ -65,7 +65,7 @@ reskate.on("trick_landed", function() reskate.time.cancel(warning) end)
 ```
 
 <Note>
-A wrong argument raises an error: a negative or non-finite `ms` for `after`, less than 1 for `every`, or a `fn` that is not a function. A plugin has at most 1024 timers waiting; the next one raises an error. Each timer call has 50 ms, like any handler. See [limits](/plugins/limits).
+A wrong argument raises an error: a negative or non-finite `ms` for `after`, less than 1 for `every`, or a `fn` that is not a function. A plugin has at most 1024 timers waiting; the next one raises an error. Each timer call is timed like any handler: a warning past 50 ms, stopped past 1000 ms. See [limits](/plugins/limits#time-for-one-call).
 </Note>
 
 ## Slow motion

@@ -40,7 +40,7 @@ Gives your plugin its page in the PLUGINS section.
 <ParamField path="title" type="string" required>1 to 24 characters. It is the page's name in the section, and a widget's actions are matched to the page by it.</ParamField>
 <ParamField path="build" type="function" required>Called with `ui` each time the page is built.</ParamField>
 
-<Note>Needs `menu`. A plugin has one page: a second call raises an error. So do an empty or too long title, a title one of your panels has, and a `build` that is not a function. A page holds at most 160 widgets in one build. Each build has 50 ms, like any handler.</Note>
+<Note>Needs `menu`. A plugin has one page: a second call raises an error. So do an empty or too long title, a title one of your panels has, and a `build` that is not a function. A page holds at most 160 widgets in one build. Each build is timed like any handler: a warning past 50 ms, stopped past 1000 ms (see [limits](/plugins/limits#time-for-one-call)).</Note>
 
 ### `reskate.menu.panel(title, build)`
 
