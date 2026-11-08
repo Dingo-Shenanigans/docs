@@ -163,9 +163,9 @@ end)
 
 **Permission:** `events.tricks`.
 
-Fires when the line going on is lost to a slam or a wipeout.
+Fires once when a fall loses the line going on: a slam, a wipeout, a ragdoll, or a runout (a failed landing on foot). It fires for a line that has points banked as well as for a trick going on, and once per fall, however long the fall lasts. Stepping off the board is not a fall.
 
-<ResponseField name="e.reason" type="string">`"slam"` or `"wipeout"`.</ResponseField>
+<ResponseField name="e.reason" type="string">`"slam"` for a slam, `"wipeout"` for every other fall.</ResponseField>
 
 ```lua
 reskate.on("line_broken", function(e)

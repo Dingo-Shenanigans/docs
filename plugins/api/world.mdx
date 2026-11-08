@@ -114,6 +114,67 @@ end
 Needs the `world.raycast` permission. Takes exactly two arguments; any other count raises an error. Counts towards the 64 raycasts a tick. It also shares 64 casts in the game a tick with [ray batches](/plugins/api/bodies#ray-batches); once those are spent it returns `"unavailable"`.
 </Note>
 
+## Traffic vehicles
+
+`reskate.world.vehicles` takes a traffic car the plugin points at and holds it where the plugin puts it: its physics, its collision and the drawn car all follow. A plugin holds at most 4 vehicles. A vehicle is a handle with its own functions (`vehicle:state()` and the rest); it names nothing in the game, and only the plugin instance that took it can use it.
+
+### `reskate.world.vehicles.take(from, to)`
+
+Casts a ray as [`world.pick`](#reskate-world-pick-from-to) does, and takes the traffic vehicle it meets first.
+
+<ParamField path="from" type="vector" required>The ray's start.</ParamField>
+<ParamField path="to" type="vector" required>The ray's end, at most 1000 m from `from`.</ParamField>
+
+<ResponseField name="vehicle" type="vehicle or nil">The handle, or `nil` and why not.</ResponseField>
+<ResponseField name="why" type="string">When `vehicle` is `nil`: `"nothing hit"`, `"not a vehicle"`, `"layout differs"`, `"already taken"` (another handle holds it), `"too many vehicles"` or `"unavailable"`.</ResponseField>
+
+A new handle is `"finding"` for the first updates while ReSkate finds the car's body and its traffic driver, then `"held"`.
+
+```lua
+local view = reskate.camera.get() -- (needs the camera permission)
+local bus, why = reskate.world.vehicles.take(view.position, view.position + view.forward * 50)
+if not bus then reskate.log("no vehicle: " .. why) end
+```
+
+<Note>Needs the `world.vehicles` permission. It counts towards the 64 raycasts a tick that `world.raycast` gives. A ray longer than 1000 m, or more than 64 rays in one tick, raises an error.</Note>
+
+### `vehicle:state()`
+
+<ResponseField name="state" type="string">`"finding"`, `"held"`, `"lost"` or `"released"`.</ResponseField>
+<ResponseField name="why" type="string">For a lost vehicle: why, such as `"no agent"` (no traffic driver was found within 2 seconds), `"ambiguous agent"`, `"not a vehicle"`, `"layout differs"`, `"already taken"` or `"vehicle removed"` (the game removed the car, or the level changed).</ResponseField>
+
+### `vehicle:pose()`
+
+<ResponseField name="position" type="vector or nil">Where the vehicle is, while it is held; `nil` otherwise.</ResponseField>
+<ResponseField name="rotation" type="table">Its rotation as a quaternion: `x`, `y`, `z` and `w`, also as entries 1 to 4.</ResponseField>
+
+### `vehicle:set_pose(position, rotation)`
+
+Puts the held vehicle at a pose. It holds there, updated before each of the game's own updates, until you set another or release it.
+
+<ParamField path="position" type="vector" required>Where to put it, each coordinate within 100,000 m of the world's origin.</ParamField>
+<ParamField path="rotation" type="table" required>A quaternion: `x`, `y`, `z`, `w`, or entries 1 to 4. Four finite numbers, not all 0; it is normalized for you.</ParamField>
+
+<ResponseField name="ok" type="boolean">True when the pose is set.</ResponseField>
+<ResponseField name="why" type="string">When `ok` is false: `"vehicle is not held"`, `"vehicle removed"` or `"invalid pose"`.</ResponseField>
+
+```lua
+reskate.on("tick", function()
+    if bus and bus:state() == "held" then
+        local position, rotation = bus:pose()
+        bus:set_pose(position + vector.create(0, 0, 0.1), rotation)
+    end
+end)
+```
+
+### `vehicle:release()`
+
+Lets the vehicle go back to the traffic.
+
+<ResponseField name="ok" type="boolean">True when the handle was yours.</ResponseField>
+
+The traffic keeps counting a held car's progress along its lane. When it is let go, it can jump back to that progress or race after it, and the game may remove it within seconds. Your plugin stopping or being turned off releases every vehicle it holds.
+
 ## Time of day and world controls
 
 These change the world's look and life as ReSkate's world menu does. All three share a budget of 4 changes a second; past it they return `false, "more than 4 changes in a second"`.
@@ -305,7 +366,7 @@ Removes an object.
 Object physics is for a plugin whose manifest says `"side": "client"`; any other plugin's call raises an error. It works offline only: in a multiplayer session, while objects cannot be placed, while the park is being cleared, and in the park editor or a menu, a claim is refused. Other players never see the motion.
 </Warning>
 
-- **Claims.** A plugin claims an object by its id, from [`reskate.objects.list`](#objects), with `physics`. Only objects that stand fixed can be claimed, checked on the object as your game draws it. The game also keeps the park's own version of each object, which follows the claim. When the game moves that version itself, or it cannot be found within a second, the claim is let go for you, with a line in the log (`Object physics: object <id> let go: ...`), so the object never moves where its collision does not follow. One plugin holds an object at a time, and no other plugin can move, sample or release it. A plugin claims at most 32 objects, and all plugins together 128.
+- **Claims.** A plugin claims an object by its id, from [`reskate.objects.list`](#objects), with `physics`. Only objects that stand fixed can be claimed, checked on the object as your game draws it. The game also keeps the park's own version of each object, which follows the claim. A park version that is there but has no physics body ReSkate can reach follows the object by its position instead. When the game moves that version itself, or it cannot be found within a second, the claim is let go for you, with a line in the log (`Object physics: object <id> let go: ...`), so the object never moves where its collision does not follow. One plugin holds an object at a time, and no other plugin can move, sample or release it. A plugin claims at most 32 objects, and all plugins together 128.
 - **Never saved.** A claimed object's moved pose is never saved with the park. When the claim is let go, the object goes back to where it was placed (or where a park editor edit put it since). To keep an object where it fell, move it there with [`reskate.objects.move`](#objects), which saves.
 - **Let go for you.** Clearing the park, a level change and your plugin stopping let go of every claim. The menu and the park editor hold claimed objects still while they are open.
 

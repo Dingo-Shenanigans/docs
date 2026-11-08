@@ -5,7 +5,7 @@ description: "reskate.skater, reskate.physics, reskate.score, reskate.tricks, re
 
 These tables work on the local skater: the player's own, on their own game. Each function needs a permission, named in its section:
 
-- `skater.read`: `reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`, `telemetry`, `movement`, `goofy`, `frame`, `animation_values` and `rail_target`; `reskate.physics.tuning` and `find`.
+- `skater.read`: `reskate.skater.get`, `position`, `heading`, `speed`, `on_ground`, `telemetry`, `movement`, `goofy`, `frame`, `flip_state`, `animation_values` and `rail_target`; `reskate.physics.tuning` and `find`.
 - `skater.teleport`: `reskate.skater.teleport`.
 - `events.skater`: `reskate.skater.state`.
 - `skater.control`: `reskate.skater.noclip`, `boost`, `freeze`, `wipeout`, `shape_launch`, `hide`, `push`, `push_wait`, `push_reset`, `hold`, `set_velocity`, `cruise`, `flip_speed` and `select_rail_target`; `reskate.physics.tune`, `competition`, `stock_ready` and `prepare`.
@@ -15,6 +15,7 @@ These tables work on the local skater: the player's own, on their own game. Each
 - `events.tricks`: `reskate.score.current`, `reskate.tricks.feed` and `reskate.tricks.gesture`.
 - `trainer`: `reskate.trainer.set_point` and `back`.
 - `hud`: `reskate.hud.hide` and `reskate.hud.corner`.
+- `hud.score`: `reskate.hud.score_line`.
 
 Calling a function without its permission raises an error. See [permissions](/plugins/permissions). For the world around the skater (`reskate.world.raycast` and the rest) see [world](/plugins/api/world); for its board, see [board](/plugins/api/board).
 
@@ -827,6 +828,33 @@ These are the game's own flags, not worked out from the body: `mirrored` and `fa
 
 <Note>Needs the `skater.read` permission.</Note>
 
+### `reskate.skater.flip_state()`
+
+Whether the local skater's flip is an underflip, as the game's own trainer reads it: a snapshot of this moment, read-only. These flags need not be among the values [`animation_values`](#reskate-skater-animation-values) lists.
+
+<ResponseField name="state" type="table or nil">
+`nil` when there is no local skater, or the flip state cannot be read (a respawn or a change of rider during the read gives `nil` too). Otherwise:
+<Expandable title="fields">
+<ResponseField name="trick" type="number">The game's own number for the flip going on, 0 for none. During an underflip it is usually still the base flip's.</ResponseField>
+<ResponseField name="underflip_anim" type="boolean or nil">The animation's underflip flag: true or false as read, `nil` when it cannot be read.</ResponseField>
+<ResponseField name="underflip_state" type="boolean or nil">The trick state's underflip flag, the same way.</ResponseField>
+<ResponseField name="underflip_window" type="boolean or nil">Whether the flip is in its window for an underflip. It says one may be done, not that it was.</ResponseField>
+</Expandable>
+</ResponseField>
+
+```lua
+local state = reskate.skater.flip_state()
+if state then
+    if state.underflip_anim == true or state.underflip_state == true then
+        reskate.log("underflip")
+    elseif state.underflip_anim == false and state.underflip_state == false then
+        reskate.log("not an underflip")
+    end -- else: not known this moment
+end
+```
+
+<Note>Needs the `skater.read` permission. It is a read of one moment, not an event: a plugin that reads it now and then can miss a flip between two reads. The flags alone do not tell every named variant apart.</Note>
+
 ### `reskate.skater.animation_values()`
 
 The local rider's named animation values: the inputs the game's animation reads and the outputs its physics writes, whose names start with `"Animation/Dingo/"`.
@@ -1054,7 +1082,7 @@ end)
 Needs the `events.tricks` permission. The feed is on while any plugin asks for it, and every plugin with `events.tricks` and a `trick_notes` handler hears it. At most 256 notes wait between two ticks; more are dropped. When the plugin stops, its ask is dropped.
 </Note>
 
-Only the trick list's own writes come through. Other parts of the HUD write text to the same fields, such as the title of the song playing, and those are left out. To tell them apart, a name or a spin is held until the trick list has written something only a trick has (a side, landing, stance or modifier), so the first name after a level loads can arrive a tick or two later than the rest. One that never gets that confirmation within 2 seconds is left out.
+The game's music writes the title of the song playing to the same field as a trick's name. ReSkate keeps the titles of the songs the game has begun (its own soundtrack, and the station a music source shows), and a name that reads as one of them, alone or as "artist - title", is left out. Every other name comes through as the HUD writes it, plain flips included.
 
 ### `reskate.tricks.gesture(name)`
 
@@ -1179,6 +1207,44 @@ reskate.on("unload", function() reskate.hud.hide(false) end)
 ```
 
 <Note>Needs the `hud` permission. When the plugin stops, its ask is dropped.</Note>
+
+### `reskate.hud.score_line(line)`
+
+Shows your plugin's own line in skate.'s score HUD in the bottom left, drawn by skate.'s own widget: trick names, the action's points, the multiplier ring and what the line has banked. It is display only. What it shows never counts towards the game's score, challenges, XP or progression, and [`reskate.score.current`](#reskate-score-current) and the trick events never report it.
+
+<ParamField path="line" type="table or nil" required>
+`nil` clears your line at once. A table shows it, with only these keys:
+<Expandable title="fields">
+<ParamField path="tricks" type="table" default="{}">The line's trick names, newest last: at most 5, each 1 to 63 bytes of UTF-8 without control characters. The HUD draws the newest 3. They show once skate. has made a trick row of its own in the level (its first scored action); until then the line shows without them.</ParamField>
+<ParamField path="points" type="number" default="0">The current action's points, the big number beside the ring: 0 to 999,999,999, rounded down.</ParamField>
+<ParamField path="line" type="number" default="0">What the line has banked, shown as `LINE: N` while above 0: 0 to 999,999,999, rounded down.</ParamField>
+<ParamField path="multiplier" type="number" default="1">The ring's number, 1 to 99.</ParamField>
+<ParamField path="timer" type="number" default="1">The ring's time left, 0 to 1.</ParamField>
+<ParamField path="closed" type="boolean" default="false">True for the look of a line that has ended: the ring, the big number and the trick rows go, and `LINE: N` stays.</ParamField>
+</Expandable>
+</ParamField>
+
+<ResponseField name="ok" type="boolean">True when your line is showing (or, with `nil`, cleared).</ResponseField>
+<ResponseField name="why" type="string">
+When `ok` is false: another plugin's line is up; a multiplayer session; a throwdown or match; a challenge or activity; the replay editor or a menu is open; skate.'s own line is showing; the corner is hidden by [`hud.corner`](#reskate-hud-corner-hidden); or skate.'s score HUD is not loaded.
+</ResponseField>
+
+Set the line again at least every 500 ms (once a tick is the usual way): a line not set for 500 ms goes. It also goes when your plugin stops. When skate. starts a line of its own, yours steps aside, and comes back 0.5 s after the game's line goes idle. A line that opens after a closed one, or after none, starts its rows again, so a repeated name comes in anew.
+
+```lua
+local tricks, total = {}, 0
+reskate.on("trick_landed", function(e)
+    tricks[#tricks + 1] = "Trick " .. (#tricks + 1)
+    if #tricks > 5 then table.remove(tricks, 1) end
+    total += e.points
+end)
+reskate.on("tick", function()
+    reskate.hud.score_line({tricks = tricks, points = 0, line = total, multiplier = 1, timer = 1})
+end)
+reskate.on("unload", function() reskate.hud.score_line(nil) end)
+```
+
+<Note>Needs the `hud.score` permission (`hud` alone is not enough). Only one plugin's line shows at a time. A key other than these six, a value of the wrong type or out of its range raises an error.</Note>
 
 ### `reskate.hud.corner(hidden)`
 
