@@ -117,7 +117,7 @@ Starts a particle effect.
 <ParamField path="transform" type="table" required>Where it plays: 16 numbers, as above.</ParamField>
 
 <ResponseField name="handle" type="number or nil">The effect's handle, a whole number from 1. Only your plugin can use it.</ResponseField>
-<ResponseField name="why" type="string">`"effect limit reached"` (your plugin holds 24 particle effects), or `"effect asset or renderer unavailable"` (the asset is not loaded, effects cannot show now, or every plugin together holds 64).</ResponseField>
+<ResponseField name="why" type="string">`"effect limit reached"` (your plugin holds 64 particle effects), or `"effect asset or renderer unavailable"` (the asset is not loaded, effects cannot show now, or every plugin together holds 192).</ResponseField>
 
 ```lua
 local spark = reskate.effects.particle("effects/reskate/example/ebp_spark", at(reskate.skater.position()))

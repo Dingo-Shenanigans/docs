@@ -205,7 +205,7 @@ These return `false` and a reason, and raise nothing. Check the result.
 | `reskate.world.physics.create` | 8 bodies for the whole game run, every plugin together | `the eight retained body slots are exhausted; native destruction is unproven` |
 | `reskate.world.physics.create` with `reuse` | once a tick, a refused one included | `asked to reuse a native body more than once in one tick` (with `nil`, not `false`) |
 | `reskate.world.physics.submit` | 4 receipts a body waiting | see [physics bodies](/plugins/api/bodies) |
-| `reskate.effects.particle`, `decal` | 24 particle effects and 2048 decals a plugin; 64 and 4096 for every plugin together | `effect limit reached`, `effect asset or renderer unavailable` |
+| `reskate.effects.particle`, `decal` | 64 particle effects and 2048 decals a plugin; 192 and 4096 for every plugin together | `effect limit reached`, `effect asset or renderer unavailable` |
 | `reskate.objects.physics` | 32 objects a plugin, 128 for every plugin together; a claim changes once every 16 ms | `object physics limit reached`, `object physics rate limit reached` |
 | `reskate.objects.velocity` | once every 16 ms an object | `object velocity rate limit reached` |
 | `reskate.objects.pose` | once every 250 ms an object | `object pose rate limit reached` |
