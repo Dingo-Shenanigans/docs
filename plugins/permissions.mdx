@@ -94,6 +94,7 @@ Every plugin has these without asking:
 | `marker.read` | [`reskate.marker.events`](/plugins/api/world#marker-events): the local skater's marker saves and returns, in a client-only plugin | Nothing. |
 | `world.entities` | [`reskate.entities.set`, `remove`, `clear`, `status`, `ready`, `blueprints`, `bounds`](/plugins/api/world#your-own-world-objects) | Nothing: the objects show on your game only. |
 | `effects` | [`reskate.effects.particle`, `decal`, `move`, `stop`, `opacity`, `release`, `clear`, `state`](/plugins/api/effects), and the manifest's `effects` list | Nothing: the effects show on your game only. |
+| `effects.game` | [The game's own particle effects](/plugins/api/effects#the-games-own-effects) in `reskate.effects.particle`, and `reskate.effects.load`. Needs `effects` too. | Nothing: the effects show on your game only. They include effects the game's store sells with gestures and items; playing one equips and grants nothing. |
 | `world.environment` | [`reskate.world.set_time`, `set_control`, `set_park`](/plugins/api/world) | Your game's time of day, world controls and parks. In a session, only the host chooses the parks. |
 | `world.ai` | [`reskate.ai.spawn`, `clear`, `count`](/plugins/api/world) | Nothing: spawning is refused in a session, where the other players would never see the AI skaters. |
 | `travel` | [`reskate.travel.locations`, `levels`, `go`, `load`](/plugins/api/world) | In a session only the host can travel, and the host's travel changes where everyone is. |

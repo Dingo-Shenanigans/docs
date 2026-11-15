@@ -326,7 +326,7 @@ end)
 
 ### `reskate.input.key(key)`
 
-Whether a key or a mouse button is held down now. It reads past a pause or a capture that keeps the input from the game.
+Whether a key or a mouse button is held down now. It reads past a pause or a capture that keeps the input from the game. While the game window is not in front it answers `false` for every key, as the pad does: a key held in another program is not the game's. (Up to ReSkate 2.1.4 it answered for keys held anywhere.)
 
 <ParamField path="key" type="string or number" required>
 A key's name, or a Windows virtual key code from 1 to 254. The names (case matters):
@@ -351,7 +351,7 @@ end
 Another name, a lower-case letter, or a number out of range raises an error.
 
 <Note>
-Needs the `input` permission. It does not check that the game window has the focus or that ReSkate's menu is shut: read `focus` (below) for that, so a key pressed in another window or typed into the chat does nothing.
+Needs the `input` permission. It does not check that ReSkate's menu, console or chat is shut: read `focus` (below) for that, so a key typed into the chat does nothing.
 </Note>
 
 ### `reskate.input.wheel()`

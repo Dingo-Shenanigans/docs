@@ -13,7 +13,7 @@ This guide builds a plugin with two sounds: a motor that circles the skater and 
 
 A plugin's sounds play through the game's positioned voice sound, as other players' voices do, so the level's mix, echo and walls apply to them. Each sound is at a place in the world, or at the local skater, and is heard from the camera: it gets quieter with distance and is silent at its `range`.
 
-Sounds play in a level only. Out of one, `play` returns `false` and `"it plays 8 sounds already, or there is no level"`, and leaving a level ends every sound playing. They play on this player's game only: nothing is sent to other players.
+Sounds play in a level only. Out of one, `play` returns `false` and `"it plays 128 sounds already, or there is no level"`, and leaving a level ends every sound playing. They play on this player's game only: nothing is sent to other players.
 
 ## 1. The package
 
@@ -40,7 +40,7 @@ A sound file is a WAV of 8, 16, 24 or 32-bit PCM, 32-bit float or 4-bit IMA ADPC
 
 ## 2. Play a WAV
 
-`reskate.audio.play(path, options)` starts one of the package's WAV files and returns its id, a number. It returns `false` and why when it cannot start one: the plugin plays 8 sounds already (or all plugins together play 48), or it started more than 20 in the last second.
+`reskate.audio.play(path, options)` starts one of the package's WAV files and returns its id, a number. It returns `false` and why when it cannot start one: the plugin plays 128 sounds already (or all plugins together play 256), or it started more than 20 in the last second.
 
 ```lua
 local id, why = reskate.audio.play("sounds/ding.wav", {volume = 0.8})
@@ -138,7 +138,7 @@ end)
 ```
 
 <Note>
-A plugin plays at most 8 sounds at once (48 for all plugins together), starts at most 20 a second, and plays at most 32 different files. See [limits](/plugins/limits).
+A plugin plays at most 128 sounds at once (256 for all plugins together), starts at most 20 a second, and holds at most 96 different files at once. See [limits](/plugins/limits).
 </Note>
 
 ## The whole plugin

@@ -133,10 +133,10 @@ Any line it prints starting with `ESCAPED` is a hole in the sandbox. Its manifes
 | `loop` | An endless loop. | Stopped: it ran longer than 1000 ms. |
 | `caught-loop` | An endless loop inside `pcall`, in a loop. | Stopped the same way: the error cannot be caught. |
 | `tick-loop` | A tick handler that never returns. | Stopped at the next tick. |
-| `memory` | Builds strings until it runs out. | Stopped: more than 64 MB. |
+| `memory` | Builds strings until it runs out. | Stopped: more than 128 MB. |
 | `caught-memory` | The same inside `pcall`. | Stopped: going over its memory stops it, caught or not. |
-| `huge-string` | One 100 MB string. | Stopped: more than 64 MB. |
-| `buffer` | A 1 GB buffer. | Stopped: more than 64 MB. |
+| `huge-string` | One 200 MB string. | Stopped: more than 128 MB. |
+| `buffer` | A 1 GB buffer. | Stopped: more than 128 MB. |
 | `coroutines` | Makes coroutines forever. | Stopped by its time or its memory. |
 | `errors` | A tick handler that raises an error every tick. | Stopped after more than 5 errors in 10 s. |
 | `slow` | A tick handler that runs long every tick. | Stopped after 5 s over 6 ms a tick. |

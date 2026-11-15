@@ -500,7 +500,7 @@ end)
 
 `reskate.entities` puts world objects of your plugin's own into the map: an entity of any world object blueprint the game has loaded, such as a prop, a gate's arch or a traffic cone, at a full transform. They are not park editor objects: they are not saved with the park, and the editor does not list them.
 
-You give each object a number of your own, its id, and say what it is and where. ReSkate makes the object, moves it and takes it away for you over the next frames. Calling `set` again with the same id moves the object in place, or makes it again when the blueprint is a different one. A solid object you move yourself moves at most every 16 ms; an object that is not solid, or is on a joint, follows its new transform every frame.
+You give each object a number of your own, its id, and say what it is and where. ReSkate makes the object, moves it and takes it away for you over the next frames. Calling `set` again with the same id moves the object in place, or makes it again when the blueprint is a different one. A solid object you move yourself moves at most every 16 ms, and one with collision of its own (a blueprint with a physics shape) is made again where you move it, at most every 100 ms, so that its collision comes with it; an object that is not solid, or is on a joint, follows its new transform every frame.
 
 <Warning>
 Only your game shows these objects. Another player sees them only when their copy of your plugin places them too. A dedicated server has none: `set` returns `false, "unavailable here"` there.
