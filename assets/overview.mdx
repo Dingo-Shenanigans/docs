@@ -1,0 +1,90 @@
+---
+title: "How skate.'s data is organised"
+description: "The game's data from the top down: superbundles, bundles, documents (EBX), resources and chunks, the type library, how a mod's files take the place of the game's, and the one game build ReSkate supports."
+---
+
+Everything skate. loads, from a sock to a whole level, sits in the game's data folders in a few kinds of container. This group explains them for modders: what the game expects of a texture, a mesh, a sound or a map, and so why ReSkate Studio refuses some files and changes others before it builds them.
+
+You do not need any of it to install mods. You need it when you make something and want to know why it has to be the way it is.
+
+## The one game build
+
+ReSkate supports exactly one build of skate., and it is not moving to newer ones. Everything in this group was measured on that build.
+
+A mod with game data carries a [build stamp](/mods/mod-folder#the-build-stamp) that names the game it was built against. ReSkate leaves out a mod built for another build: see [what ReSkate refuses](/mods/rules#built-for-another-version-of-skate).
+
+## From the top down
+
+| Container | What it is | Example |
+| --- | --- | --- |
+| Superbundle | A large group of bundles, described by one table of contents (`.toc`). A level is a superbundle of its own. | `Win32/globals` |
+| Bundle | What the game loads and unloads as one: a list of documents, resources and chunks. | a level's root bundle, a sublevel, one cosmetic's bundle |
+| Document (EBX) | One asset's data, by name: a texture's settings, a mesh's description, a cosmetic item, a level. | `items/cust_tops/...` |
+| Resource | Binary data a document points at by a 64-bit id: a texture's header, a mesh's sections, a sound bank, collision. | a mesh's MeshSet |
+| Chunk | Bulk data found by a guid alone: the pixels of a texture, the vertices of a detail level, the samples of a sound, a movie. | a texture's mips |
+
+The bytes themselves are in archives (`cas_NN.cas`), compressed in blocks of at most 64 KB. A file named `layout.toc` at the top of the data says which superbundles exist and which archives hold them.
+
+### Documents, resources and chunks work together
+
+Most things are all three. A texture is a document (its name and settings), a resource (a 180-byte header: size, format, mips) and a chunk (the pixels). A mesh is a document, a MeshSet resource and one chunk for each detail level. A sound is a wave document, a bank resource and one or more chunks.
+
+A document points at its resource by id and at other documents by their guids. It never holds the bulk data itself.
+
+### Bundles decide what is in memory
+
+The game only has a document while a bundle that lists it is loaded. That is why every new thing in a mod has to say which bundles it belongs in:
+
+- a prop or a new sound goes in the root level's bundle, which every map loads;
+- a cosmetic's parts go in bundles that load when the item is worn;
+- a new document goes in every bundle of a game document you name it with: see [what a mod may add](/assets/documents#what-a-mod-may-add).
+
+Many assets sit in several bundles at once. A texture used across the city can be listed by hundreds. This matters for the size of a mod: see [why a build is the size it is](/assets/packing#why-a-build-is-the-size-it-is).
+
+### Chunks a bundle does not list
+
+A superbundle's table of contents lists chunks apart from its bundles. Some chunks are listed there and in no bundle at all, so the game reads them only when it asks for them:
+
+- the sharpest mips of a large texture: see [streaming](/assets/textures#mips-and-streaming);
+- sounds that stream, or that load on demand: see [where the samples are kept](/assets/sounds#where-the-samples-are-kept);
+- the game's movies.
+
+## The type library
+
+Every document is made of objects, and every object is an instance of a type with named fields: a `TextureAsset`, a `MeshAsset`, an `ObjectBlueprint`. The game ships no list of its types. Each document carries a description of the types it uses.
+
+Studio reads all of the game's documents once (185,301 of them) and collects their descriptions into a type library: 4,060 types, each with its fields. It keeps the library in a cache file, so this takes about half a minute the first time only. With it, Studio can write a document the game has never had, field by field, and lay it out the way the game's own tools do. See [documents](/assets/documents).
+
+## How a mod's files take the place of the game's
+
+You never change the game's own files. A built mod is a folder with:
+
+- its own `layout.toc`, which is the game's with the mod's superbundles and archives added;
+- a patch table of contents for each superbundle the mod touches, listing the bundles it rebuilt;
+- archives with the mod's own data.
+
+When a document, resource or chunk in the mod has the same name or id as one of the game's, the mod's copy is used in its place. Anything with a new name is added.
+
+The launcher then merges every enabled mod into one patch, in `Mods\.reskate`, before the game starts. When two mods change the same game file, ReSkate combines both changes onto the game's copy; only changes that cannot be combined are a conflict. See [the load order](/mods/overview#the-load-order) and [the merge](/mods/overview#the-merge).
+
+<Note>
+A Studio-built mod loads only under ReSkate. Copying its files over the game's by hand does not work.
+</Note>
+
+## The pages in this group
+
+| Page | Covers |
+| --- | --- |
+| [Documents](/assets/documents) | Types, fields, references, boxed values, what a mod may change and add |
+| [Textures](/assets/textures) | Kinds, formats, mips, streaming, groups |
+| [Meshes](/assets/meshes) | Rigid, skinned and composite meshes, detail levels, rigs |
+| [Materials](/assets/materials) | Parameter blocks, the shaders you meet, custom shader code |
+| [Sounds](/assets/sounds) | Waves, variations, codecs, banks |
+| [Animation](/assets/animation) | Clips, rigs, movies |
+| [Cosmetics](/assets/cosmetics) | How an item is put together, the 33 categories, the rule on store items |
+| [Maps](/assets/maps) | What a level is made of |
+| [Packing](/assets/packing) | What a built mod holds, how it is installed and checked, its size |
+
+## Making one in Studio
+
+ReSkate Studio reads your installed game and writes only your mod: start at [ReSkate Studio](/studio/overview).

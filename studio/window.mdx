@@ -1,0 +1,133 @@
+---
+title: "The window"
+description: "A tour of Studio's window: the top bar and its two drawers, the mod's list, the pages, the status bar, the sheets and dialogs, keyboard shortcuts and the preview's mouse controls."
+---
+
+Studio's window has a top bar, the mod's list down the left, the page in the middle with its panel at the right, and a status bar. With no mod open, the start page fills the window and the list is hidden.
+
+## The top bar
+
+From the left:
+
+- **The mod**: its name, its version and whether it is saved (**saved**, **unsaved changes**, **not saved yet** or **working**). Press it to open the mod's page. The arrow beside it opens the mod menu.
+- **The problems pill**: **No problems**, a count of notes, or a count **to fix**. Press it to open the problems drawer.
+- **The build pill**: **Not built yet**, **Building**, **Packaging**, **Build failed**, or **Built** and the time. Press it to open the build drawer.
+- **Test in game** (**Ctrl+T**): saves, builds the mod, installs it and starts ReSkate. See [testing](/studio/testing).
+- **Publish**: the listing, the checks and the package for Thunderstore. See [publishing](/studio/publishing).
+
+With no mod open, the top bar has **Open a mod...** and **Game library** (or **Back to the start**) instead.
+
+### The mod menu
+
+| Item | What it does |
+| --- | --- |
+| **The mod's page** | Opens the mod's page. |
+| **New mod...** (**Ctrl+N**) | Makes a new mod. |
+| **Open a mod...** (**Ctrl+O**) | Opens a mod by its `.reskate` or `.fbproject` file. |
+| **Open a recent mod** | The last twelve mods. |
+| **Save now** (**Ctrl+S**) | Saves at once. Studio also saves by itself. |
+| **Save a copy as...** (**Ctrl+Shift+S**) | Saves the mod as a new folder. |
+| **Show the mod's folder** | Opens the folder in Explorer. |
+| **Every file in this mod** | Lists what the build packs. |
+| **Settings** | Opens **Settings**. |
+| **Exit** | Closes Studio. |
+
+### The problems drawer
+
+**Before you ship** lists what the build will say about the mod as it stands. Each check goes when it is fixed, and one about a thing in the mod has **Open it** (or **Open the map**, **Open the prop**, **Fill it in on the Publish page**).
+
+**While working** lists what went wrong while you worked. These stay until you press **Dismiss** or **Dismiss all**.
+
+### The build drawer
+
+- **Last test in game**: each step of the last test, and **Undo this install**. See [testing](/studio/testing#the-steps-of-a-test).
+- **Start ReSkate without building**: starts the game as it is.
+- **Studio is doing**: what runs now, with its progress.
+- **Done lately**: the last ten jobs, and **Clear this list**.
+
+## The mod's list
+
+The list down the left holds everything in the mod. Press a row to open it. A dot on each row says how it stands: green when ready, yellow with a note, red with something to fix.
+
+- **Add to mod**, at the top, opens the start page, which asks **What are you adding?**
+- **Cosmetics**: the mod's cosmetics. Right-click one for **Rename...**, **Duplicate...** and **Remove from the mod**.
+- **World**: the mod's map and props. Right-click to remove one: its scene or model file stays where it is.
+- **Sounds**: the mod's own sounds, shown when it has any.
+- **Game changes**: game files the mod changes, and its own documents, clips and effects. Right-click one for **Put back the game's version**. After 40 rows, a link opens **Every file in this mod**.
+- **Game library** and **Settings**, at the bottom.
+
+## The pages
+
+| Page | What it is |
+| --- | --- |
+| Start page | **What are you making?**: eight kinds of thing to start (**Clothing**, **Board**, **Hair**, **Skin art**, **Prop**, **Map**, **Game file**, **Game values**), **Drop a file**, **Recent mods** and **Open a mod...**. |
+| The mod's page | The mod's name, author, version and size, **Edit details**, **Add to mod**, and a table of everything in it (**In this mod**, **Kind**, **Made from**, **State**). Its panel, **Before you ship**, holds the checks and the **Last test**. |
+| Game library | Search the whole game (**Search the game: a name, a kind, a path**), by kind: **Everything**, **Cosmetics**, **Textures**, **Meshes**, **Sounds**, **Animations**, **Effects**, **Levels**, **Data**. Cosmetics have groups too, and a sort order. |
+| A cosmetic | The preview and the item's parts. See [cosmetics](/studio/cosmetics). |
+| A game file | The file's own editor, with what your mod changes in it. See [textures](/studio/textures), [models](/studio/models), [sounds](/studio/sounds), [animation](/studio/animation) and [the data editor](/studio/data-editor). |
+| A map, a prop, a sound | Their own pages. See [maps](/studio/maps), [props](/studio/props) and [sounds](/studio/sounds). |
+| Publish | The listing, what goes out, the checks and **Save the package**. See [publishing](/studio/publishing). |
+| **Every file in this mod** | Every entry the build packs, with **Export payload** and **Remove from project**. Cosmetics bring their own files. |
+
+A page that reads the game says **Studio cannot read the game yet** until the game's files are read. Press **Read the game files**, or **Open Settings** to set the folder.
+
+## The status bar
+
+On the left, the game: **Skate 20260929 at** and its folder, with a dot (green once its files are read), or **Skate folder not set**. Then what Studio is doing, with a progress bar, or the last thing it said.
+
+On the right, what can be undone and redone (**Undo:** and the step, **Redo:** and the step, or **Nothing to undo**: press either to do it), and whether the mod is saved: **Unsaved changes, saved shortly**, **All changes saved**, **Saved** and the time, **Not saved yet** or **Working...**.
+
+With no mod open, the status bar also says how many game files are indexed, whether the ReSkate launcher is installed in the game's folder, and whether Blender was found. Its right end has **Settings**.
+
+## Sheets and dialogs
+
+### Drop a file
+
+Drop a file anywhere in the window, or press **Choose a file...** on the start page, and a sheet opens. On the left, **Studio found** says what the file is, and **Make it** lists what it can become in this mod. On the right, **Studio will** says what the choice does, and **Still missing** or **First** says what it needs. The button at the bottom says what it does, most often **Add to mod**.
+
+A choice that cannot be taken yet stays in the list and says what to do first, for example to open the texture a picture replaces. Studio reads pictures (`.png`, `.jpg`, `.tga`, `.bmp`, `.dds`), models and scenes (`.glb`, `.gltf`, `.fbx`, `.blend`), game data saved from Studio (`.ebx`, or as text in `.json`), sounds (`.wav`) and movies (`.webm`). A `.reskate` or `.fbproject` file opens that mod.
+
+### New mod
+
+**Name** and **Kept in**. The mod's folder is the name, in that folder: the dialog shows the path, and refuses a name whose folder exists.
+
+### Settings
+
+Kept as you change them.
+
+- **Skate**: **Skate folder**, **Browse...**, **Find it for me** when the folder is wrong, and **Read the game files again** after the game was repaired or moved.
+- **Blender, for maps and for editing a model**: **Blender** (left empty, the newest one installed is used) and **Install or update Studio's Blender add-on**.
+- **Display**: **Size**, from 75% to 200%, and **Match Windows**.
+- **Editing**: **Take a cosmetic's store picture from the preview when it is added**, **Show the skater behind a cosmetic**, and **Show raw data on game files** (a file's bytes, beside its fields).
+
+## Keyboard shortcuts
+
+| Keys | What they do |
+| --- | --- |
+| **Ctrl+S** | Save now. On a map, also saves the map's edits. |
+| **Ctrl+Shift+S** | Save a copy as. |
+| **Ctrl+T** | Test in game. |
+| **Ctrl+N** | New mod. |
+| **Ctrl+O** | Open a mod. |
+| **Ctrl+Z** | Undo. |
+| **Ctrl+Y** or **Ctrl+Shift+Z** | Redo. |
+| **Ctrl+F** | Search the game library. On a game file, find a field. |
+| **Ctrl+=**, or **Ctrl** and **+** on the number pad | Make the window's text and controls larger. |
+| **Ctrl+-**, or **Ctrl** and **-** on the number pad | Make them smaller. |
+| **Ctrl+0** | Back to 100%, when you are not typing in a field. |
+| **Escape** | Close a dialog or sheet. |
+| **Enter** | In the file sheet, take the choice. |
+
+Undo, redo and **Ctrl+F** do nothing while you type in a field.
+
+## The preview
+
+The 3D preview of a cosmetic, a mesh, a prop or a map works the same everywhere.
+
+| Mouse or key | What it does |
+| --- | --- |
+| Left drag | Turn around the subject. |
+| Right or middle drag | Pan. |
+| Wheel | Zoom. |
+| **F** over the preview | Fit the subject in the view. |
+| Right-click (without dragging) | Fly: **W**, **A**, **S**, **D** to move, **Q** and **E** down and up, **Shift** fast, the wheel for speed. Right-click or **Escape** to stop. |

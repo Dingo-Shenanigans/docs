@@ -1,0 +1,89 @@
+---
+title: "Textures"
+description: "The four kinds of texture (2D, array, cube, volume), the formats the game keeps them in, mips and how large textures stream, texture groups, and the sizes and files a replacement takes."
+---
+
+A texture is three things: a `TextureAsset` document with its name, a 180-byte header resource (kind, format, size, mips, group), and a chunk with the pixels. The game has 25,719 textures.
+
+## Kinds
+
+| Kind | What it is | In the game |
+| --- | --- | --- |
+| 2D | One picture with its mips | Almost every texture: world surfaces, clothing, decks, menu pictures |
+| 2D array | Several pictures of one size and format, as layers | 567, such as the layered textures of clothing |
+| Cube | Six faces | 2 |
+| Volume | A stack of slices, read in three dimensions | 9: five colour grade tables (33 by 33 by 33), two cloud noises and two curl noises (128 by 128 by 128) |
+
+Every volume the game ships has one mip, so Studio writes volumes with one.
+
+## Formats
+
+The game keeps its 2D textures in 17 formats, and its arrays, cubes and volumes in a few more: 28 pairs of kind and format in all. Most are block compressed:
+
+| Format | Holds | For example |
+| --- | --- | --- |
+| BC1 | Colour, 8 bytes per block of 4 by 4 pixels | |
+| BC3 | Colour with alpha, 16 bytes per block | |
+| BC4 | One channel, 8 bytes per block | The cloud noise volumes |
+| BC5 | Two channels, 16 bytes per block | A prop's normal picture, which Studio writes as BC5 |
+| BC6H | High dynamic range colour, 16 bytes per block | |
+| BC7 | Colour or packed values, 16 bytes per block | A lip style's packed mask, the curl noise volumes |
+
+The others are uncompressed: one-channel formats (`R8`, `R16`, `R16F`), `R10G10B10A2` (the colour grade tables), and 8-bit colour.
+
+You do not choose a format when you replace a game texture: the new pixels are written in the game texture's own format. A picture for a texture of your own (a prop's or a map's material) is written in the format its slot takes.
+
+<Note>
+A one-channel format keeps the red channel of your picture, as BC4 does. Paint a mask in red, or in grey.
+</Note>
+
+### Names say what the channels hold
+
+The letters at the end of a texture's name, and of the material slot it fills, say what each channel holds: `C` is colour, `NY` a normal map. Others pack several values into one picture, such as `OSK` and `MSK`; what each letter means depends on the shader that reads it (on a face layer, `O` is opacity and `S` smoothness). Keep the channels where the game's texture has them.
+
+## Mips and streaming
+
+A texture keeps its mips, largest first, from 1 to 13 of them. A block-compressed mip is made of 4 by 4 blocks, so the smallest mips of a block-compressed texture are one block each.
+
+A large 2D texture can leave its sharpest mips out of its bundle. The bundle holds the rest, which is enough to draw it, and the game reads the sharper mips from the superbundle when it wants them.
+
+- One to three mips are left out. The part the bundle keeps starts on a 64 KB boundary of the stored chunk.
+- Arrays, cubes and volumes always keep their whole chunk with the bundle.
+- Menu pictures, stickers and tattoos (11,280 textures) are listed by no bundle at all, only by a superbundle.
+
+Studio lays a texture you make out the same way: for 2,504 of 2,642 of the game's own textures it picks the game's first kept mip. A map texture once written without the header's streaming mark was loaded whole and took 411 MB, so Studio sets that mark on every texture it streams, whatever its group says.
+
+## Texture groups
+
+Every texture belongs to a group named in its header, such as `Worlds_C_TextureGroup` for world colour pictures, `Character_Top_Packed_TextureGroup` for clothing, or `UI_Thumbnail_TexGrp` for menu pictures. The game names 201 groups; 3,958 textures name none.
+
+The game keeps no asset for a group. Two settings in the header go with the group: one says whether the texture goes through the streaming pool, and the other looks like how many mips to drop at each quality setting, though that is not proven. A texture Studio writes into a group carries that group's settings, read from the game's own textures of the group.
+
+## Sizes and files
+
+When you replace a game texture:
+
+| The game's texture | Your file | What happens |
+| --- | --- | --- |
+| 2D | A DDS of its size, format and mips | The pixels go in exactly as they are in the file. Extra mips are dropped. |
+| 2D | Any other picture (PNG and others) | Stretched to the texture's size, encoded in its format, with its mips |
+| Cube, array or volume | A DDS of the same kind and layout | The whole texture goes in as it is |
+| Cube, array or volume | A DDS of the same kind with another size, format, mip count or number of layers | The texture is written anew from your DDS, with the game texture's name and group. The mod then carries a new header as well as the pixels. |
+| Cube, array or volume | A flat picture | One face, layer or slice is replaced; the others stay |
+| Any | A DDS of another kind, such as a cube for a volume | Refused, saying why |
+
+- A DDS keeps your pixels exactly. A PNG is encoded by Studio: uncompressed formats give every pixel back, block-compressed ones lose a little (BC7 and BC5 about 1.5 steps of 255 on average, BC1, BC3 and BC4 about 3).
+- A cube is a DDS cube, an array a DDS array and a volume a DDS volume, each face, layer or slice with all its mips.
+- A prop's pictures are brought to powers of two.
+
+A replaced texture keeps the game's name, so everything that pointed at the game's texture now shows yours, everywhere it is used.
+
+<Warning>
+A texture that sits in many bundles makes a large mod, because the mod carries every bundle it touches: see [why a build is the size it is](/assets/packing#why-a-build-is-the-size-it-is).
+</Warning>
+
+Not yet: a texture of your own under a name of your own, for a changed document or a plugin to point at. Studio makes new textures only as pictures of something else (a cosmetic, a prop, a map, a material).
+
+## Making one in Studio
+
+Saving, replacing and checking textures: see [textures in Studio](/studio/textures).

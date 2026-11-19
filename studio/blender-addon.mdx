@@ -1,0 +1,121 @@
+---
+title: "The Blender add-on"
+description: "ReSkate Studio's Skate Map add-on for Blender: installing it from Studio, its panels (Add to the Map, Selected, Material, Map Settings, Problems, Build), the settings each sets, writing the map folder, and sending a cosmetic back to Studio."
+---
+
+Studio's Blender add-on marks up a Blender scene as a skate. map: what collides and what it is made of, grinds, the spawn, lamps, sounds, the game's effects and traffic routes. Studio runs the same add-on, without Blender's window, each time it builds a map from your scene, so what you set in Blender is what the build uses. It is also what Studio opens when you edit a cosmetic's model in Blender.
+
+It needs Blender 4.2 or later.
+
+## Installing it
+
+1. In Studio, open **Settings**.
+2. Under **Blender, for maps and for editing a model**, set **Blender** to your `blender.exe` with **Browse...**. Left empty, Studio uses the newest Blender installed.
+3. Press **Install or update Studio's Blender add-on**.
+
+Studio says when it is done, for example `Skate Map 3.0.0 is enabled in Blender 4.2.` Read the game's files in Studio first, so the add-on gets the full list of the game's effects. Press the button again after you update Studio, to update the add-on with it.
+
+On the command line, `reskate_cli install-blender-addon [--blender <blender.exe>]` does the same.
+
+## The Skate Map tab
+
+In Blender's 3D view, press **N** for the sidebar and open the **Skate Map** tab. Its panels are in the order a map is made:
+
+| Panel | What it is for |
+| --- | --- |
+| **Add to the Map** | What a map is made of beyond its meshes. |
+| **Selected** | What the selected object is to the map, with its own problems. |
+| **Material** | How the active material is drawn and what surface it is. |
+| **Map Settings** | The scene's scale and the map picture. |
+| **Problems** | Everything wrong with the scene, each with its fix. |
+| **Build** | Write the map folder, as Studio does when it builds. |
+
+The same material settings are in Blender's **Material** properties, in a **Skate Map** panel.
+
+## Add to the Map
+
+| Group | Buttons |
+| --- | --- |
+| **Markers** | **Spawn** (where the skater starts), **Bus Stop** (a stop players can travel to), **Speaker** (a speaker players can use) |
+| **Grinding** | **Grind Curve**, **Grind Curve From Edges** (from the selected edges), **Find Grind Curves on Selected** (found on a mesh) |
+| **Sound** | **Sound Volume** (a box of ambience), **Sound Emitter** (a sound on an object) |
+| **Effects of the Game** | **Trigger Effect** (plays when a skater comes through the box) and **Particles** (plays all the time), each a menu of the game's effects. **Import an Effect List** shows when the list is missing: install the add-on from Studio again. |
+| **NPC Routes** | For **Pedestrians**, **Cars** and **Buses**: a **Path**, a **Curve** or a **Loop** |
+
+A map has one spawn: with more than one, the first is used and **Problems** says so.
+
+## Selected
+
+What it shows depends on the object.
+
+**A mesh**
+
+- **Placement**: **Authored Mesh** (the mesh is built into the map) or **Game Object** (one of the game's objects, or a prop of the mod, stands here, and the mesh only shows where and how big). A **Game Object** is named by its asset path, or `prop:<id>` for a [prop of the mod](/studio/props#placing-a-prop-in-the-mods-map).
+- **Collision**: **Exact Triangle Mesh** (for ground, ramps and anything skated), **Gameplay Convex (Smart)** (a few convex pieces, for props), **Forced Single Envelope** (one convex shape), **None**, or **Water** (the skater falls in). Studio builds all of them as mesh collision.
+- **Round Rail**: a smooth tube the skater grinds. If it still does not grind, draw a grind curve on it.
+- **Use This Object's Surface**: one surface for the whole object, in place of its materials' surfaces.
+- **Leave Off the Map Picture**: not drawn on the pause map.
+- With several objects selected, apply the shape or the surface to all of them.
+
+**A curve**: a **Grind Curve** (an invisible rail: **Rail Radius**, half its thickness, and **Surface**, how it sounds and sparks) or an **NPC Route** (**For**, **Width**, **Sample Spacing**, **Weight**, **Speed Class**, **Both Directions**, **Stairs**).
+
+**A lamp**: **Range (m)**, how far it reaches in the game; **Lit At**, the times of day it shines; and for an area lamp **Game Type**, **Area** or **Spotlight**. A sun is left out: the map's sun is the game's.
+
+**An empty**: one thing at a time. A **Marker** (**Spawn**, **Bus Stop** with **Stop Name** and **Bus Shelter**, **Speaker**), an **Effect** (**Trigger Effect** or **Particles**, with **Game Effect**), a **Sound Volume** (**Ambience**, a **Region**, **Heard From (m)**, **Indoors**, **Density**, **Priority** and more) or a **Sound Emitter** (what it is the sound of).
+
+**A sphere light probe** becomes a reflection volume.
+
+### Surfaces
+
+A surface is one of the game's: it sets the sound, the sparks and how the board grips and slides. Pick it in the list or search with **Search Surfaces**. Three switches change it further:
+
+- **Change Contact Sound**: **Softness**, **Smoothness**, **Minimum Impact Force**, **Impact Cooldown**, **Ignore Player Collisions**. The sounds themselves stay the surface's.
+- **Change Grip and Bounce**: **Dynamic** and **Static** friction and **Bounce**, for the deck, the trucks and the wheels.
+- **Change Behaviour**: **No Generated Edges**, **Include in Surface Analysis**, **Disable Grinding**, **Jump Pad**, **Boost Pad**, **Force Wipeout**, **Slide**, **Do Not Align Skater**, **Stairs**, **Camera Occluder**.
+
+## Material
+
+| Setting | What it does |
+| --- | --- |
+| **Invisible (Collision Only)** | Faces with this material collide but are not drawn. |
+| **Drawn As** | **Auto** (an ordinary surface), **Decal**, **Foliage**, **Ocean** or **Glass (Reflective)**. |
+| **Transparency** | **Auto**, **Opaque**, **Cutout** or **Blend**. |
+| **Transparency From** | **Auto**, **Base Colour's Alpha**, **Opacity Texture** or **Constant**. |
+| **Cutout Threshold** | Where a cutout starts. |
+| **Cast Shadows**, **Double Sided**, **Transparent Shadows** | As they say. |
+| Textures | **Base Colour**, **Normal**, **Mask** (red metallic, green smoothness, blue ambient occlusion, alpha opacity), or **Roughness** and **Metallic** each with a **Channel**, and **Opacity**. Left empty, each is taken from the material's shader nodes. |
+| **Surface** | The surface, as on an object. |
+
+A picture on disk or packed in the `.blend` is taken whatever its format: anything but a PNG or DDS is written as a PNG.
+
+A material drawn as anything but **Auto** is built on a copy of one of the game's own materials of that kind. Those kinds (decal, foliage, ocean, glass, and cutout or blended transparency) have not been checked in the game yet.
+
+## Map Settings
+
+- **Scale**: metres in the game for one unit of the scene. Leave it at 1 unless the scene was made at another scale.
+- **Near Shadows**, **Middle Shadows**, **Far Shadows**: kept with the scene. Studio does not use them yet; a map's shadows are the city's.
+- **Map Picture**: **With Shadows** or **Flat**, for the pause map made from the scene.
+
+Your own pause map and loading screen go beside the scene, as `assets\<scene name>\map.png` and `load_screen.png`: see [pictures](/studio/maps#pictures). The panel says when it is using yours.
+
+## Problems
+
+Everything wrong with the scene, as a list: the object, a sentence, and **Fix** where Blender can make the fix, or **Select** to find the object. **Selected** shows the selected object's own. A problem that stops the build is counted in **Build**.
+
+## Build
+
+- **Write the Map Folder** writes the map folder Studio builds from, into a folder you choose, to see what a build would make of the scene.
+- **Open the Map Folder** shows the last one written.
+- **Join Meshes by Material** joins meshes that share a material.
+
+You do not need to write the folder yourself. Studio builds the map from the saved scene: save in Blender, then build in Studio. See [maps](/studio/maps#building-and-testing).
+
+## Editing a cosmetic in Blender
+
+A cosmetic's **Model** part has **Edit in Blender**. Studio opens the item's mesh and rig in Blender, with a **ReSkate Studio** panel:
+
+- **Send to Studio** saves and sends the visible meshes and their armature to Studio. Saving (**Ctrl+S**) also sends.
+- Hidden objects are left out, and a new object joins the nearest part.
+- The panel says when a send has reached Studio.
+
+The model follows the rules of a cosmetic's model: see [models](/studio/models#a-cosmetics-model).

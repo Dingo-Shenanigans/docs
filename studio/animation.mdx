@@ -1,0 +1,113 @@
+---
+title: "Animation and movies"
+description: "Animation clips in ReSkate Studio: watching a game clip, saving a take as FBX, replacing a clip with a take of your own, the codecs Studio reads and writes, new clips and what does not play them yet, and replacing the game's movies with a WebM."
+---
+
+Studio puts a take of yours in place of one of the game's animation clips, keeping the clip's rig and settings, and saves any clip as an FBX to start from. It also replaces the game's movies with a WebM of yours. For how the game keeps clips and movies, see [animation and movies](/assets/animation).
+
+## Watching a clip
+
+Open **Game library**, pick **Animations**, pick a clip and press **Open it to replace it**. The clip's page shows the skater and the board playing it, with **Play** (**Pause** while it plays), **Stop**, **Loop**, a speed from 0.1x to 4x, and a timeline you can drag.
+
+The **Animation** card says **What the clip is**: its **Length**, **Frames a second**, **Joints** and **Tracks**.
+
+A clip on another rig than the skater's shows its joints only. An additive or layered clip is shown alone, not over the pose it adds to.
+
+## Saving a take as FBX
+
+**Save this take as FBX...** saves the game's clip on its rig, for Blender or another editor. Animate that file: its joints are the ones the clip needs.
+
+## Replacing a clip
+
+<Steps>
+  <Step title="Open the clip">
+    In **Game library**, **Animations**, pick it and press **Open it to replace it**.
+  </Step>
+  <Step title="Open your FBX">
+    On the **Animation** card, press **Open an FBX animation...**. Dropping an FBX on the clip's page does the same. Its takes are shown in the middle, beside the game's clip, with a **Take** list when the file has more than one.
+  </Step>
+  <Step title="Watch it">
+    Pick the take and play it on the skater. **What the take is** adds **Takes in the FBX**.
+  </Step>
+  <Step title="Put it in">
+    Press **Replace the clip with this take**.
+  </Step>
+</Steps>
+
+**Put back the game's clip** takes every change to the clip out of the mod.
+
+The take is fitted to the clip's own frame rate. What stays the clip's own:
+
+- its rig, its loop and root motion settings, and its tags;
+- every channel the take does not animate;
+- the keys of every channel the take leaves where the game has it.
+
+### What the FBX must carry
+
+The FBX must be animated on the clip's own rig: every joint the clip names, in the same hierarchy. Studio does not retarget a take from another skeleton. A take is refused when:
+
+- a joint of the rig is missing, or the joints are arranged differently;
+- it animates something the rig has no channel for;
+- it has shear, or a value that is not a number;
+- it is longer than 65,535 frames.
+
+## Codecs
+
+The game keeps its clips in four codecs. Studio reads all four, and writes one.
+
+| Codec | Clips in the game | Studio |
+| --- | --- | --- |
+| Eclipse (quantised keys) | 4,475 | Reads and writes |
+| VBR | 1,708 | Reads |
+| FRAM (one pose) | 86 | Reads |
+| RAW | 1 | Reads |
+
+A replaced Eclipse clip is written in that clip's own formats. A clip of another codec is written as an Eclipse clip when you replace it; that has not been checked in the game yet.
+
+## New clips
+
+A clip of your own is made from a take, like the game clip that is open: the same rig and the same bundles.
+
+1. Open a game clip of the same skeleton, and open your FBX on it.
+2. Type a name for it, such as `animation/mods/my_clip`, in the field on the **Animation** card.
+3. Press **Make a new clip from this take**.
+
+Dropping an FBX on a clip's page offers **A new clip** too. The name must not be one the game has.
+
+<Warning>
+Nothing in the game plays a new clip yet. A clip plays when the game's animation tree, a level's timeline or a plugin names it, and none of them can name a mod's clip today. To change how the skater moves, replace a game clip. For a movement of your own, a plugin plays a pose clip: see [animation](/plugins/api/animation).
+</Warning>
+
+```powershell
+reskate_cli animation-new "C:\Mods\My Mod" "D:\Skate" animation/mods/my_clip take.fbx --like <game clip>
+```
+
+## Movies
+
+The game has nine movies, intros and the splash among them. They are documents, under **Data** in the game library: search for `MovieTexture`. A movie's page has a **Video** card.
+
+- **Play**, **Stop**, a timeline, **Mute** and the volume. The page says when Windows cannot play the movie: Studio plays it with Windows' own decoders, and VP8 and Vorbis are not on every PC.
+- **Save as WebM...** saves the movie as the game keeps it.
+- **Put a WebM of your own in its place...** puts your file in its place. Dropping a `.webm` on the page does the same.
+- **Put back the game's movie** takes yours out.
+- **What it is**: kind, picture size, frames a second, length, sound and size.
+
+Your movie must be a WebM with a VP8 picture and Vorbis sound, or no sound, as the game's movies are. Studio does not encode video: a file in another codec is refused with the reason. Make the file with a video tool, for example FFmpeg:
+
+```powershell
+ffmpeg -i mine.mp4 -c:v libvpx -auto-alt-ref 0 -c:a libvorbis -ar 48000 mine.webm
+```
+
+The game's subtitles for a replaced movie are taken off, since their times are the game's movie's. The preview always shows the game's movie, even once yours is in.
+
+## On the command line
+
+```powershell
+reskate_cli animation-info "D:\Skate" <game clip>
+reskate_cli animation-export "D:\Skate" <game clip> clip.fbx
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" animation <game clip> take.fbx --take 0
+reskate_cli fbx-animation-info take.fbx
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" video <game movie> mine.webm
+```
+
+`--take` counts from 0, the first take of the file. `fbx-animation-info` lists a file's takes. See the [command line](/studio/command-line).

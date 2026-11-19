@@ -1,0 +1,87 @@
+---
+title: "Meshes"
+description: "Rigid, skinned and composite meshes; sections and the draw lists they are in; detail levels and the distances they switch at; rigs and weights; shadow sections; and what a replacement for a game mesh must keep."
+---
+
+A mesh is a mesh asset document (its name, its detail level group and one material slot for each material), a MeshSet resource that describes its detail levels and sections, and one chunk for each detail level with the vertices and indices. The game has 11,619 meshes.
+
+## Three kinds
+
+| Kind | What it is | In the game |
+| --- | --- | --- |
+| Rigid | Drawn where it is placed, as it is | 11,272: the world, props, decks and trucks |
+| Skinned | Each vertex follows one or more bones of a skeleton | 296: clothing, hair, bodies, costumes |
+| Composite | A rigid mesh cut into parts that move one by one | 51 |
+
+A composite mesh's parts are like bones: each vertex belongs to exactly one part, and the object that owns the mesh moves the parts as the game runs. The mesh stores the parts where they sit at rest.
+
+## Sections
+
+A detail level is cut into sections. Each section is one material on a run of triangles:
+
+- it names the material slot of the mesh asset it uses (a mesh has up to 22 slots) and the material's key ([materials](/assets/materials));
+- it has its own vertices, with a layout of its own: position, then some of colour, texture coordinates, a tangent frame, light map coordinates and, for a skinned section, bones and weights;
+- it is in one or more of five draw lists: opaque, transparent, decal, depth only and shadow. Which of the first three follows from the material's shader.
+
+A section holds at most 65,535 vertices for 16-bit indices. A section of 65,536 vertices or more makes the whole detail level use 32-bit indices, which only 22 of the game's detail levels do. Studio's Blender add-on cuts a map's meshes into sections below that limit.
+
+Positions are stored as half floats in most of the game's sections, and as full floats in the rest. Studio writes the meshes of props and maps with full floats.
+
+## Shadow sections
+
+Most of the game's drawn sections are not in the shadow list. The game's tools give each opaque material a second section, after all the drawn ones: a copy with positions only, named after the material with `_Shadow`, in the depth only and shadow lists. A cut-out material's shadow copy keeps its texture coordinates too, so the holes cast holes. (A few sections are drawn and cast their own shadow, in both lists at once.)
+
+- A mesh with no section in the shadow list casts no shadow.
+- In the world, one shadow section usually serves every opaque material of a detail level, welded from all of them. Studio builds a prop's and a map's shadows that way.
+- A shadow section has its own material key, on the same parameter block as the material it shadows.
+
+## Detail levels
+
+A mesh has 1 to 6 detail levels, most detailed first. The distances they switch at are not in the mesh. The mesh asset names a detail level group, and the group has six distances: the distance at which the game goes from one level to the next.
+
+| Group, for example | Distances (metres) | Used by |
+| --- | --- | --- |
+| `CAS_default_lodGroup` | 5, 10, 20, 45, 80, 120 | Clothing |
+| `Char_Skateboard` | 5, 10, 20, 45, 80, 120 | Skateboard parts |
+| `WorldObject_MediumVista_3Lod` | 45, 90, then 1000, 1001, 1002, 1003 | World objects with three levels |
+| `WorldGeoBase_LongVista_2lod` | 180, then 1000 and up | World geometry with two levels |
+
+A group is made for a number of levels. The distances it really uses rise, and the ones past the last level are 1000, 1001, 1002 as filler. A level the mesh does not have is never asked for. The group also holds a shadow distance and the screen size below which the mesh is not drawn at all.
+
+The last level of every mesh, and sometimes a run of levels before it, stays loaded at all times; the others stream in as you come near. A world mesh keeps its last one or two; clothing keeps all but the first.
+
+A prop of your own takes one to five distances, and Studio writes a group for it with exactly those.
+
+## Rigs and weights
+
+A skinned mesh names no skeleton. Each vertex holds bone numbers, and the game poses them with the skeleton of whatever wears the mesh. A character's skeleton has 386 bones.
+
+- A vertex is weighted to at most 8 bones. Up to 4, the game takes its four-bone path; 5 to 8 use a second set of bones and weights.
+- Weights are stored in 8 bits each and add up to 255, so a weight smaller than about 1/255 is lost.
+- Some clothing adds procedural bones of its own after the skeleton's.
+- Some bones have a box around their vertices in the rest pose, which the game uses to keep the mesh's bounds right as it moves. Studio keeps the item's own choice of bones and works the boxes out from your vertices.
+
+Clothing that swings or flaps does so through its mesh's swing bones and cloth, which every item made from the same garment shares. Studio does not change them: see [movement](/assets/cosmetics#movement).
+
+## What a replacement must keep
+
+When your model takes the place of a game item's mesh:
+
+| It must | Why |
+| --- | --- |
+| Be weighted to bones the item's skeleton has, by name, in the same rest pose | Vertices hold bone numbers into that skeleton. Weight on a bone the item's mesh does not list moves to its nearest parent. |
+| Use the item's materials, by name | A section's material, its key and its draw lists are the item's. A material your model has nothing for keeps its section (a drawn one becomes a single triangle of no area), because the game keeps the item's body-shape data by section. |
+| Keep the item's number of detail levels | The item's group expects them. A level your model lacks is made from the next more detailed one, simplified to the share of triangles the item's own level has. |
+| Keep the parts of a composite mesh as its top-level nodes | Each node is one part, with the game mesh's materials |
+
+Your model decides its vertices and triangles, its UVs (a missing second UV set is the first one again), its normals and its weights. The item decides the materials, the skeleton and the flags.
+
+Not seen in the game yet: the eight-bone layout on an item whose own sections use four, 32-bit indices on a cosmetic, and levels made by simplification.
+
+<Warning>
+A model that is the game's own mesh exported and brought back unchanged is the game's mesh, not yours. It does not make an item your own: see [the rule on store items](/assets/cosmetics#the-rule-on-items-the-game-sells).
+</Warning>
+
+## Making one in Studio
+
+Bringing in, exporting and checking models: see [models in Studio](/studio/models).

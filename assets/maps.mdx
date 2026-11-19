@@ -1,0 +1,118 @@
+---
+title: "Maps"
+description: "What a level is made of, for a map maker: the level and its superbundle, layers and placements, meshes and materials, collision and surfaces, grinding, lighting and time of day, streaming cells, spawns, sound, effects, the loading screen and the pause map."
+---
+
+A custom map is a level of its own: a superbundle the game mounts when you travel there, registered beside the game's levels. This page says what goes into one and what the game decides for you. [Maps](/mods/maps) covers `reskate-levels.json`, the file that lists a mod's maps.
+
+## The level
+
+| Piece | What it is |
+| --- | --- |
+| The level's superbundle | All of the map's bundles: its root bundle and, for a streamed map, the bundles of its cells |
+| The level document | Which layers and sublevels the level loads, and its parameters |
+| Layers | The things placed in the world |
+| Registration | Rows in the game's list of levels, so it can travel there |
+
+A mod holds one map. A second map needs a mod of its own.
+
+### What a map shares with San Vansterdam
+
+A level's logic is compiled code in the game, and a map cannot have logic of its own. So a map runs San Vansterdam's, and starts from the city's level with the city's own places taken out. It keeps the city's core game assets, effects, global lighting and start point sublevels, and the city's root bundle comes along whole. That is why a map has the city's services, skater and gameplay without carrying them itself.
+
+## Layers and placements
+
+A layer is a list of placements. Each placement names a blueprint and gives it a transform: its three axes and its position.
+
+- Each mesh you draw is a blueprint naming the mesh.
+- Each piece of collision is a blueprint of its own, naming its collision and a mesh it never draws.
+- Objects from the game's library (props, plants, effects) are placed by their blueprints in the same way.
+
+## Meshes and materials
+
+Every mesh of a map is a rigid mesh with its detail levels, as in [meshes](/assets/meshes):
+
+- Studio's Blender add-on cuts large meshes into 64 m tiles and into sections of at most 65,535 corners.
+- Each mesh has a detail level group of the map's own, with the distances its levels switch at.
+- A map's plain materials are written from the world's plain surface shader, or another world shader you choose, with your pictures: see [materials](/assets/materials). Cut-out, foliage, glass, decal, water and glow materials are made from the game's materials of those kinds.
+- Each detail level has one welded shadow section for its opaque materials, as the game's world meshes do.
+- Two meshes with the same name share one set of materials in the game. Studio names a map's meshes after the map, so maps do not clash.
+
+## Collision and surfaces
+
+The game ships a level's own collision in one piece for each part of the world. A custom map places each piece of collision the way the game places a prop's: a collision resource, a physics document and a blueprint. That works in the game; it is a different form from the game's levels.
+
+Each part of the collision carries a surface, such as concrete, wood or metal rail, from the game's surface grid. A surface decides how the board sounds and behaves on it. A map can add surfaces of its own, made from one of the game's; ReSkate adds every map's surfaces to the game's list at launch and renumbers each map's collision to match, so two maps' surfaces do not collide.
+
+### Grinding
+
+The game ships no grind lines. It works grind edges out from the collision as it runs:
+
+- **A crease.** An edge has to bend by about 30 degrees or more. A round tube of 6 to 12 sides grinds; one of 16 sides or more does not.
+- **The surface.** A part whose surface has the grind-on-surface property is ground on its surface instead of its creases, so a round rail of any number of sides grinds. The game's own round rails use it.
+- **Density.** A part with more than about 1,000 half-edges for each metre of its size gets no grind edges. Keep grindable collision simple.
+- Joined edges: two edge pieces whose ends meet and whose directions are within 30 degrees grind as one.
+
+A grind curve you draw in Blender becomes an invisible prism of sharp collision that the game finds an edge on.
+
+## Lighting
+
+A custom map has no lighting data of its own. It is lit by San Vansterdam's time of day, by what the engine works out live, and by the lamps you place.
+
+| Part | What you control |
+| --- | --- |
+| Sun, sky, fog, exposure, colour grade | Which of five times the map starts at: morning, noon, afternoon, evening or night. The time is fixed for the session. |
+| Sun shadows | Nothing: the city's settings |
+| Ambient light | With the game's GI option on, the game traces it live, and each material's bounce colour counts. With it off, one probe made from the sky. |
+| Reflections | One reflection volume over the whole map, and one for each reflection probe in your scene |
+| Lamps | Position, colour, power, range, cone, shadows, and the times of day they are on |
+
+You cannot change the sun's direction, colour or strength, the sky or the fog. Baked light is not offered.
+
+<Note>
+The city's own reflection volumes cover San Vansterdam's area. A map built inside that area gets captures of itself; a map built elsewhere reflects the sky.
+</Note>
+
+## Streaming cells
+
+A small map is loaded whole. A large one can be cut into cells that load as the skater comes near, with a simplified far view of the rest kept loaded:
+
+- streaming is automatic, off or on;
+- a cell is 200, 100 or 50 m across;
+- the load distance says how far away a cell starts loading.
+
+A streamed map has not been seen in the game yet.
+
+## Spawns
+
+A map has one default start point, used when nothing else is asked for. The spawn's position and heading are written into a copy of the city's core game assets that the map carries, which ReSkate loads on that map only. `reskate-levels.json` lists the start points the menus offer, at most 64: see [maps](/mods/maps).
+
+## Sound
+
+- **Sound regions** play an ambience inside an area: a region names what plays in it. A region can use one of the game's region presets as it is.
+- **Emitters** play at a spot, for anything that names their sound tag. A speaker marker is an emitter with the Bluetooth speaker's tag.
+- Everything a game sound needs (its patch, its parents, the game's sound system) is added to the map's bundle with it.
+
+A map's regions name the game's sounds today; a sound of the mod's own is not yet: see [sounds](/assets/sounds#a-sound-of-your-own).
+
+## Effects
+
+A map places the game's effects by their blueprints, like any other object. The list of effects you can place leaves out effects that are whole scenes and effects no bundle holds.
+
+## The loading screen and the pause map
+
+- **The loading screen** is a copy of a game loading screen with your picture and your map's name. Without a picture of your own it is a magenta and black checkerboard. ReSkate merges every map's loading screens, so one map's never replaces another's.
+- **The pause map** is a picture of 7680 by 4320, cut into a pyramid of tiles at five scales (244 tiles in all), each tile a picture of its own. That is why a map with a few textures of its own carries hundreds of pictures.
+
+## Bus stops and routes
+
+- **Bus stops** are the city's own bus stop set, moved to your travel points. Stops you do not use are switched off.
+- **NPC routes** are curves in your scene that pedestrians walk along.
+
+## What a map does not have
+
+Next to a level of the game, a custom map has no logic of its own, no network list of its objects, no baked light, no animated sequences and no billboards.
+
+## Making one in Studio
+
+Building a map from a Blender scene: see [maps in Studio](/studio/maps).

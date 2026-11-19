@@ -1,0 +1,121 @@
+---
+title: "Cosmetics"
+description: "How a cosmetic item is put together: the item and its data, appearance presets, slots, menu pictures and the 33 categories (which a player can wear, and which exist but nothing lets a player use); what an item of your own needs; and the rule on items the game sells."
+---
+
+## How an item is put together
+
+An item is one document under `items/<category folder>/`. It has two parts.
+
+**The item** says what the inventory and the menus need:
+
+| Field | Holds |
+| --- | --- |
+| Key | The inventory's name for the item. An item of a mod has a key of its own. |
+| Categories | Its category, then any that say who may see it |
+| Thumbnail, large thumbnail | The two menu pictures |
+| Sort priority | Its place among the items of its category; 0 in most |
+| Size, prototype only | Two flags the menu reads |
+
+**The item's data** says what the item is made of. Its main list names the item's assets, each with a type: an appearance preset, a mesh or morph preset, a texture, a full-body costume's eight presets, a head's normal map. Beside it the data can hold a swatch colour for the menu, the body regions the item hides, other slots it hides, sound overrides, game states it sets, shape weights, a painted layer or colours, depending on the kind of item.
+
+### Appearance presets
+
+An appearance preset sets the material of an item's mesh. It lists the shader parameters it changes, each by its key with a value: a picture, a colour, a number, a switch. Many items share one mesh and differ only by preset, which is why a colourway is a new preset and not a new mesh. See [materials](/assets/materials).
+
+### Names, not references
+
+An item names its assets as text. The game looks each name up in a table of bundles when the item is worn, and loads the bundle that holds it. So everything an item uses has to be in that table, and Studio adds rows for the meshes, presets and textures it makes beside the rows of the item they came from.
+
+### Slots and the menu
+
+The skater has 45 slots (head, eyes, tops, hats, hair colour and so on) and the board 8 (grip colour, wheel colour, bottom art, grip pattern, truck and three stickers). Each slot takes one category.
+
+A slot shows in the menu only when a page of the menu names it, and the game's item table is filled from item collections. Studio adds a new item to the collection that holds the item it was made from.
+
+### What the store shows
+
+An item's price, rarity and store description are in none of the game's files: the store's catalogue comes from the game's online service. For an item of a mod, ReSkate shows the name made from the key (a leading `Own_` taken off and underscores turned into spaces) and the rarity `collector`.
+
+## What an item does in play
+
+Wearing an item can set values of the game's animation states, which the animation already switches on:
+
+| State | Values | Worn by |
+| --- | --- | --- |
+| Top fit | None, Normal, Relaxed, Baggy, Very Baggy | 182 of the game's items |
+| Board corrective | None, Small, Large, Jumbo | 154 |
+| Costume fit | One value for each of the game's costumes | 9 costumes |
+| Gameplay mod | Default, or the sumo suit's bounce | The sumo suit |
+
+An item sets a value the game already has. It cannot name a value of its own, and it cannot point at an animation clip.
+
+### Movement
+
+How a garment swings is in its mesh: its swing bones and its cloth. Every item made from the same garment shares that mesh, the game's own included, so changing it would change them all. Studio shows an item's swing bones and does not change them.
+
+## The categories
+
+The game has 33 categories under `items/`. A new item can be made in 29 of them.
+
+| Category | Kind of item | A player can wear it | A new item |
+| --- | --- | --- | --- |
+| Tops, bottoms, shoes, socks, hats, eyewear | A mesh and a preset | Yes | Yes |
+| Full body costumes | A mesh and eight presets | Yes | Yes |
+| Outfits | One garment over the top and bottom slots | Yes | Yes |
+| Scalp hair, facial hair | A mesh and a preset | Yes | Yes |
+| Tattoos | A picture on the skin, placed in the game's own menu | Yes | Yes |
+| Heads, eyes, noses, mouths | A mix of the game's face shapes, and a painted layer | Yes | Yes: a new mix, or a layer texture of your own |
+| Eyebrows, stubble, moles, lip style | A layer painted on the face | Yes | Yes |
+| Hair colours, eye colours, lip colours | Colours | Yes | Yes |
+| Board stickers, board bottom art, trucks | A picture or a mesh on the board | Yes | Yes |
+| Wheel colours, grip colours | A board material | Yes | Yes |
+| Grip patterns | A mask cut into the grip | Yes | Yes |
+| Handwear | A glove mesh | Not known: its only two items are prototypes | Yes |
+| Bodies | A shape and an animation state | Yes, but through two selectors, build and height | No |
+| Locomotion | One of two walking styles | Yes | No |
+| Makeup | A face layer | No | No |
+| Facial hair colours | Nothing | No | No |
+
+Why four take no new item:
+
+- **Bodies.** The body page is not a list: it has a build selector and a height selector, and their choices are the game's 24 bodies, each tied to one pose of the skeleton. A 25th body would have no choice in the menu and no pose of its own.
+- **Locomotion.** An item holds one value of the walking style, and the game has exactly two styles with animation for each. A third item could only be one of those two again.
+- **Makeup.** Nothing in the game lets a player put makeup on: no menu page names the slot, the slot is not saved with the skater, and its one visible item is a placeholder. Eye makeup is made as an eyes item.
+- **Facial hair colours.** No slot takes this category: a beard's colour is a hair colour item. The seven items in it are empty leftovers.
+
+Beside the 33, Studio also makes skin tones and player card backgrounds and icons. Voice types exist too and take no new item: an item only names one of the game's two voices.
+
+An item can be moved to another category only when the game has an item of the same kind there.
+
+## An item of your own
+
+A mod's item starts from an item the game has, of the kind you want, and keeps its structure. It gets:
+
+- a key of its own, and so a name of its own in the game;
+- its own copies of what you changed (a mesh, a preset, a texture, a layer), each registered beside the original so the game can find it;
+- its own menu pictures, or the item it came from's;
+- a place in the item collection, so the game's item table has it.
+
+What was not changed stays shared with the game's item by name.
+
+## The rule on items the game sells
+
+Every item the game sells in its store stays sold. ReSkate does not hand out store items, and a mod cannot either. A mod that adds an item copying a store item is left out at launch, whole: see [copies of store items](/mods/rules#copies-of-store-items).
+
+Studio does not know which items are sold, so it hands out no unchanged copy of any item. Every new item has to carry something of your own, compared against the game's item by what the item is made of:
+
+- a picture whose pixels differ from the game's;
+- a colour of a colour item, a shape weight, a colour or number of the material;
+- a model whose most detailed level differs from the game's in its triangles, positions, normals, texture coordinates or weights;
+- an effect the game's item does not have, or shader code of your own.
+
+These alone do not make an item your own: a menu picture, a name, hidden body parts, a material moved to another shader, or states set in play. The game's own picture or mesh saved and brought back is still the game's.
+
+<Warning>
+Do not start from a store item. Make items from things the game gives away: anything a free item also has belongs to nobody, and mods may use it. ReSkate checks the built mod at launch, whatever Studio accepted, and a mod with an item that copies a store item is refused whole.
+</Warning>
+
+## Making one in Studio
+
+Making and changing cosmetics: see [cosmetics in Studio](/studio/cosmetics).

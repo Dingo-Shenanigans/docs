@@ -1,0 +1,108 @@
+---
+title: "Textures"
+description: "Replacing a game texture in ReSkate Studio: flat textures, arrays, cubes and volumes, the pictures Studio takes and what it does to them, saving a texture as a PNG or DDS, colour changes, and why Studio does not make new textures of their own yet."
+---
+
+A texture you replace keeps the game's name, so everything that drew the game's picture draws yours. Studio fits your picture to what the game's texture is: its size, its format and its smaller copies (mips). For how the game keeps textures, see [textures](/assets/textures).
+
+## Replacing a game texture
+
+<Steps>
+  <Step title="Find it">
+    Open **Game library** and pick **Textures**. Search by name or path, pick the texture and press **Replace it in my mod**. A double click on its row does the same.
+  </Step>
+  <Step title="Look at what it needs">
+    The **Picture** card at the right says, under **What a replacement needs**, what the texture is for (a colour texture, a normal map, a packed mask), its kind, its size, its format and its mip count. **What it is** gives the same in short: **Size**, **Kind**, **Kept as** and **Smaller copies**.
+  </Step>
+  <Step title="Bring your picture">
+    Press **Replace with a picture...** and choose a PNG, TGA, JPG, BMP or DDS. Dropping the file on the window does the same: choose **A replacement for the game texture that is open**.
+  </Step>
+  <Step title="Check it">
+    The preview shows your version. **Changes to this file** says **Your picture is in place of the game's**. A remark about the picture (another size, a name that suggests another kind of texture) is shown at the top of the card and in the band under the preview.
+  </Step>
+</Steps>
+
+To take it out again, open **The whole file** and press **Put back the game's version**. Right-clicking the texture in the mod's list offers the same.
+
+<Warning>
+A texture that belongs to one of the game's cosmetic items cannot be replaced here: **Replace with a picture...** is greyed out. Make a [cosmetic of your own](/studio/cosmetics) from the item to give it other pictures.
+</Warning>
+
+## What Studio does with your picture
+
+| You bring | What Studio does |
+| --- | --- |
+| A PNG, TGA, JPG or BMP | Resizes it to the game texture's size if it differs, saying so, then encodes it in the game texture's format with the same number of mips. |
+| A DDS of a flat texture | Takes it as it is. It must have a DX10 header and the game texture's format, size and mip count. |
+
+A PNG holds 8 bits a channel. For a texture kept in a 16-bit, float or BC6H format, bring a DDS in that format to keep the range beyond 8 bits.
+
+Studio reads a file's name for a hint of what it is. A file named like a normal map (`_n`) brought to a colour texture (`_c`) is taken, with a remark to check its channels.
+
+A DDS is refused when:
+
+- it has the older header, which does not say its format (save it with a DX10 header, for example `texconv -dx10`);
+- it is in a format the game does not use;
+- it is a flat texture and its format, size or mip count differs from the game's.
+
+A DDS saved as sRGB where the game's texture is linear, or the other way round, is taken with a warning: its colours come out darker or paler than in the file.
+
+## Arrays, cubes and volumes
+
+Some textures hold more than one picture: an array has layers, a cube has six faces, and a volume has slices. Over the preview, a chooser picks the one shown:
+
+- a cube: **+X**, **-X**, **+Y**, **-Y**, **+Z**, **-Z**;
+- an array or a volume: the back and forward arrows (`<` and `>`), **First**, **Middle**, **Last**, and which one is shown, such as `slice 66 of 128`.
+
+| You bring | What it replaces |
+| --- | --- |
+| A flat picture (PNG, TGA, JPG, BMP, or a flat DDS) | The one layer, face or slice shown. The others stay as they are. |
+| A DDS of the same kind (an array, a cube or a volume) | The whole texture. A DDS of another size or format the game uses is taken too: the texture is written again at the DDS's size, and the mod carries its header as well as its pixels. |
+
+A DDS of another kind (a cube for an array, say) is refused. So is an array of cubes, and a volume with more than one mip: the game has none.
+
+The game's five colour grade tables are volumes. They are listed under **Data** in the game library, not under **Textures**, and open as textures.
+
+## Saving a texture as a file
+
+The **Picture** card has **Save as PNG...** and **Save as DDS...**, for the game's texture or your version of it.
+
+- **Save as PNG...** saves the layer, face or slice that is shown.
+- **Save as DDS...** saves the whole texture with every mip: the file Studio takes back whole.
+
+A colour you have set under **Colour** and not kept yet is saved with the file. On the command line, `texture-export` does the same: see the [command line](/studio/command-line).
+
+## Changing colours
+
+The **Colour** card changes the picture's colours without leaving Studio: **Tint**, **Red**, **Green**, **Blue**, **Brightness**, **Hue** and **Saturation**. The preview follows as you change a value. **Keep this colour in the mod** puts the coloured picture into the mod, and **Reset** puts the values back.
+
+- It works on the layer or face that is shown.
+- It takes textures kept as RGBA8, BGRA8, BC1, BC2, BC3 and BC7. Studio cannot change the colours of BC4, BC5, BC6H, 16-bit or float textures, or of any volume: replace those with a picture of your own.
+- It is in the window only. The command line has no colour step.
+
+For anything more than a colour change, save the texture, paint it in another program and bring it back.
+
+## Pictures for the game's menus
+
+Some menu pictures are kept in several resolutions. For those, the **Picture** card says how many, and a picture you bring goes into every one of them. Keeping a colour does the same.
+
+## New textures of your own
+
+Not yet. Studio replaces the game's textures; it does not add a texture under a name of your own, for example for a [changed game document](/studio/data-editor) or a plugin to point at. Nor does it make a cube, an array or a volume of your own.
+
+Studio does write new textures as part of something else:
+
+- a cosmetic's pictures: see [cosmetics](/studio/cosmetics);
+- the pictures of a prop's or a map's materials: see [props](/studio/props) and [maps](/studio/maps);
+- a picture in a game material's slot: see [materials](/studio/materials);
+- a sprite sheet for an effect: see [effects](/studio/effects).
+
+## On the command line
+
+```powershell
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" texture <game texture> picture.png
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" texture <game texture> face.png --layer 3
+reskate_cli texture-export "D:\Skate" <game texture> out.dds --project "C:\Mods\My Mod"
+```
+
+`--layer` counts from 1 and names the layer, face or slice a flat picture goes on.

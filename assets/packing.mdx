@@ -1,0 +1,109 @@
+---
+title: "A built mod"
+description: "What a built mod contains, how Studio checks it against the game's formats, how it is installed and undone, what ReSkate checks at launch, the Thunderstore package, and why a build is the size it is."
+---
+
+Studio builds a project into one mod folder. Testing in the game, installing a map and publishing all use the same build.
+
+## What a built mod contains
+
+```text
+Mods\My-Mod\
+  layout.toc                     the game's layout, with the mod's superbundles and archives added
+  .reskate-studio-patch          the build stamp
+  Win32\<superbundle>.toc        one for each superbundle the mod touches
+  Win32\<install chunk>\cas_01.cas   the mod's own data
+  reskate-levels.json            maps only
+  reskate-build.json             maps only
+```
+
+- `layout.toc` is what makes the folder a mod with game data. See [how a mod's files take the place of the game's](/assets/overview#how-a-mods-files-take-the-place-of-the-games).
+- Each superbundle's table of contents lists the game's bundles the mod rebuilt, and the bundles it added.
+- The archives hold everything the mod changed or added: documents, resources and chunks.
+- The [build stamp](/mods/mod-folder#the-build-stamp) names the game's `Skate.exe` by its hash. ReSkate leaves out a mod whose stamp names another build.
+- A map's mod also holds its level's superbundle and its [reskate-levels.json](/mods/maps).
+
+A built mod holds no copy of the game's start-up files. ReSkate reads none from a mod, so a change to one could never reach the game; the build leaves such changes out and says so.
+
+## Studio checks what it built
+
+Every build ends by reading the mod back and holding it against the rules the game's own files follow, for documents, textures, meshes and sounds. The build's last step says how many things were checked and how many findings there were, and each finding is a warning on the item it is about.
+
+A finding does not stop the build. The game reads less than it writes, so a mod with a finding may still load. Treat a finding as the first place to look when something does not show in the game.
+
+Not checked by this step: Lua scripts, material blocks, collision and the other resources, which are counted only.
+
+## Installing and undoing
+
+Testing in the game installs the build as `Mods\<project title>`.
+
+Before anything is copied, Studio checks that the build's stamp names the `Skate.exe` in the game folder, and that the game's data files are the supported build's. Then:
+
+1. The build is copied beside `Mods` and compared byte for byte.
+2. The version already in `Mods`, if any, is moved aside. One version back is kept.
+3. The copy is moved in.
+
+A failure at any step leaves `Mods` as it was. A folder in `Mods` that Studio did not install is never replaced. A map already installed under another folder name is updated there, so no two folders register one level.
+
+Undoing the last install puts the kept version back, or takes the mod out when there was none. The folder that was installed is kept beside `Mods`, not deleted.
+
+<Note>
+Turn off or remove your test install before you install the published version of the same mod, so the two do not [conflict](/mods/overview#the-load-order).
+</Note>
+
+## What ReSkate checks at launch
+
+The launcher merges every enabled mod into one patch before the game starts. A mod is left out, whole, when:
+
+- its stamp names another game build (**OUTDATED**);
+- its files cannot be read, or point at files it does not have;
+- it conflicts with a mod above it;
+- it adds an item that copies a store item.
+
+See [what ReSkate refuses](/mods/rules) for each case and its message.
+
+## The Thunderstore package
+
+Publishing saves a zip with the mod's files at its top, beside `manifest.json`, `icon.png` (256 by 256) and `README.md`. The launcher finds a mod at any depth of an unpacked package. See [publishing on Thunderstore](/mods/thunderstore).
+
+- A package over 4 GB is refused.
+- Studio writes an empty `dependencies` list. Add any your mod needs to the `manifest.json` in the zip.
+- While the project is what you last tested, with nothing changed or unsaved, the package is that very build. Otherwise Studio builds again and says the package has not been tested.
+
+## Why a build is the size it is
+
+A mod can be far larger than what you changed. These are the reasons.
+
+### Every bundle that holds a changed file is rebuilt
+
+The game finds an asset through the bundles that list it, so a changed asset has to be listed again in every bundle that holds it. The mod carries each of those bundles' lists in full, everything in the bundle and not only what changed, stored uncompressed.
+
+So the cost is set by the bundles that hold what you change, not by its own size. Two measured examples, each one replaced texture of 184 bytes:
+
+| The texture sits in | The mod |
+| --- | --- |
+| 8 bundles | 59.9 MB |
+| 569 bundles | 15.8 MB |
+
+The count of bundles alone does not decide it: what those bundles list does.
+
+### Changes that spread
+
+- **A changed game material** goes into every material depot that holds its key, up to 236 of them: see [materials](/assets/materials#changing-a-game-material).
+- **A cosmetic moved to another shader** carries the game textures its new block names into the item's bundles. Moving one pair of trousers took a mod from 3 MB to 22 MB.
+- **A map** carries a copy of San Vansterdam's root bundle list, the city's bundles its start point loads, and the pause map's 244 tiles.
+
+### Data that is simply larger
+
+- A sound written as PCM, when the encoder is missing, is about three times the size of EA-XAS and about nine times the game's Opus: see [codecs](/assets/sounds#codecs).
+- A texture from a DDS of a larger size than the game's carries a new header and all its mips.
+
+### Keep it small
+
+- Change as few game files as you can, and prefer files that sit in few bundles.
+- Prefer a new item of your own over changing a game asset many things share.
+- Keep the project and work folders on a short path: a build fails when a file it writes passes 260 characters.
+
+## Making one in Studio
+
+Testing and installing: see [testing in the game](/studio/testing). Publishing: see [publishing](/studio/publishing).

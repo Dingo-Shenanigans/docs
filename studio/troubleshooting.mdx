@@ -1,0 +1,98 @@
+---
+title: "Troubleshooting"
+description: "The messages you are most likely to meet in Studio, when setting up, opening and saving a mod, making a cosmetic, building, installing and publishing, and what to do about each."
+---
+
+Studio's messages are in the problems drawer (the pill at the top), in the status bar, and on the page they are about. A message about the mod as it stands goes when it is fixed. One about something that went wrong while you worked stays in the drawer, under **While working**, until you dismiss it.
+
+## Setting up
+
+| Message | What to do |
+| --- | --- |
+| **Skate folder not set** | Open **Settings** and choose the Skate folder: the one with `Skate.exe` and `Data` in it. |
+| **There is no Skate.exe with a Data folder here.** | That folder is not skate.'s. Press **Find it for me**, or choose the right folder. |
+| **Studio could not find Skate in your Steam libraries.** | Choose the folder yourself with **Browse...**. A ReSkate folder outside Steam is found once ReSkate has started from it. |
+| **Studio cannot read the game yet** | Press **Read the game files**. If reading stops, the problems drawer says why. |
+| **Reading stopped before it finished.** | Check the folder, then **Read the game files again** in **Settings**. |
+| **ReSkateLauncher.exe is not in this folder. Install ReSkate to test mods in the game.** | Install ReSkate into that folder, or choose the folder ReSkate is installed in. You can make mods without it, but not test them. |
+| **Blender not set, only maps need it** | Install Blender, or choose `blender.exe` in **Settings**, before you build a map or edit a model in Blender. |
+
+## Opening and saving
+
+| Message | What to do |
+| --- | --- |
+| **There is a folder called** ... **there already. Pick another name.** | A mod is a folder of its own: give the new mod another name, or keep it somewhere else. |
+| **this project was saved by a newer ReSkate Studio** | Update Studio. |
+| **this folder does not hold one ReSkate Studio project** | The folder has no project file, or more than one. Open the `.reskate` file itself. |
+| **The mod's project file could not be read:** and why | The `.reskate` file is damaged, or was edited by hand. Put back a good copy. |
+| **The mod's files were changed outside Studio. What is saved here next replaces that.** | Another program, such as the command line, wrote the mod while you had unsaved work. Your next save wins. To keep the other program's change instead, discard yours: open the mod again and answer **No** to saving. |
+| **wait for the current project operation to finish** | Studio is still saving, opening or testing. Try again in a moment. |
+| **Studio is still writing to this mod. Wait for it to finish before closing.** | Wait, then close Studio. |
+| **Scene missing** or **Model missing** on the mod's page | The map's scene or the prop's model file was moved or deleted. Put it back where it was. |
+
+## Cosmetics
+
+| Message | What to do |
+| --- | --- |
+| **Change something first, so it is your own item and not a copy of the game's.** | Put something of your own in the item before **Add to mod**. See [cosmetics](/studio/cosmetics#making-one). |
+| **Nothing of your own is in it yet.** and what it found | Studio compared your item with the game's and found nothing of yours. Give it a picture or a model that differs from the game's, a colour, a material value, a shape weight or an effect. See [an unchanged copy is refused](/studio/cosmetics#an-unchanged-copy-is-refused). |
+| **A new body is not made**, **A new makeup item is not made**, **A new facial hair colour is not made**, **A new locomotion item is not made** | The game gives a new item of that category no place. See [what Studio does not make](/studio/cosmetics#what-studio-does-not-make). |
+| **cosmetic name must be 1-64 characters without outer spaces** | Shorten the name, or take the spaces off its ends. |
+| **cosmetic name supports ASCII letters, numbers, spaces, _ and -** | Take out other characters, such as accents or punctuation. |
+| **cosmetic name needs at least one letter or number** | Add a letter or a digit. |
+| **A cosmetic with this name or game identity already exists in the project** | Two items of a mod cannot share a name. Choose another. |
+| **a cosmetic with this item name already exists** | The game has an item of that name. Choose another. |
+| **This item has no material of its own. Bring a model in under Model to start.** | Import a model under **Model** first. |
+| **The item this cosmetic was made from is not in this game build.** | The game item it was made from is missing from your game. Verify your game files in the launcher's **Settings**. |
+| **Blender was not found. Choose blender.exe in Settings, under Blender.** | Install Blender, or choose it in **Settings**. |
+| **Apply or discard the shader preview under Effects first.** (or **under Materials**) | A shader is being previewed. Apply it or press **Discard preview** before you change anything else. |
+
+## Building
+
+These come from the checks every build runs, before **Test in game** and **Publish**. See [the checks a build runs](/studio/testing#the-checks-a-build-runs).
+
+| Message | What to do |
+| --- | --- |
+| **The mod is empty.** | Add a cosmetic, a map or a change to a game file first. |
+| **Nothing in the mod has been built into game content yet.** | The mod lists things but holds no game data for them. Add a cosmetic, a map or a change to a game file. |
+| **A mod holds one map, and this one has** ... | Keep one map in the mod and give each other map a mod of its own. |
+| **The mod has no title.** | Give it one in **Edit details** on the mod's page. |
+| ... **has no store picture of its own. The game shows the picture of the item it was made from.** | A note: take one from the preview, or choose a picture, under **Store card**. |
+| ... **has no scene to be built from.** or ... **'s scene is missing:** | Choose the map's scene again, or put the file back. |
+| ... **has no model to be built from.** or ... **'s model is missing:** | Choose the prop's model again, or put the file back. |
+| ... **has the id of another prop of this mod:** | Give each prop an id of its own: a plugin finds a prop by it. |
+| **Blender is needed to read** ... **and none was found.** | Install Blender, or choose `blender.exe` in **Settings**. |
+| ... **InitFS changes are left out of the build. ReSkate does not read InitFS from a mod, so they cannot reach the game.** | A note: remove them from the mod. |
+| **Studio is not connected to Skate. Set the Skate folder in Settings.** | Set the folder, and let Studio read the game's files. |
+| **Save the project before testing it.** | Save the mod. |
+| **The mod could not be built:** and why | Something went wrong while building. The reason names the file or step. |
+| A finding under **Checked against the game's format** | A note: a built file is not laid out as the game lays out its own. The mod may still load. Test what it names. See [findings](/studio/testing#findings-against-the-games-format). |
+
+## Installing and starting
+
+| Message | What to do |
+| --- | --- |
+| **refusing to replace** ... **which is not managed by ReSkate Studio** | `Mods` has a folder with your mod's name that Studio did not install. Rename the mod, or move that folder out of `Mods`. |
+| **another ReSkate Studio deployment is already running** | Another Studio window is installing into the same game. Wait for it. |
+| The install refuses the game's build | The game's files are not the build ReSkate supports, or the mod's stamp does not match your `Skate.exe`. Verify your game files in the launcher's **Settings**, then test again. |
+| **The Patch folder is not managed by ReSkate Studio and was left in place. Move its contents into a folder under Mods so the SDK can merge it.** | A note: a `Patch` folder from somewhere else is in the Skate folder. Move what is in it into a folder under `Mods`. |
+| **This map is already installed as Mods/**... | A note: the map was updated in the folder it was already in. |
+| **ReSkateLauncher.exe was not found. Check the game folder in Setup.** | The mod is installed, but the game could not be started. Install ReSkate into the Skate folder, or choose the folder ReSkate is in, in **Settings**. |
+| **no completed ReSkate Studio deployment is available to restore** | There is no install to undo, or it was undone already. |
+| **the previous version recorded for this deployment is missing** | The backup of the folder that was there before is gone, so the install cannot be undone. Remove the folder from `Mods` yourself if you want it gone. |
+
+## Publishing
+
+| Message | What to do |
+| --- | --- |
+| **The title needs at least one letter or digit for the package name.** | Change the title. |
+| **Thunderstore needs a version of three numbers.** | Use a version like `1.0.0`. |
+| **The mod has no description. Thunderstore requires one.** | Write a short one. |
+| **The description is longer than Thunderstore's 250 characters.** | Shorten it. |
+| **The icon file is missing:** and its path | Choose the icon again. |
+| **The icon could not be read. Use a PNG or JPG file.** | Choose a PNG or JPG picture. |
+| **No icon chosen. A plain blue one is used.** | A note: choose a picture, 256 by 256 works best. |
+| **Version** ... **was already published.** | A note: raise the version so players get the update. |
+| **Connect to Skate before publishing.** | Set the Skate folder in **Settings**, and let Studio read the game's files. |
+
+See [publishing](/studio/publishing).

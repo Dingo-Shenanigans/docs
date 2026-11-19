@@ -1,0 +1,118 @@
+---
+title: "The data editor"
+description: "Changing the game's data (EBX documents) in ReSkate Studio: values, lists, boxed values, new objects and references, the text form, saving and bringing back a document, documents of your own, how changes combine with other mods, and what the editor refuses."
+---
+
+Most of what the game does is set in its documents: numbers, switches, lists and references between them. Studio's data editor changes a game document field by field, and adds documents of your own. What you change goes into your mod; the game's document stays as it is. For what a document is (objects, types, references, boxed values), see [documents](/assets/documents).
+
+## Opening a document
+
+Open **Game library**, pick **Data** (or **Everything**), search for the document and press **Open its data**. A double click on its row does the same. Any game file has a **Data** tab beside its own editor: a texture's or a mesh's document too.
+
+**Find a field**, at the top, filters the fields by name. A document of more than one object lists them: pick the one to see, under **This document's objects**.
+
+## Changing values
+
+Each field is a row with its value. Type a number or a text, tick a switch, pick an enum by its member's name, or press a colour to choose it. A guid is typed as 32 hexadecimal digits in five groups, a SHA-1 as 40 digits, and the editor says when one is not complete yet.
+
+Edits go into the mod on their own, a moment after you stop typing. A changed row says what the game has, and has its own **Undo**: it sets that field back to the game's and leaves your other changes. **Ctrl+Z** undoes across the whole mod.
+
+Some kinds of value are shown but not edited; the row says so.
+
+## Lists
+
+- **Add an entry** adds a copy of the last entry to change, or starts an empty list with an entry of zeros.
+- Each entry's menu has **Make a copy of it**, **Move it up**, **Move it down** and **Remove it**.
+- A long list that differs from the game's can be cut to **Show only what changed**.
+
+An entry this mod added says so, and its **Undo** takes it out again.
+
+## Boxed values
+
+A boxed value is kept apart from its object; every appearance preset's parameters are. A boxed value that is empty has **Add a value...**: choose **A plain value**, a value **Of a class**, or **A list of them**, and it starts at zero. **Empty** takes a value out, so another kind can go in its place.
+
+## New objects and references
+
+**New object...** adds an object to the document: of any class the game has, or a copy of one the document holds. An object you added has **Remove this object**; the game's own objects cannot be removed.
+
+A reference field opens a list of what it can point at:
+
+- nothing;
+- **Other documents it points into**, and **This document's objects**;
+- **An object of another document**, found by name, the mod's own documents first;
+- **A new object for it...**, added to this document with every field at its zero.
+
+A reference to a resource is chosen by name and kind, or typed as an id. A reference to a type is chosen by name, or typed as a guid.
+
+The editor marks a reference whose object is not of the class the field expects. It does not refuse it, so check what you point at.
+
+## The cards beside the editor
+
+**Changes to this file** lists what your mod changes, line by line: each field set to another value, each entry added or taken out. A line says who made it: you, or Studio for the lists it keeps for the mod's cosmetics.
+
+**The whole file** has:
+
+| Button | What it does |
+| --- | --- |
+| **Replace with an .ebx file...** | Takes a saved copy of this same document back, changed. |
+| **Replace from text...** | Takes the text form of this document back. |
+| **Save as text...** | Saves the document as it is in the editor as JSON, every field by name. |
+| **Save a copy as .ebx...** | Saves the document as the game keeps it, with your mod's changes. |
+| **Put back the game's version** | Takes every change to this file out of the mod. |
+
+**With other mods** says how your changes meet other mods': ReSkate combines the entries several mods add to one list, and a value two mods change is won by the mod higher in the launcher's list. See [the merge](/mods/overview#the-merge).
+
+## The text form
+
+**Save as text...** writes the document as JSON with every field by name, to change in any editor or with a script. Bring it back with **Replace from text...**, or drop the file on the window. A new object, a boxed value or a reference can be written into the text by hand, including the kinds the editor does not offer.
+
+## A document of your own
+
+A document of your own has a name the game does not have, for a reference in another document to point at.
+
+<Steps>
+  <Step title="Open the document it goes with">
+    Open the game document that will point at the new one, or that is loaded where the new one is needed.
+  </Step>
+  <Step title="Press New document...">
+    Beside **New object...** in the editor. Dropping an `.ebx`, or its text form, on the window offers **A new game document** too.
+  </Step>
+  <Step title="Name it and say what it is made from">
+    **Its name**: folders and a name, lower case, joined by `/`, such as `mods/mine/settings`. **Made from**: the file you dropped, **A copy of** the open document, or **One object of a class, every field at its zero**.
+  </Step>
+  <Step title="Say what it is loaded with">
+    **Loaded with**: a game document. The new one is listed in every bundle that one is in, so the game has it whenever it has that one. The usual choice is the document that will point at it.
+  </Step>
+  <Step title="Add it">
+    Press **Add to mod**. It opens in the data editor; it and its objects get guids of their own.
+  </Step>
+</Steps>
+
+Nothing in the game points at a new document until a reference in another document does: point one at it in the editor.
+
+A document of your own has its own panel: **What it is** (what it is kept as, its guid, what it is loaded with), **Save as text...**, **Replace from text or an .ebx file...**, **Save a copy as .ebx...** and **Take it out of the mod**. Taking it out leaves what pointed at it pointing at a document that is not there.
+
+## What the editor refuses
+
+- **A file of another document.** A replacement must be the same document: the same guid, the same type and the same first object. Save a copy, change it, bring it back.
+- **Physics documents.** Collision data is not taken from a file.
+- **A new cosmetic item.** Cosmetics are made in the cosmetic editor, from a game item, with something of your own: see [cosmetics](/studio/cosmetics).
+- **A name that is taken.** A new document cannot have a name the game has (change that document instead) or one the mod already has.
+- **A guid that is taken**, by the game or by another document of the mod.
+- **A name with other characters.** A name takes lowercase letters, digits, `_`, `-`, `.` and `/`, at most 240 characters, and neither starts nor ends with `/`.
+- **A new document with nothing to be loaded with.**
+
+<Warning>
+Do not use game data to copy an item the game sells. A mod whose data copies a store item is refused at launch, whole: see [copies of store items](/mods/rules#copies-of-store-items).
+</Warning>
+
+## On the command line
+
+```powershell
+reskate_cli data-text "C:\Mods\My Mod" "D:\Skate" <document> doc.json
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" data <document> doc.json
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" data-new mods/mine/settings settings.json --with <game document>
+reskate_cli changes "C:\Mods\My Mod" "D:\Skate"
+```
+
+`data-text` writes a document as the mod has it: changed, of the mod's own, or the game's. `data-new` gives the new document and its objects new guids unless you add `--keep-guids`. A document of the mod's own is changed in the window: the command line refuses a name the mod already has. See the [command line](/studio/command-line).

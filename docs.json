@@ -61,6 +61,66 @@
         ]
       },
       {
+        "tab": "Studio",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "studio/overview",
+              "studio/first-mod",
+              "studio/window",
+              "studio/projects"
+            ]
+          },
+          {
+            "group": "Making things",
+            "pages": [
+              "studio/cosmetics",
+              "studio/textures",
+              "studio/models",
+              "studio/materials",
+              "studio/sounds",
+              "studio/animation",
+              "studio/effects",
+              "studio/props",
+              "studio/maps",
+              "studio/data-editor",
+              "studio/scripts"
+            ]
+          },
+          {
+            "group": "Test and publish",
+            "pages": [
+              "studio/testing",
+              "studio/publishing",
+              "studio/troubleshooting"
+            ]
+          },
+          {
+            "group": "Tools",
+            "pages": [
+              "studio/blender-addon",
+              "studio/command-line"
+            ]
+          },
+          {
+            "group": "Game assets",
+            "pages": [
+              "assets/overview",
+              "assets/documents",
+              "assets/textures",
+              "assets/meshes",
+              "assets/materials",
+              "assets/sounds",
+              "assets/animation",
+              "assets/cosmetics",
+              "assets/maps",
+              "assets/packing"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Servers",
         "groups": [
           {

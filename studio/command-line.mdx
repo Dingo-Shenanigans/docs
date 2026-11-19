@@ -1,0 +1,252 @@
+---
+title: "Command line"
+description: "reskate_cli.exe, ReSkate Studio's command line: where it is, how a verb is called, examples for the common jobs (a new mod, bringing things in, building, checking, packaging), and every verb of the release build, grouped as its usage text groups them."
+---
+
+`reskate_cli.exe` does from a terminal or a script what Studio's window does with a mod: make one, bring things into it, build it, check it, package it and install it. It reads the same mod folders as the window, so you can use both on one mod.
+
+It is in Studio's folder, beside `ReSkate Studio.exe`. Run it with no arguments for the list of verbs; run a verb without its arguments for what it takes.
+
+```powershell
+cd "C:\Tools\ReSkate Studio"
+.\reskate_cli.exe
+.\reskate_cli.exe import
+```
+
+The examples on these pages write `reskate_cli` for short: run it from Studio's folder, or add that folder to your `PATH`.
+
+In the arguments:
+
+- `<project>` is a mod's project folder (or its project file);
+- `<game>` is the skate. folder, the one with `Data` in it;
+- `<work>` is a folder of your choice where a build is made.
+
+When a mod Studio has open is changed on the command line, Studio says so, and what it saves next replaces that change. Save in Studio before you change the mod here, and open it again after.
+
+## Common jobs
+
+### A new mod
+
+```powershell
+reskate_cli new-project "C:\Mods\Neon Rails" "Neon Rails" --author "You" --version 1.0.0 --description "Rails that glow."
+```
+
+### Bringing things in
+
+`import` brings something into the mod the way the window's pages do. Each kind takes its own arguments:
+
+```powershell
+reskate_cli import "C:\Mods\Neon Rails" "D:\Skate" texture <game texture> rail_c.png
+reskate_cli import "C:\Mods\Neon Rails" "D:\Skate" sound <game sound> grind.wav --variation all
+reskate_cli import "C:\Mods\Neon Rails" "D:\Skate" prop rail.glb --id neon_rail --collision exact
+reskate_cli import "C:\Mods\Neon Rails" "D:\Skate" map "C:\Scenes\yard.blend" --name "Neon Yard" --id neon_yard
+reskate_cli import "C:\Mods\Neon Rails" "D:\Skate" cosmetic <game item> "Neon Tee" --picture tee.png
+```
+
+| Kind | Arguments | What it brings |
+| --- | --- | --- |
+| `texture` | `<game texture> <picture.dds/.png/.jpg/.tga> [--layer <n>]` | A game texture's pixels replaced. `--layer` (from 1) puts a flat picture on one layer, face or slice. See [textures](/studio/textures). |
+| `lua` | `<game script> <file.lua>` | A game Lua script's source replaced. See [Lua scripts](/studio/scripts). |
+| `data` | `<game document> <file.ebx/file.json> [--cache <folder>]` | A game document replaced, from an `.ebx` or its text form. See [the data editor](/studio/data-editor). |
+| `data-new` | `<name> <file.json/file.ebx/--type <class>> (--with <game document> / --bundle <bundle>) [--keep-guids]` | A document of the mod's own. |
+| `cosmetic` | `<game item> <name> <something of your own>` | A cosmetic made from a game item. `cosmetic-new-options` lists what it takes. See [cosmetics](/studio/cosmetics). |
+| `cosmetic-mesh` | `<cosmetic of the mod> <model> [--skeleton <asset>] [--no-weight-transfer] [--weight-bone <bone>]` | A cosmetic of the mod given a model of its own. See [models](/studio/models). |
+| `mesh` | `<game mesh> <model.fbx/.glb/.gltf> [--skeleton <asset>] [--keep-rig] [--no-weight-transfer] [--weight-bone <bone>]` | A game mesh replaced by your model. |
+| `map` | `<scene.blend/scene.fbx/map folder> [--name <name>] [--id <map id>]` | The mod's map. See [maps](/studio/maps). |
+| `prop` | `<model.glb/.gltf/.fbx> [--name] [--id] [--collision exact/hull/box/none] [--surface <n>] [--no-detail-levels] [--detail-levels <m,m,...>]` | A prop. See [props](/studio/props). |
+| `sound` | `<game sound> <file.wav> [--variation <n>/all] [--pcm]` | A game sound, or one variation of it, replaced. See [sounds](/studio/sounds). |
+| `sound-new` | `<name> <file.wav> [--loop] [--2d] [--opus] [--pcm] [--tag <tag>] [--bundle <bundle>]` | A sound of your own. |
+| `animation` | `<game clip> <file.fbx> [--take <n>] [--encode-all]` | An FBX take in a game clip's place. See [animation](/studio/animation). |
+| `video` | `<game movie> <file.webm>` | A WebM in a game movie's place. |
+
+### Building and installing
+
+```powershell
+reskate_cli build "C:\Mods\Neon Rails" "D:\Skate" "C:\Work" --install
+```
+
+`build` is the one build Studio has, the same as the window's. It builds the mod into the work folder, checks it against the game's format rules, and prints what it built and what it found. The steps it is on go to the error stream. `--install` installs it under the game's `Mods` folder; close skate. first. A map built from a `.blend` needs Blender: add `--blender <blender.exe>` if Studio cannot find it.
+
+`undo-install <game>` takes the last install back: the version that was in `Mods` before comes back, or the mod is taken out. The folder that was installed is kept beside `Mods`.
+
+### Checking a built mod
+
+```powershell
+reskate_cli check "C:\Mods\Neon Rails"
+reskate_cli verify-mod "C:\Work\Neon Rails" "D:\Skate"
+```
+
+`check` says what stands between the mod and a build or a package, without building. `verify-mod` holds a built mod folder against the rules each format follows in the game's own files; `build` runs the same checks on every build.
+
+### Packaging
+
+```powershell
+reskate_cli build "C:\Mods\Neon Rails" "D:\Skate" "C:\Work" --package "C:\Out\Neon Rails.zip"
+```
+
+`--package` writes a Thunderstore package of the build, after the publishing checks: see [publishing](/studio/publishing).
+
+## Every verb
+
+The release build's verbs, in the groups `reskate_cli` prints them in.
+
+### A mod (a project folder)
+
+| Verb | What it does |
+| --- | --- |
+| `new-project <folder> <title> [--author] [--version] [--description]` | An empty mod, as a project folder. Its version is `1.0.0` unless given. |
+| `check <project>` | What stands between the mod and a build or a package, without building it. |
+| `changes <project> <game>` | Every field each changed game document changes, and every list entry added or taken out, against the game's. |
+| `item <game> <item> [--project <project>] [--sort <n>] [--swatch <r,g,b>] [--category <asset>]` | A cosmetic item's record; for an item of the mod, changes it. |
+| `item-categories <game>` | The categories the game's items are in, most used first. |
+| `project-info <project.fbproject> [<game>]` | An older single-file project's title, author and contents. |
+| `project-items <project>` | The mod as Studio lists it: its details and every item, with what each owns. |
+| `project-unused <project.fbproject> [<game>]` | What saving and building leave out of an older project (old versions of something replaced again). Changes nothing. |
+| `project-convert <project.fbproject> <new folder>` | An older single-file project saved as a project folder. |
+| `import <project> <game> <kind> ...` | Something of yours brought into the mod. See the table above. |
+| `build <project> <game> <work> [--install] [--package <zip>] [--blender <exe>]` | The one build: the mod built, checked, and on request installed or packaged. |
+| `verify-mod <mod folder> <game> [<cache folder>]` | A built mod held against the game's format rules. With a cache folder, the game's types join in. |
+| `inspect-mod <mod folder> <game>` | A built mod read back: its files, its bundles and what its archives hold. |
+| `extract-mod-asset <mod folder> <game> <[res:]name or chunk id> <out>` | One asset of a built mod, decoded, to a file. |
+| `last-install <game>` | The mod folder the last install wrote, while it can still be undone. |
+| `undo-install <game>` | The last install taken back. |
+| `install-blender-addon [--blender <exe>] [--user-folder <folder>]` | Studio's add-on put into Blender and turned on, as **Settings** does. See [the Blender add-on](/studio/blender-addon). |
+| `prop-surfaces <part of a name or all>` | The surfaces a prop can be made of, with the id `--surface` takes. |
+
+### Cosmetics
+
+| Verb | What it does |
+| --- | --- |
+| `cosmetics <game>` | Every cosmetic item of the game, by slot, with each slot's count. |
+| `cosmetic-audit <game>` | Every game item's preview read, with which load fully and which do not. |
+| `cosmetic-new-options <game>` | What `import ... cosmetic` takes. |
+| `cosmetic-shape <game> <item> [--project <project>] [--set <input>=<weight>]` | A face item's shape inputs; for an item of the mod, sets them. |
+| `cosmetic-colors <game> <item> [--project] [--color <r,g,b>] [--shade <n>=<r,g,b>]` | A colour item's shades; for an item of the mod, sets them. |
+| `cosmetic-pictures <game> <item> [--project] [--set <picture>=<file>]` | The pictures of an item's look; for an item of the mod, sets one. |
+| `cosmetic-values <game> <item> [--project] [--set <value>=<value>]` | The colours and numbers of an item's look. |
+| `cosmetic-card <game> <item> --project <project> [--name] [--picture] [--picture-large]` | The store card: the item's name and its two menu pictures. |
+| `cosmetic-entry <game> <item> --project <project> [--sort] [--swatch] ...` | The menu entry: the item's record. |
+| `cosmetic-fit <game> <item> [--project] [--head show/hide] [--body show/hide] ...` | What the item hides of the head, the body and other items. |
+| `cosmetic-play <game> <item> [--project] [--state <state>=<value or off>]` | What the item does in play. |
+| `cosmetic-movement <game> <item>` | How the item swings: its swing bones and their numbers. Read only. |
+| `cosmetic-parameters <game> <item>` | Every appearance parameter of a game item, as Studio's preview reads it. |
+| `cosmetic-mesh-export <game> <item> <out.glb>` | The item's mesh and rig as a GLB, the starting point Studio hands to Blender. |
+| `appearance-parameters <game> <appearance>` | The parameters of one appearance document. |
+| `native-costume-info <game> <file.fbmod>` | The costume a `.fbmod` file carries. |
+| `native-costume-donors <game>` | A count of the game's costume documents. |
+| `character-slots <game>` | Each slot's first item, as Studio's preview loads it. |
+| `character-morph <game> <preset> [<item> ...]` | A morph preset, and how far body and face items move its vertices. |
+| `hair-cutlines <game> [<item>]` | Which items cut hair, by cut line, and which hairstyles have a model for each. |
+
+### Meshes, materials and shaders
+
+| Verb | What it does |
+| --- | --- |
+| `meshes <game> [<limit>] [<filter>]` | The game's meshes read, with how many of their materials Studio can draw. |
+| `mesh-export <game> <mesh> <out.glb/.fbx> [--project <project>] [--skeleton <asset>]` | A game mesh as a model, with its pictures: what a mesh page's save writes. |
+| `mesh-sections <game> <part of a name> [<limit>]` | Every section of the meshes whose names hold the text. |
+| `mesh-elements <game> <part of a name> [<limit>]` | The vertex layout of each section of the finest level of those meshes. |
+| `mesh-bounds <game> <part of a name>` | Those meshes' extents, and any value that is not a number. |
+| `mesh-keys <game> <mesh>` | A mesh's sections and the material key each draws with. |
+| `mesh-author <game>` | A one-triangle mesh written and read back, as a check of the mesh writer. |
+| `tangents <game> [<samples>]` | The tangent table built from a sample of the game's meshes. |
+| `material <verb> ...` | Materials: see below. |
+| `material-keys <game> <key> ...` | Which material depots hold each key (in hex), and how many parameters it binds. |
+| `material-constants <game> <parameter hash> <out folder> [<limit>]` | Every material holding a parameter, with its values and pictures written out. |
+| `shader-params <game> <material key> ...` | Every parameter of the material behind a key. |
+| `depot-keys <game> <depot>` | Every material key a depot holds. |
+| `dump-shaders <game> <folder>` | Every compiled shader the game ships, as files. |
+| `native-program <game> <item> [<section>]` | A cosmetic's materials as the game's shader database compiles them. |
+| `pass-materials <game> <pass key>` | Every material with a program for a render pass. |
+| `pass-texture-loads <game> <pass key> <out>` | Which of a render pass's textures its pixel shaders read, and how. |
+| `material-shader-ir <game> <material key> <out>` | A material's pixel shaders, disassembled by the game's compiler: what custom code must keep. |
+| `find-reference <game> <guid> [<filter>]` | The documents whose bytes hold a guid. |
+
+`material` takes a verb of its own:
+
+| Verb | What it does |
+| --- | --- |
+| `material shaders <world/clothing/board/hair/skin/effect/other>` | The game's shaders a mesh of that kind is drawn with. |
+| `material shaders world --prop [<game>]` | The shaders a prop's part or a map's plain material can take. |
+| `material shader <shader id>` | One shader's parameters: name or key, type, default and range. |
+| `material show <project> [<item>] [<game>]` | What the mod's props, maps and cosmetics have set; for a cosmetic with the game, every section's shader and values. |
+| `material set <project> <game> <item> <material> [--shader] [--number] [--texture] [--code <file.hlsl>] [--clear]` | A material of a prop, a map or a cosmetic. See [materials](/studio/materials). |
+| `material game <game> <material key or mesh> [--project <project>]` | A game material's shader and values; a mesh's materials with their keys. |
+| `material change <project> <game> <material key> [--number] [--texture] [--restore]` | A game material changed in place, kept in the mod. |
+| `material depots <mod folder> <game>` | Every material of a built mod, read back. |
+| `material built <mod folder> <game> <material key>` | One material read back out of a built mod. |
+
+### Textures, sounds, animation, movies, effects
+
+| Verb | What it does |
+| --- | --- |
+| `textures <game> [<limit>]` | The game's textures read, as a check. |
+| `texture-export <game> <texture> <out.dds/out.png> [--layer <n>] [--project <project>]` | A texture saved: a DDS of all of it, or a PNG of one layer, face or slice. With `--project`, the mod's version. |
+| `texture-png <game> <texture> <out>`, `texture-dds <game> <texture> <out>` | The first picture's largest size, as PNG or DDS. |
+| `water-textures <game>` | The textures the game's ocean material uses. |
+| `audio <game> <sound>` | A sound's kind, channels, rate, length and codec. |
+| `sound-info <game> <sound> [--project <project>]` | How a game sound is kept, and what a WAV in its place is written as. |
+| `webm <game> <movie>` | A movie's size, frame rate and length. |
+| `video <game> <movie>` | A movie opened and its first frame read, as a check. |
+| `animation-info <game> <clip> [--project <project>]` | A clip's rig, joints, channels, frame rate and length. |
+| `animation-export <game> <clip> <out.fbx>` | A clip saved as an FBX on its rig. |
+| `animation-import <game> <clip> <in.fbx> <out.fbproject/.fbmod>` | A take into an older single-file project. For a project folder, use `import ... animation`. |
+| `animation-new <project> <game> <name> <file.fbx> --skeleton <skeleton or rig> / --like <clip>` | A clip of the mod's own. |
+| `fbx-animation-info <file.fbx>` | An FBX's joints and takes. |
+| `effect <verb> ...` | Effects: see below. |
+
+`effect` takes a verb of its own:
+
+| Verb | What it does |
+| --- | --- |
+| `effect list <game>` | The game's effects a new item can carry, and the sprite looks. |
+| `effect params <game> <effect> [--project <project>]` | An effect's emitters and every parameter of their graphs. |
+| `effect show <project> <game> [<item>]` | The mod's own effects; with an item, what it carries. |
+| `effect attach <project> <game> <item> <effect or group> [--bone] [--board] [--offset] [--rotation] [--colour] [--amount] [--lifetime] [--opacity] [--gravity] [--size] [--speed]` | A game effect, an effect of the mod's own, or a group the game sets off, on an item. |
+| `effect sprite <project> <game> <item> <picture> [--grid <c,r>] [--look] [--bone] [--rate] ...` | An effect made from a sprite sheet picture, on an item. |
+| `effect detach <project> <game> <item> <number or all>` | An effect taken off an item. |
+| `effect new <project> <game> <description.json>` | An effect of the mod's own. See [effects](/studio/effects). |
+| `effect remove <project> <game> <effect>` | An effect of the mod's own taken out. |
+| `effect state <project> <game> <item> [<state> <value or none>]` | What an item does in play. |
+
+### Maps
+
+| Verb | What it does |
+| --- | --- |
+| `map <map folder>` | What a map folder holds: objects, triangles and collision. |
+| `map show <project> [--map <id>]` | The mod's map settings, with what each takes. |
+| `map set <project> <setting> <value> [--map <id>]` | One map setting changed. See [maps](/studio/maps#on-the-command-line). |
+| `compile-map <game> <scene or map folder> <staging folder> [options]` | A map built alone, outside a mod, into a staging folder. Run it without arguments for its options. |
+| `map-rip ...` | The map editor's own converter: a Unity level ripped, or a `.glb` finished, into a `.glb` or a mod. `map-rip --help` lists its options. |
+| `map-bake <map> <blender.exe> <folder> <name> [<base.blend>]` | A map with the map editor's edits baked into a `.blend`, as a build does. |
+| `levels <game> [<limit>]` | The game's levels. |
+| `level-preview <game> <level>` | What is placed in a level. |
+| `lighting-scan <game> <x0 y0 z0 x1 y1 z1> [<bundle>]` | The game's lighting a custom level loads that reaches into a region. |
+| `physics-materials <game> <part of a name>` | The packed collision materials of the game's physics resources whose names hold the text. |
+| `gi-inspect <folder> [<x0 y0 z0 x1 y1 z1 steps>]` | Lighting grid cells written by `gi-export`, read and reported. |
+| `gi-export <game> <level> <out folder>` | A level's lighting grid cells and lighting databases, written as raw files. |
+
+### Game data
+
+| Verb | What it does |
+| --- | --- |
+| `assets <game>` | How many documents, resources and chunks the game has. |
+| `asset-bundles <game> <document> ...` | Which bundles hold each document. |
+| `read <game> <ebx/res/chunk> <name>` | One asset read, with its sizes. |
+| `ebx-values <game> <document>` | A document's values, field by field. |
+| `ebx-export <game> <cache folder> <document> <out.json>` | A document as text, every field by name. |
+| `ebx-make <game> <cache folder> <in.json> <out.ebx>` | A document made from its text form. |
+| `ebx-types <game> <cache folder> [<type>]` | The game's types; with a name, that type's fields. |
+| `ebx-file <file.ebx>` | A document read from a file. |
+| `ebx-imports <game> <file.ebx>` | A document file's imports, by name. |
+| `ebx-references <game> <asset> ...` | Every document that imports any of the named assets. |
+| `find-name <game> <part of a name> [<limit>]` | Assets whose names hold the text. |
+| `find-type <game> <type> [<limit>] [<prefix>]` | Documents of a type. |
+| `find-type-usage <game> <part of a type name> [<limit>]` | Documents that hold an object of a type anywhere. |
+| `find-string <game> <text> [<prefix>]` | Documents holding a text value. |
+| `find-import <game> <file guid> ...` | Every document that imports from one of those files. |
+| `find-importers <game> <prefix or -> <document> ...` | Documents that import any of the named documents. |
+| `guid-name <game> <guid>` | The document a guid belongs to. |
+| `data-text <project> <game> <document> <out.json>` | A document as the mod has it, as text: changed, of the mod's own, or the game's. |
+| `schema <game> <document>` | How a document is laid out: its objects and their fields. |
+| `lua <game> <script>` | A game Lua script's source file name and size. |

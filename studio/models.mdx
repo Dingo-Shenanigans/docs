@@ -1,0 +1,115 @@
+---
+title: "Models"
+description: "Meshes in ReSkate Studio: replacing a game mesh (rigid or skinned) with an FBX, GLB or glTF model, saving a game mesh as a model, detail levels, a cosmetic's model, what a model must carry (material names, UVs, joint names, weights), and what Studio refuses."
+---
+
+Studio puts a model of yours in place of one of the game's meshes, under the game's name, and saves any game mesh as a model to start from. It reads FBX, GLB and glTF. For what a mesh is in the game (sections, detail levels, rigs and weights), see [meshes](/assets/meshes).
+
+Props and maps bring models of their own: see [props](/studio/props) and [maps](/studio/maps).
+
+## Saving a game mesh as a model
+
+Open **Game library**, pick **Meshes**, pick the mesh and press **Open it to replace it**. On the mesh's page, the **Model** card has:
+
+| Button | What it saves |
+| --- | --- |
+| **Save as FBX...** | Every detail level, the rig and its weights. The colour and opacity pictures are inside the file; the material's other pictures are in a `.textures` folder beside it. |
+| **Save as GLB...** | The finest detail level, the rig and its weights, with the pictures inside the one file. |
+
+Start from this file. It carries the names Studio needs to put your model back in the right places.
+
+## Replacing a game mesh
+
+<Steps>
+  <Step title="Open the mesh">
+    In **Game library**, **Meshes**, pick it and press **Open it to replace it**.
+  </Step>
+  <Step title="Check its sections">
+    The **Materials** card lists the mesh's sections by material name, with their triangles. A model you bring is matched to these sections by the names of its materials.
+  </Step>
+  <Step title="Bring your model">
+    In the **Model** card, press **Replace with a model file...** and choose an FBX, GLB or glTF.
+  </Step>
+  <Step title="Read what was done">
+    The card says what went in, for example `Your model is in place of the game's mesh: 3 detail levels, 54 bones.`, and anything Studio had to fill in. **Changes to this file** shows the mesh is yours.
+  </Step>
+</Steps>
+
+**Put back the game's mesh** takes your model out of the mod. A rig changed with it stays: it is listed among the mod's files.
+
+<Warning>
+A mesh that belongs to one of the game's cosmetic items cannot be replaced here. Make a [cosmetic of your own](/studio/cosmetics) from the item to give it a model.
+</Warning>
+
+### What stays the game's
+
+Your model takes the place of the geometry only. The mesh's materials, its number of detail levels and its skeleton stay the game's.
+
+## What the model must carry
+
+- **Material names.** Each part goes to the section whose material has its name. A file saved by Studio names its parts `RS_LOD<level>_SECTION<section>_<material>`; keep those names and the part goes to that level and section exactly. A part whose name matches no section is refused.
+- **UVs.** Keep the UV sets the game's mesh has. A model with no UVs is refused where the shader needs them.
+- **Normals.** Each part needs triangles with normals.
+- **Per-vertex data the shader reads.** Some game meshes keep a colour or mask on each vertex. A model without it takes the value of the game's nearest vertex. A file saved by Studio carries a colour attribute that lets Studio match vertices exactly; keep it.
+
+For a **skinned** mesh (clothing, a character, anything that moves with bones), the model must also carry:
+
+- **The game's rig.** Every bone must be a bone of the game's skeleton, by name, in the same rest pose. A bone of your own, or one renamed, is refused.
+- **Weights.** Every vertex must be weighted, and each vertex's weights must add up to one. A vertex may have at most as many bone influences as the game's section keeps.
+
+A rigid mesh cannot take a weighted model, and a skinned mesh cannot take one without weights.
+
+### Options for a skinned mesh
+
+Under **When a model is brought in**, on the **Model** card of a skinned mesh:
+
+| Option | What it does |
+| --- | --- |
+| **Take its changed bone positions** | Takes rest pose changes made in the file, on rigs that allow it. The rig is shared, so every other mesh on it follows. Off keeps the rig as it is. Resizing the mesh never moves or scales bones. |
+| **Weight new vertices from the mesh** | A vertex with no weights takes those of the nearest vertex of the game's mesh in its section. Weights painted in the file are kept. Type a bone's name under it to give every unweighted vertex to that bone instead. |
+| **Skeleton** | Left empty, the skeleton the mesh names, or the one its player or skateboard gives it. Or type the path of a skeleton asset. |
+
+A changed rest pose is refused for character meshes and for rigs with extra procedural bones.
+
+## Detail levels
+
+The game draws simpler copies of a mesh from far away. A model with one detail level fills the game's other levels from it: each one is simplified to the share of triangles the game's level has, keeping the weights. A model with all the levels (as **Save as FBX...** writes them) gives each level its own geometry.
+
+You cannot change how many levels a game mesh has, or see the simpler ones in Studio: the preview draws the finest level only.
+
+## A cosmetic's model
+
+A cosmetic of your own takes a model in its **Model** part: **Import mesh...** for an FBX or GLB, or **Edit in Blender** to send the item to Blender and back. **Skinning options** has **Fill missing weights** and **Fallback bone**. The model follows the same rules as a skinned mesh above, on the skeleton of the item it was made from. See [cosmetics](/studio/cosmetics).
+
+- A cosmetic keeps the sections and materials of the item it was made from. A part with no matching material joins the nearest section; a cosmetic cannot gain a material section.
+- Its lower detail levels are made from your model, as above.
+- A model that is the game item's own, saved and brought back unchanged, does not make the item yours: see [an unchanged copy is refused](/studio/cosmetics#an-unchanged-copy-is-refused).
+
+## What Studio refuses
+
+Studio refuses a model, and says why, when:
+
+- a part matches no section of the game's mesh, or the model has nothing for any of them;
+- a bone is not in the game's rig, or its rest pose differs (unless the rig allows a changed pose and **Take its changed bone positions** is on);
+- a vertex has no weights in a skinned section, too many influences, or weights that do not add up to one;
+- the model has no UVs where the shader needs them, or no valid triangles or normals;
+- a position is not a number, or too large for the game's vertex format;
+- a detail level appears twice, or a level has no geometry.
+
+## What Studio does not do yet
+
+- Edit a mesh. A model is made in another program and brought in again.
+- Show a mesh's lower detail levels, its bones, or the game's own shaders on it.
+- Composite meshes, made of parts that move apart (break-apart props, build kit pieces), can be saved and brought back, but such a replacement has not been checked in a mod.
+- A rig of your own, or one more bone. Only the game's rig comes back.
+
+## On the command line
+
+```powershell
+reskate_cli mesh-export "D:\Skate" <game mesh> mesh.fbx --project "C:\Mods\My Mod"
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" mesh <game mesh> mymesh.fbx
+reskate_cli cosmetic-mesh-export "D:\Skate" <item> item.glb
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" cosmetic-mesh <cosmetic of the mod> mymodel.glb
+```
+
+`import ... mesh` takes `--skeleton`, `--keep-rig`, `--no-weight-transfer` and `--weight-bone <bone>`, the options above. See the [command line](/studio/command-line).

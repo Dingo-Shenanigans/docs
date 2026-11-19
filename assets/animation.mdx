@@ -1,0 +1,82 @@
+---
+title: "Animation and movies"
+description: "What an animation clip is in skate.: its document, its key data and the codecs the game uses; how a clip names a rig's joints; what plays a clip; what a replaced or a new clip needs; and the game's movies."
+---
+
+## Clips
+
+A clip is a document named after it, under `animation/`, with the clip's settings, and a resource with its key data. The game has 6,270 clips.
+
+The document holds what you see in a clip's details: its rig, its frame rate (60 in all but two clips), its length in frames, whether it loops (302 do), whether it carries the root's movement through the world, and how far that moves. A clip's length in seconds is its frames divided by its frame rate and its time scale.
+
+### Codecs
+
+One resource type carries every clip; the document says which codec the keys are in. The game uses four:
+
+| Codec | Clips | Keys |
+| --- | --- | --- |
+| Eclipse | 4,475 | Quantised, each channel with key times of its own |
+| VBR | 1,708 | A cosine transform over blocks of eight frames, a key every frame |
+| Frame | 86 | One pose, plain floats |
+| Raw | 1 | Plain floats, a key every frame |
+
+Studio reads all four. It writes Eclipse only: a VBR or Frame clip you replace becomes an Eclipse clip. Eclipse stores a rotation in 48 bits (64 in 88 clips), a position in 16 bits between a minimum and a range, and a float in a byte, so a key comes back within a small step of what you animated.
+
+## Rigs
+
+A clip has no joint names. Its channels are numbered: rotations, then positions, then floats. A shared channel list gives each channel the id of what it moves, and the clip's rig turns those ids into joints by name, such as `Hips` (`.q` a rotation, `.t` a position, `.s` a scale), and into values that are not joints: the root's path, face controls, game values.
+
+The game's clips use five rigs. Most use the skater's (5,894 clips) or the skateboard's (370). The skater's rig is used with different channel lists for the body and for the face.
+
+- A channel whose id the rig does not have does nothing.
+- A clip may move fewer joints than the rig has; the others keep the pose they had.
+- A take you bring in must be on one of the game's skeletons, with its joint names and rest pose. Save a game clip or its rig to FBX and animate that. Studio does not retarget a take from another skeleton.
+
+## What plays a clip
+
+Nothing plays a clip by its name. A clip plays when something that points at it is played:
+
+- the game's animation tree: sequences for the skater and the board, blends driven by a number, mirrors, layers, state machines, and the database that motion matching picks locomotion and tricks from;
+- a timeline in a level: cut scenes, a mission's intro, a splash screen;
+- an item's game state values, which the tree already switches on: see [cosmetics](/assets/cosmetics#what-an-item-does-in-play).
+
+That decides what a mod can do:
+
+- **A replaced clip** keeps the game clip's name, rig, channel list, tags and root movement settings, so your take plays wherever that clip played. A channel your take leaves as the game has it keeps the game's keys byte for byte; any other channel is encoded from your take.
+- **A new clip** can be made, packed and checked, but nothing plays it. The tree would need an edit that every other animation mod may also make, a map would need a timeline Studio does not write, and the plugin API plays its own clips, not a mod's. So today a new movement for the skater is a plugin's clip: see [animation](/plugins/api/animation).
+
+A cosmetic item cannot bring a clip either. It names a value of a game state, and the tree has no branch for a value the game does not have.
+
+## Movies
+
+The game has nine movies: the logo at start-up, the season intros and the first-time videos.
+
+Each is one WebM file kept as a chunk, with no bundle listing it:
+
+| | The game's movies |
+| --- | --- |
+| Picture | VP8 (not VP9), 1920 by 1080, no alpha, a key frame at least every 128 frames |
+| Frame rate | 60 a second; the logo 30 |
+| Sound | Vorbis at 48,000 Hz: one stereo track in the logo, three 5.1 tracks (English, French, German) in the others |
+| Subtitles | A separate Sub Station Alpha file, not in the WebM |
+
+The game does not read the WebM's own structure. It plays a movie from lists in the movie's document: where each frame is in the file, its size and its time. So a movie is replaced by putting your file in unchanged and writing those lists again from it. Swapping the file alone would point the lists at the wrong bytes.
+
+What your file must be:
+
+| Rule | |
+| --- | --- |
+| WebM (or Matroska), one picture track in VP8 | Refused otherwise. The game has a VP9 decoder, but no movie of the game uses it. |
+| No sound, or Vorbis tracks with their headers | Refused otherwise. The document cannot name Opus. |
+| No lacing, no content encoding; starts with a key frame; frames in order | Refused otherwise |
+| At most 256 MB | Refused otherwise. The game's largest is 72 MB. |
+| 1920 by 1080, 30 or 60 frames a second, 2 or 6 channels at 48,000 Hz | Noted if not: what all nine have, though nothing found in the game checks it |
+| No hidden frames | Noted if not |
+
+Studio does not encode video. Make the file with a video tool; with FFmpeg, `-c:v libvpx -auto-alt-ref 0 -c:a libvorbis -ar 48000` writes what the game's movies are. A replaced movie drops the game's subtitles, whose times belong to the game's movie.
+
+Playing a movie in Studio needs Windows' own VP8 and Vorbis decoders. They come with two free packages from the Microsoft Store, "VP9 Video Extensions" (understood to bring VP8 too) and "Web Media Extensions". Without them Studio cannot show the movie, but saving and replacing it still work.
+
+## Making one in Studio
+
+Exporting and replacing clips: see [animation in Studio](/studio/animation).

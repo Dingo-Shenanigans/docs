@@ -1,0 +1,45 @@
+---
+title: "Overview"
+description: "What ReSkate Studio is, what it makes (cosmetics, game file changes, props, maps, sounds and more), what it needs to run, and the rule on copies of items the game sells."
+---
+
+ReSkate Studio is the Windows tool that makes mods carrying game data. It reads your installed skate. to show you every item and file the game has, and writes only your mod. It never changes the game's own files.
+
+Everything you make goes into one mod at a time. Studio builds the mod, installs it into ReSkate to test it, and packages it for Thunderstore.
+
+## What it makes
+
+- **Cosmetics**: clothing, board parts, hair, skin art, face items and player card art, each made from a game item with something of your own in it. See [cosmetics](/studio/cosmetics).
+- **Textures**: a game texture replaced with your picture. See [textures](/studio/textures).
+- **Models**: a game mesh replaced, or a cosmetic given your own model. See [models](/studio/models).
+- **Materials**: another game shader, its numbers and its pictures on a cosmetic, a prop or a map. See [materials](/studio/materials).
+- **Sounds**: a game sound replaced with a WAV, or a sound of your own. See [sounds](/studio/sounds).
+- **Animation**: a game clip replaced from an FBX take, or a new clip. See [animation](/studio/animation).
+- **Effects**: particles and shaders on a cosmetic, or an effect of your own. See [effects](/studio/effects).
+- **Props**: a model with collision, for plugins to place in the world. See [props](/studio/props).
+- **Maps**: a level from a Blender scene, a `.glb` or another game's map. See [maps](/studio/maps).
+- **Game values**: numbers and settings in the game's data, changed in the data editor. See [the data editor](/studio/data-editor).
+- **Scripts**: a game Lua script given other source. See [scripts](/studio/scripts).
+
+Studio has a [Blender add-on](/studio/blender-addon) for maps and for editing a cosmetic's model, and a [command line](/studio/command-line) that reads and writes the same mods as the window. What the game's files are and how they fit together is in this tab's Game assets pages.
+
+## What it needs
+
+- Windows, 64-bit.
+- skate., build 20260929: the one build ReSkate supports. The status bar shows it as **Skate 20260929 at** and the folder.
+- ReSkate installed in that same folder, to test a mod in the game. Studio starts the game through `ReSkateLauncher.exe`.
+- Blender, only for maps and for editing a cosmetic's model in Blender. Studio uses the newest Blender installed unless you choose one in **Settings**.
+
+The first start reads the game's files, which takes about a minute. Later starts are quick. See [your first mod](/studio/first-mod).
+
+## Copies of items the game sells
+
+Every cosmetic the game sells in its store stays sold. A mod cannot hand one out.
+
+Studio does not know which of the game's items are sold. So it refuses any cosmetic that is an unchanged copy of a game item, whatever the item: a new cosmetic must carry a picture, a model, a colour, a material value, a shape or an effect of your own. A new name, a menu picture or hidden body parts alone do not count. See [what counts as your own](/studio/cosmetics#an-unchanged-copy-is-refused).
+
+ReSkate holds mods to the same rule when it loads them. A mod with an item that copies a store item is left out whole. See [copies of store items](/mods/rules#copies-of-store-items).
+
+<Warning>
+Make cosmetics from items the game gives away, never from store items.
+</Warning>

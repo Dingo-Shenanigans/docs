@@ -1,0 +1,110 @@
+---
+title: "Documents (EBX)"
+description: "What an EBX document is: objects, types and fields, references to other documents and resources, boxed values, the text form, and what a mod may change in a game document and add of its own."
+---
+
+A document is one asset's data, by name. A texture's settings, a mesh's list of materials, a cosmetic item, a level and a sound patch are each one document. The game has 185,301 of them. Their files are called EBX.
+
+Most of what a mod changes in the game is a value in a document. Studio's data editor shows them as fields.
+
+## Objects, types and fields
+
+A document is a list of objects.
+
+- The first object is the document's root: a `TextureAsset`, a `RigidMeshAsset`, a `DelMarBaseItemAsset` for a cosmetic item.
+- Each object is an instance of a type, and the type says which fields it has. Types inherit fields from a base type.
+- An object that other documents can point at is exported and has a guid of its own. Objects used only inside the document are not exported.
+- The document itself has a guid too.
+
+A field holds one of these:
+
+| Kind of field | Holds |
+| --- | --- |
+| Switch, whole number, float, text | A plain value |
+| Enum | One of a list of named values |
+| Struct | A group of fields kept inside the object, such as a colour or a transform |
+| List | Any number of entries of one kind |
+| Reference | Another object of this document, or an object of another document |
+| Resource reference | The 64-bit id of a resource, such as a mesh's MeshSet |
+| Type reference | A type, named by its guid |
+| Boxed value | A value of any kind, kept apart from the object: see below |
+
+A field the document does not set reads as zero, empty or nothing.
+
+## References between documents
+
+A document points at an object of another document by two guids: the other document's, and the object's. The document keeps a list of these imports.
+
+That is how the game ties things together: a mesh asset names its detail level group, a blueprint names its mesh, a cosmetic item names its menu pictures and its category. A reference names a guid, never a file name, so a document of your own keeps working when you rename it, and a copy of a game document with the game's guids clashes with the game's.
+
+Some things are found by name instead of by reference. A cosmetic item names its meshes and presets as text, and the game looks the name up when the item is worn: see [cosmetics](/assets/cosmetics#names-not-references).
+
+A reference does not say what type it may point at. Studio's data editor tells you what the game points the field at, and marks an object of another type. It cannot refuse one, so check before you point a field somewhere new.
+
+## Boxed values
+
+A boxed value is a value kept apart from the object that refers to it, so one field can hold a value of any type: a number, a colour, a struct, a list, a reference. 13,918 of the game's documents use them.
+
+You meet them most in cosmetics. An appearance preset lists the shader parameters it sets, and each value is boxed. A level's parameters and the spawn are boxed values too.
+
+In Studio a boxed value that is empty can be given a value of any kind, and a boxed value can be emptied so that a value of another kind can go in.
+
+## Two forms
+
+A document is in one of two forms. One is laid out exactly as the game holds it in memory, and the game uses it in place. The other is converted field by field as it loads, which is always safe. Studio picks the first form only when every type in the document appears that way in a game document, and the second otherwise.
+
+## The text form
+
+Studio can save any document as JSON and make a document from JSON. The text holds the objects and boxed values as named fields, with nothing of the binary layout:
+
+```json
+{
+  "format": "reskate-ebx",
+  "version": 1,
+  "guid": "fed5dce2-71bd-419a-8b93-f5692f7fcf60",
+  "imports": [ { "file": "<guid>", "object": "<guid>" } ],
+  "objects": [ { "type": "TextureAsset", "guid": "<guid>", "fields": { } } ],
+  "boxed": [ ]
+}
+```
+
+- `objects` lists the objects, root first, exported ones first. An object that is not exported has `"internal": true` in place of a guid.
+- A field left out is zero, empty or nothing. A field the type does not have is refused.
+- A reference is `null`, `{ "object": 2 }` (the document's third object) or `{ "import": 0 }`.
+- A resource reference is the resource's id as a number.
+- A 64-bit number past what JSON holds safely is text, such as `"18446744073709551615"`.
+
+Every one of 3,860 game documents taken to text and made again from it is the game's file byte for byte. So the text form is a safe way to edit a document in a script or another program and bring it back.
+
+## What a mod may change
+
+In a game document you can:
+
+- change any plain value, text, guid or resource reference;
+- add and remove list entries, boxed lists included;
+- point a reference at another object of the document, at an object of another document, or at one of your mod's own documents;
+- add an object of any type the game has, and point a reference at it;
+- give a boxed value to a field that had none, or take one out.
+
+A changed game document keeps the game's name, guid and root object. Replacing it with a document of another type or another root is refused.
+
+Studio keeps the whole changed document, and works out what you changed against the game's own when you ask: each changed field, each added or removed entry, each new object. Putting the last change back makes the document the game's again, and it leaves the mod.
+
+When two mods change the same game document, ReSkate combines both changes at launch. Only changes that cannot be combined conflict: see [the load order](/mods/overview#the-load-order).
+
+## What a mod may add
+
+A document the game does not have needs three things:
+
+- **A name of your own.** Lower case, parts joined by `/`, as the game names its own, such as `mods/mymod/settings`. A name the game or the mod already has is refused.
+- **Bundles.** Nothing says by itself which bundle a new document belongs in, and the game only has it while one of those bundles is loaded. So you name a game document it goes with, and the new document is listed in every bundle that one is in. The usual choice is the document that will point at it.
+- **Guids of its own.** A document made from a game document's text gets new guids, for itself and each exported object, unless you keep them on purpose. Two documents with one guid cannot both be loaded.
+
+Two kinds cannot be added this way:
+
+- a cosmetic item, which is made from a game item with something of your own on it: see [cosmetics](/assets/cosmetics#an-item-of-your-own);
+- a physics document, which Studio makes with the collision it describes.
+
+## Making one in Studio
+
+Changing, adding and saving documents is in the data editor: see [the data editor](/studio/data-editor).

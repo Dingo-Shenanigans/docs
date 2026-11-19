@@ -1,0 +1,132 @@
+---
+title: "Maps"
+description: "Custom maps in ReSkate Studio: the scenes Studio builds maps from, the map editor and its parts, the spawn, surfaces, grinds, lights and materials, the loading screen and pause map, streaming big maps, and building and testing a map."
+---
+
+Studio builds a level from a scene of yours, with the rest of the mod, each time the mod is built. It writes the map's [`reskate-levels.json`](/mods/maps) for you, gives the map its own loading screen and pause map, and installs it to test. For how the game keeps a level, see [maps](/assets/maps).
+
+<Note>
+A mod holds one map. Give a second map a mod of its own.
+</Note>
+
+## What Studio builds a map from
+
+| Scene | What it carries |
+| --- | --- |
+| A Blender scene (`.blend`) | Everything the [Blender add-on](/studio/blender-addon) sets: collision, surfaces, grinds, lights, the spawn, sounds, effects, routes, materials. The most complete way. |
+| An `.fbx` | Meshes, materials and lamps. Surfaces, grinds and the spawn come only from Studio's map editor. |
+| A `.glb` or `.gltf` | The same as an `.fbx`. |
+| A map folder (`map.json` and what it names) | What the tool that wrote it set, such as the add-on's **Write the Map Folder**. Drop its `map.json` on the window. It cannot be changed in Studio. |
+
+Studio reads `.blend` and `.fbx` files through Blender, without its window. Set `blender.exe` in **Settings**, under **Blender, for maps and for editing a model**, and press **Install or update Studio's Blender add-on** there. A `.glb` needs no Blender.
+
+The map editor also opens **Skater XL and Unity map bundles**. A map from one has not been built and checked in the game yet.
+
+## Adding a map
+
+Pick **Map** on the start page and choose the scene, or drop a `.blend`, `.fbx` or `.glb` on the window and choose **This mod's map**. The map's page opens: the scene in the middle, where you fly around it, and the map's parts down the right.
+
+## Scene
+
+- **Name**: the name players pick the map by.
+- **Map ID**: the level's name in the game's files, and its place in the map list. Lowercase letters, digits and single underscores, at most 30. Keep it the same to update a map that is installed.
+- **The scene file**, with **Choose another...** and **Show it in its folder**.
+- **Blender**: where Studio found it, or **Not found. Choose blender.exe in Settings.**
+
+## Objects
+
+**Objects** lists what is in the scene. Pick something, in the list or in the view, to see it under **What is picked**: to light it, or give it a surface, a grind or a sound. Studio keeps these edits beside the scene, and every build applies them; the scene file itself is not changed.
+
+For an object of the scene you can:
+
+- leave it out of the map, or make it collision only (it collides but is not drawn);
+- choose its collision: **Triangle mesh**, **Convex parts**, **Convex hull**, **None (render only)** or **Water**;
+- give it a surface (**Search surfaces...**), with its sound, grip and behaviour;
+- make it a round rail, ground smooth like the game's tubes;
+- leave it off the pause map.
+
+A material picked here can be made collision only, given a surface, and given a transparency and a kind (surface, decal, foliage, ocean).
+
+The scene's own objects cannot be moved in Studio: move them in Blender. What you add in the editor can be moved, turned and scaled.
+
+**Add to the map** adds:
+
+| Thing | What it is |
+| --- | --- |
+| **Player spawn** | Where the skater starts. **Move the spawn** puts it elsewhere. |
+| **Bus stop** | A fast-travel point, with its name and shelter. |
+| **Point light**, **Spot light**, **Area light** | A lamp, with its colour, power, range, cone and the times of day it shines. |
+| **Audio volume** | A box of one of the game's ambience sounds. |
+| **Grind curve** | An invisible rail you draw point by point, with its radius and surface. |
+| **NPC route** | A path pedestrians or cars follow. |
+
+**Place a game mesh...** copies one of the game's meshes into the map, and **Place a .glb...** places a model of yours. Both become the map's own geometry, without the game's material, collision or detail levels. A placed game mesh has not been checked in the game yet.
+
+### What only Blender gives
+
+Reflection volumes, sound emitters and speakers, the game's effects, and props of the mod are set in Blender, not in Studio's map editor. See [the Blender add-on](/studio/blender-addon) and [placing a prop in the mod's map](/studio/props#placing-a-prop-in-the-mods-map).
+
+## The spawn
+
+A map has one start point. With more than one spawn marker, the add-on warns and uses the first. The [`reskate-levels.json`](/mods/maps) Studio writes names it. Without a spawn, the build falls back on San Vansterdam's start point, which is not on your map: give every map one.
+
+## Surfaces and grinds
+
+A surface is one of the game's: it sets the sound, the sparks, and how the board grips, slides and behaves. Set it on a material, or on an object to cover the whole of it.
+
+The game works out what can be ground from the collision: hard edges of the right shape grind by themselves. For anything else, draw a grind curve: an invisible rail along a coping, a pipe or a ledge. Mark a round tube as a round rail so it grinds smoothly.
+
+## Light
+
+**Time of day** is **Morning**, **Noon**, **Afternoon**, **Evening** or **Night**. The map is lit by the game's own sky at that hour, with its sun, fog and exposure. Lamps placed in the scene, or added under **Objects**, light it as well, each at the times of day it is set to shine.
+
+A sun in a Blender scene is left out. Not yet: a sky of the map's own, and baked or bounced light. A sun of the map's own is only an option of `compile-map`, which builds a map alone, outside a mod.
+
+## Materials
+
+A map's materials come from its scene: their pictures, transparency and kind, set in Blender's **Material** panel. Studio maps each onto one of the game's world shaders. The map editor has no **Materials** part; another game shader or shader code for a map's material is set on the command line. See [materials](/studio/materials#a-maps-materials).
+
+## Loading
+
+- **Streaming**: **Automatic: big maps load in pieces**, **Off: the whole map loads at once**, or **On**. Off is right for a small map; a big one takes long to load and may not fit in memory.
+- **Piece size**: **200 m**, **100 m** or **50 m, the least hitching**.
+- **Load distance**: how far ahead pieces load, 60 to 1,000 m. Raise it if parts of the map appear late.
+- **Make simpler copies of meshes for far away**: detail levels for the map's meshes. Their distances are not settable yet.
+
+## Pictures
+
+Studio makes the map's pictures from the scene, unless you give your own.
+
+- **Pause map**: **Flat** or **3D with shadows**, for the picture made from the scene.
+- **Your own pictures**: put any of these, as `.png`, `.jpg` or `.dds`, in `assets\<scene name>\` beside the scene. **Open that folder** opens it.
+
+| File | What it is |
+| --- | --- |
+| `map` | The pause map |
+| `load_screen` | The loading screen |
+| `map_logo` | The map's logo |
+| `map_clouds` | Clouds over the pause map |
+
+Each says **yours** once the file is there, or **made for you**. The picture is read at every build.
+
+## Building and testing
+
+**Test in game**, in the top bar, builds the whole mod with the map and starts ReSkate. See [testing](/studio/testing).
+
+The map's **Build** part has **Build and install**: it builds the mod with this map and puts it in skate.'s `Mods` folder, without starting the game. Close skate. first. It needs a scene, a name and a map ID, and a saved mod. While it builds, it says what it is doing, with **Stop**. After it:
+
+- **What was built**: **Triangles**, **Collision pieces**, **Lights**, and for a streamed map **Pieces it loads in** and **Meshes with simpler copies**;
+- **What the build said**: the build's log, with **Copy it**.
+
+The map appears in the game's map lists under **CUSTOM MAPS**: see [maps](/mods/maps#where-custom-maps-appear). To share it, see [publishing](/studio/publishing).
+
+## On the command line
+
+```powershell
+reskate_cli import "C:\Mods\My Map" "D:\Skate" map "C:\Scenes\park.blend" --name "My Park" --id my_park
+reskate_cli map show "C:\Mods\My Map"
+reskate_cli map set "C:\Mods\My Map" time-of-day evening
+reskate_cli build "C:\Mods\My Map" "D:\Skate" "C:\Work" --install
+```
+
+`map show` lists every setting with what it takes: `time-of-day`, `streaming`, `cell-size`, `cell-load-distance`, `mesh-lods`, `include-mods` and `pause-map`. Edits made under **Objects** are the window's only. See the [command line](/studio/command-line).

@@ -1,0 +1,106 @@
+---
+title: "Sounds"
+description: "Sounds in ReSkate Studio: listening to a game sound, replacing it or one of its variations with a WAV, the codecs Studio writes, the WAV files it takes, sounds of your own and what does not play them yet, and sounds on cosmetics and props."
+---
+
+Studio puts a WAV of yours in place of a game sound, written the way the game keeps that sound, and makes sounds of your own. For how the game keeps sounds (waves, banks of variations, the two codecs, streaming), see [sounds](/assets/sounds).
+
+## Listening to a game sound
+
+Open **Game library**, pick **Sounds**, pick a sound and press **Open it to replace it**. The sound's page has a player:
+
+- its name, its length, its channels, its rate and the codec it is kept in;
+- **Play** (**Pause** while it plays), **Stop**, and where it is;
+- **Variation**, when the game keeps more than one version of the sound: a chip for each. The one chosen is the one heard, saved and replaced.
+
+You hear it through Studio's player. The game's own choice of variation, its volume and its mixing are not applied.
+
+**Save as WAV...** on the **Sound** card saves the variation chosen.
+
+## Replacing a game sound
+
+<Steps>
+  <Step title="Open the sound">
+    In **Game library**, **Sounds**, pick it and press **Open it to replace it**.
+  </Step>
+  <Step title="Choose the variation">
+    If the sound has **Variation** chips, pick the one to replace. The others stay the game's.
+  </Step>
+  <Step title="Bring your WAV">
+    On the **Sound** card, press **Replace with a WAV...**. Dropping a `.wav` on the window with the sound open does the same: choose **A replacement for the sound that is open**.
+  </Step>
+  <Step title="Listen">
+    Play it again in the player. A note says how it was written.
+  </Step>
+</Steps>
+
+To take it out, open **The whole file** and press **Put back the game's version**.
+
+To put one WAV in place of every variation (for a sound the game picks by speed or surface), use the command line with `--variation all`:
+
+```powershell
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" sound <game sound> mine.wav --variation all
+```
+
+Some sound documents hold no audio of their own: they are parents other sounds take their rules from. They have nothing to replace. A sound of another kind than the game's usual one can be saved as a WAV, but Studio cannot put another in its place; the page says so.
+
+## Codecs
+
+Studio writes your WAV in the codec the game keeps that sound in, at the sound's own rate, and keeps it where the game keeps it (in memory or streamed).
+
+| Codec | Used by the game for |
+| --- | --- |
+| EA-XAS | Speech, and most streamed sounds |
+| MultiStream Opus | Most sounds kept in memory |
+
+Studio writes these two, and PCM16. A sound kept in any other codec is refused.
+
+The encoder ships with Studio. If it is missing from Studio's folder, a WAV is written as PCM16, which no sound of the game uses, and the page says so. Reinstall Studio to get the encoder back.
+
+## The WAV files Studio takes
+
+- A RIFF WAV, in PCM (8, 16, 24 or 32-bit) or float (32 or 64-bit).
+- 8,000 to 192,000 samples a second.
+- Mono or stereo for a mono or stereo sound: Studio mixes or copies the channels. A sound with more channels (4 or 6) needs a WAV with the same number.
+- At most 240 MB of 16-bit samples once read.
+
+## Sounds of your own
+
+A sound of your own is added under a name made from the file's.
+
+1. Drop a `.wav` on the window, or use **Choose a file...** on the start page.
+2. Choose **A new sound**.
+
+It is listed under **Sounds** in the mod's list, with a page of its own:
+
+- **How it plays**: **Loops** and **Heard from a place**. A sound that plays once and is heard from nowhere is refused: the game has no plain patch for it. **Under the game's patch** names the game sound it takes its distances and filters from.
+- **Replace its WAV...**, **Save as WAV...** and **Remove**.
+- **What it is**: its length, channels, rate, codec and size in the mod.
+- **What the game knows it by**: its **Behaviour**, **Sound asset** and **Wave** names, each with **Copy the name**.
+
+A new sound is written as EA-XAS at 48,000 samples a second, or as MultiStream Opus with `--opus` on the command line. It has one variation, and no choice by surface or speed.
+
+<Warning>
+Nothing plays a sound of your own yet. A map's sound volume names only the game's ambiences, a prop's sound is its surface's, and plugins play their own WAV files, not a mod's sounds. Studio makes the sound and its names so that these can name it later.
+</Warning>
+
+```powershell
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" sound-new hum hum.wav --loop
+```
+
+## Sounds on cosmetics and props
+
+- **A cosmetic** keeps the sounds of the item it was made from. Studio does not give an item sounds of its own yet.
+- **A prop** sounds like its surface: the surface chosen under its **Collision** sets the contact sound, among the game's surfaces. See [props](/studio/props).
+- **A map** places the game's ambiences and sound regions: see [maps](/studio/maps) and [the Blender add-on](/studio/blender-addon).
+- **A plugin** plays its own WAV files: see [audio](/plugins/api/audio).
+
+## On the command line
+
+```powershell
+reskate_cli sound-info "D:\Skate" <game sound>
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" sound <game sound> mine.wav --variation 2
+reskate_cli audio "D:\Skate" <game sound>
+```
+
+`--variation` counts from 1. `--pcm` writes PCM16 on purpose. See the [command line](/studio/command-line).

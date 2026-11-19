@@ -1,0 +1,159 @@
+---
+title: "Cosmetics"
+description: "Making a cosmetic of your own from a game item: the categories Studio makes and the ones it does not, the preview, the parts of a cosmetic (Model, Shape, Materials, Fit, Movement, Effects, Store card), its name, the menu entry, and why an unchanged copy is refused."
+---
+
+A cosmetic starts from a game item of the kind you want. You put something of your own in it, name it and add it to your mod. From then on it is your item: it has a key of its own, and it sits in the game's menus beside the game's.
+
+<Warning>
+Start from items the game gives away, never from store items. See [copies of items the game sells](/studio/overview#copies-of-items-the-game-sells).
+</Warning>
+
+## What Studio makes
+
+| Group in the library | Categories | What you change |
+| --- | --- | --- |
+| **Clothing** | Tops, bottoms, shoes, socks, hats, eyewear, handwear, outfits, full body costumes | Pictures, colours and material values, or your own model |
+| **Board** | Deck graphics, trucks | Pictures, colours and material values, or your own model |
+| **Board** | Wheel colours, grip colours | Colours and material values |
+| **Board** | Board stickers | Your artwork, with transparency |
+| **Board** | Grip patterns | A mask: white keeps grip, black shows the deck |
+| **Hair** | Scalp hair, facial hair | Pictures, colours and material values, or your own model |
+| **Hair** | Hair colours | The colour and its shades |
+| **Hair** | Eyebrows, stubble | The textures of the painted layer |
+| **Skin art** | Tattoos, moles | Your artwork, with transparency |
+| **Face and body** | Heads, eyes, noses, mouths | The shape: a mix of the game's morphs |
+| **Face and body** | Eye colours, lip colour, skin tones | The colour and its shades |
+| **Face and body** | Lip style | The textures of the painted layer |
+| **Player card** | Backgrounds, icons | Your artwork |
+
+That is 29 of the game's 33 item categories, with skin tones and player card art beside them.
+
+### What Studio does not make
+
+Studio refuses a new item in four categories, because the game gives a new one no place:
+
+- **Bodies**: the body menu picks a body by build and height from fixed choices, not from a list of items.
+- **Makeup**: no menu shows the makeup slot and it is not saved with the skater. Eye makeup is part of an eyes item.
+- **Facial hair colours**: the game does not use this category. A beard takes its colour from a hair colour, so make a hair colour.
+- **Locomotion**: an item only names one of the game's two walking styles, so a new one would be the game's with nothing of yours in it.
+
+Voices are refused for the same reason as locomotion.
+
+## Making one
+
+1. Open the **Game library** and press **Cosmetics**, or press **Clothing**, **Board**, **Hair** or **Skin art** on the start page. Narrow it with a group or the search.
+2. Pick an item. It opens with the preview on the left and its parts on the right, and its header says **a game item, not in your mod yet**.
+3. Change something in its parts. A part you changed says **changed**.
+4. Under the parts, give it its name (**Its name in the game**), then press **Add to mod**.
+
+While it cannot be added, the line under the button says why:
+
+| Line | What to do |
+| --- | --- |
+| **No mod is open. Make one on the start page; this item can be added to it then.** | Make or open a mod first. |
+| **Give it the name players will see.** | Type a name. |
+| **This item has no material of its own. Bring a model in under Model to start.** | Import a model under **Model**. |
+| **Change something first, so it is your own item and not a copy of the game's.** | Put something of your own in it. |
+| **Reading the game's types. The item can be added in a moment.** | Wait a moment. |
+| **Ready. Once it is in your mod you keep editing it there.** | Press **Add to mod**. |
+
+Once added, the item opens as the mod's own, under **Cosmetics** in the mod's list. It has no Add button: every change goes into the mod when you stop editing, and the line under the parts says **Every change is in the mod.**
+
+### The name
+
+The name is what players see in the customization menu.
+
+- 1 to 64 characters: ASCII letters, digits, spaces, `_` and `-`, with at least one letter or digit, and no space at either end.
+- The item's key is `Own_` and the name, with each run of spaces and `_` made one `_`: `My Cargo Shorts` is `Own_My_Cargo_Shorts`.
+- Two cosmetics in one mod cannot share a name, and the name cannot be one the game's own items have.
+
+**Rename** in the item's header (or **Rename...** on its row's right-click menu) changes the name. **Duplicate** copies the item, with its pictures and model, under a new name. **Remove** takes it out of the mod with the files only it used.
+
+## The preview
+
+The buttons over the preview:
+
+- **On skater** and **Alone**: the item worn by the skater, or by itself.
+- **Outfit**: what else the skater wears.
+- **Skater**: the skater the item is shown on.
+- **Menu room**: the game's customization room behind the item, lit as the menu lights it.
+- **Day** and **Night**: night shows moonlight, and glowing parts as bright as on a night map.
+- **Fit the view**, or **F** over the preview.
+
+A sticker, a tattoo or a mole has **Where on the board**, **Where on the body** or **Where on the face**: where the preview puts it. You place it yourself in the game's menus. The preview's mouse controls are on [the window](/studio/window#the-preview) page.
+
+The line under the preview shows the most important note about the item, with **Show it** to open the part it is about.
+
+## The parts of a cosmetic
+
+Each item shows the parts that apply to it. Press a part to open it. Its corner says how it stands: **the game's** (nothing changed yet), **changed**, **ready**, a count of notes, or a count **to fix**.
+
+| Part | What is in it | Shown for |
+| --- | --- | --- |
+| **Model** | **Edit in Blender**, **Import mesh...** (FBX or GLB), **Export FBX** or **Export GLB**, the **Hair variant** of a hairstyle, and **Skinning options** for a skinned mesh. See [models](/studio/models) and [the Blender add-on](/studio/blender-addon). | Items with a mesh |
+| **Shape** | A slider for each of the game's morph inputs, with the game item's weight beside it. | Heads, eyes, noses, mouths |
+| **Materials** | **Pictures**: each texture, with **Edit**, **UV** and **Import...**. **Colour and material** (or **Colours**). **Game shader**: the item's material on another of the game's shaders. See [materials](/studio/materials). | Most items |
+| **Fit** | The body parts and other items it hides under it: **Head mesh**, **Body mesh**, the hair variant worn with it, and each body part and slot. **Restore visibility** puts the game item's back. | Items with a mesh, and decals |
+| **Movement** | How it moves on the skater, with cloth and swing bones. Preview only: Studio approximates the motion and keeps the game's own. | Items with a mesh |
+| **Effects** | **See it while riding**, **Shader**, **Particles**, and **In play**: the game states the item sets while worn, and **Sumo bounce** on a full body costume. See [effects](/studio/effects). | Items with a mesh |
+| **Store card** | The item's menu pictures, its menu entry and a turnaround to share. See below. | Every item |
+
+A sticker, a tattoo or a mole has **Import artwork...** and **Export artwork...** under **Materials**. Your artwork is a PNG (or TGA or BMP) whose transparency is the item's. A mole's artwork is laid out on the whole face. An item with a graphic, such as a deck or a player card, has **Import artwork...** too: it fits the picture and uses its transparency.
+
+<Note>
+Nothing of an item's movement can be changed yet. A model of your own moves with ordinary bone skinning.
+</Note>
+
+## The store card
+
+### Picture
+
+The menu shows two pictures of an item, a small and a large.
+
+- **Auto thumbnail on save** takes the picture from the preview, with the menu's camera for that kind of item. **Settings** has the same choice for new items.
+- **Choose image...** uses your picture instead. **Another for the large picture...** gives the large picture its own.
+- **Export PNG...** saves the preview as the menu's camera sees it. **Clear** drops the chosen picture.
+
+An item without a picture of its own shows the game item's picture, and the build warns about it.
+
+### In the menu
+
+On the mod's own items, **In the menu** sets the item's entry:
+
+- **Sort priority**: its place among the items of its slot. Most of the game's items have 0.
+- **Swatch**: the colour the menu shows for it where it shows one.
+- **Category**: the slot the menu lists it under. A slot whose items are of another kind is refused.
+- **Size**, **Prototype only**, **Behaves as an empty slot** and **Previews its effects**: the entry's other fields, as the game's own items have them.
+- **Key**: the item's key, set by its name.
+
+A new item starts with its game item's entry. The store's price, rarity and description are not in the game's files, so Studio cannot set them.
+
+### A turnaround to share
+
+The item turned once, saved as an animation: a **Fit Check**. Choose the **Format** (**GIF**, **APNG** or **WebM**), the **Size**, **One turn** and **Frames a second**, and whether it has a **See-through background**, **Night** lighting and a **Name card beside it** (the item's name and kind, and the mod and author). Press **Save Fit Check...**.
+
+GIF plays anywhere but has hard edges and 256 colours. APNG keeps soft edges. WebM is the smallest.
+
+## An unchanged copy is refused
+
+When you press **Add to mod**, Studio makes the item, reads it back and compares it with the game item it came from. When nothing of yours is in it, Studio does not add it and the line under the button starts **Nothing of your own is in it yet.**
+
+What counts as your own:
+
+- a picture whose pixels differ from the game's. The game's own picture exported and imported again is still the game's;
+- a model whose geometry differs from the game item's. The game's mesh exported and brought back is still the game's;
+- a colour, a material value or a shape weight that differs from the game's;
+- an effect the game item does not have, or a shader of your own.
+
+What does not count on its own: a name, a menu picture, hidden body parts, a moved material, **Sumo bounce**, or states in play.
+
+The message also says what it found, for example that the picture you gave is the game item's own, pixel for pixel. Change that and press **Add to mod** again.
+
+<Note>
+This check is about copies of any game item. ReSkate also refuses a mod whose item copies a store item, even with changes, when it uses a look or a shape only a store item has. See [copies of store items](/mods/rules#copies-of-store-items).
+</Note>
+
+## In the game
+
+A mod's item is in the customization menu, in its category. Its card is tagged **MOD**. See [testing](/studio/testing) to try it there.

@@ -1,0 +1,80 @@
+---
+title: "Testing in the game"
+description: "Test in game: what it builds and where it installs the mod, the steps of a test and what each says, the checks a build runs and what a finding means, and undoing an install."
+---
+
+**Test in game** (**Ctrl+T**, at the top right) saves the mod, builds it, installs it into your skate. folder and starts ReSkate. It is the same build **Publish** packages: while the mod stays as it was tested, Publish packages that very build.
+
+It needs:
+
+- the Skate folder set in **Settings**, and the game's files read in this sitting;
+- the mod saved once (a new mod is);
+- `ReSkateLauncher.exe` in the Skate folder, to start the game. Without it, the mod is installed and the test stops before starting the game.
+
+## Where it is installed
+
+The mod is installed as one folder in the game's `Mods` folder, named after the mod's **Title**: letters, digits, `-` and `.` are kept, and every other run of characters becomes one `_`, up to 64 characters. `Curbside Pack` is installed as `Mods\Curbside_Pack`. A title with nothing usable left is installed as `Mods\ReSkateStudio_Project`.
+
+A map already installed under another folder is updated there instead, and the test says so.
+
+The build holds the mod alone: not the other mods in `Mods`. ReSkate merges it with them when the game starts, in the [load order](/mods/overview#the-load-order).
+
+<Warning>
+Studio replaces only a folder it installed itself. When `Mods` has a folder of that name that Studio did not install, such as a downloaded copy of your own mod, the install is refused and the folder is left as it was. Rename the mod, or move that folder away.
+</Warning>
+
+## The steps of a test
+
+The build pill at the top says **Building**, then **Built** and the time, or **Build failed**. Press it to open the build drawer. Under **Last test in game**, each step has a dot:
+
+| Step | What it says |
+| --- | --- |
+| **Checked** | The checks before the build: **0 problems**, or how many remarks. |
+| **Built** | How long the build took, and when. |
+| **Checked against the game's format** | How many findings, and what was read back and checked: documents, textures, meshes, sounds, other resources and chunks. |
+| **Installed** | The folder in `Mods`. |
+| **Started ReSkate** | Whether the game was started. |
+
+The mod's page shows the same test in its panel, under **Last test**.
+
+When the mod changes after a test, the drawer says **The mod has changed since. Publish builds it again, the same way.**
+
+## The checks a build runs
+
+Before it builds, Studio checks the mod. The problems pill and **Before you ship** on the mod's page show the same checks all the time, not only at a build.
+
+- A red check stops the build. The test fails, and the drawer says why in the check's words, with what to do. For example, **The mod is empty.** or **The mod has no title.**
+- A yellow check is a note. The build goes on. For example, a cosmetic with no store picture of its own, or a test that is older than the mod.
+
+Messages are listed on [troubleshooting](/studio/troubleshooting#building).
+
+### Findings against the game's format
+
+After every build, Studio reads the built mod back and holds each file against the rules the game's own files follow. The step says how many findings there were, and lists each one under it with the file it is about.
+
+A finding means a file of your mod is not laid out as the game lays out its own. **The mod may still load**: a finding is a note, not a refusal. Test the thing it names in the game, and if it misbehaves, the finding is the first place to look.
+
+The last build's findings stay in the problems drawer while the mod is as it was built.
+
+## The install
+
+The install checks the game before it writes anything. The build carries a [stamp](/mods/mod-folder#the-build-stamp) of the game it was built for: the install is refused when that stamp does not name the `Skate.exe` in your folder, or when the game's data files are not the build ReSkate supports. Verify your game files in the launcher's **Settings**, then test again.
+
+Then Studio copies the build next to `Mods`, compares the copy, and moves it in. The folder that was there before is kept as one backup, in `.ReSkateStudio-Mod-backup` in the Skate folder. A failure at any step leaves `Mods` as it was.
+
+A `Patch` folder in the Skate folder that Studio installed long ago is moved aside, so ReSkate does not load it beside the mods. A `Patch` folder Studio did not install is left in place, with a note: move what is in it into a folder under `Mods`.
+
+## Undoing an install
+
+The test install stays in `Mods` until you take it out, also after Studio closes.
+
+- **Undo this install**, in the build drawer and on the Publish page, puts back what was in that folder before, or takes the mod out when nothing was there. A `Patch` folder the install moved aside comes back too.
+- In a later sitting, the drawer shows the install as **Installed earlier**, with **Undo that install**.
+
+Only the most recent install can be undone. Take the test out before you install your published version, so the two do not [conflict](/mods/overview#the-load-order).
+
+**Start ReSkate without building**, in the build drawer, starts the game with what is installed.
+
+## From the command line
+
+The [command line](/studio/command-line)'s `build` verb takes `--install`, and `last-install` and `undo-install` do what the drawer's buttons do. Starting the game is the window's alone.

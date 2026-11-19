@@ -1,0 +1,116 @@
+---
+title: "Effects"
+description: "Particle effects in ReSkate Studio: the game's effects on a cosmetic, recoloured and tuned, effects from a sprite sheet of your own, what an item does in play, effects of the mod's own for plugins, the game's effects placed on a map, and what stays the game's."
+---
+
+An effect is the game's particles: sparks, smoke, confetti, a glow. Studio puts the game's effects on cosmetics, changes their colours and numbers, draws them with a sprite sheet of yours, and makes effects of the mod's own for plugins to play. Every effect starts from one of the game's: what moves the particles is the game's compiled programs, and Studio cannot write new ones.
+
+| What | Where |
+| --- | --- |
+| A game effect on a cosmetic, recoloured and tuned | The cosmetic's **Effects** part, or `effect attach` |
+| An effect from your own sprite sheet, on a cosmetic | **Effects**, **Custom particles...**, or `effect sprite` |
+| What an item does in play | **Effects**, **In play**, or `effect state` |
+| An effect of the mod's own, for a plugin | The command line only: `effect new` |
+| A game effect placed on a map | The Blender add-on |
+
+## On a cosmetic
+
+A cosmetic of your own carries effects in its **Effects** part. See [cosmetics](/studio/cosmetics) for the rest of the item.
+
+### A game effect
+
+Under **Particles**, **Add effect** lists what a new item can carry:
+
+- the game's worn effects, each on a bone of the skater or the board;
+- the four groups the game sets off in play, each said in words (such as what plays on a hard impact);
+- the mod's own effects (see below).
+
+An attached effect has **Enabled**, **Attach to** (**Skater** or **Skateboard**), **Bone**, **Position** and **Rotation**, **Mirror with animation**, and **Remove effect**. Attaching refers to the game's effect: nothing of it is copied.
+
+### Recoloured and tuned
+
+**Particle color** gives the effect another colour, and **Tune** changes its **Amount**, **Lifetime**, **Size**, **Speed**, **Opacity** and **Gravity**. **Reset color** and **Reset tuning** put them back. A changed effect becomes a private copy for your item; the game's stays as it is.
+
+### Your own sprite sheet
+
+**Custom particles...**, then **New custom effect** and **Your own sprite sheet**, makes an effect that draws a picture of yours: a PNG, DDS, JPG or BMP, cut into a grid of frames. Each emitter has its **Sprite**, its picture and grid, and its values under **Emission**, **Initializers**, **Operators** and **Render**: rate, lifetime, count, size, speed, rotation, spin, turbulence, gravity, air resistance, bounce, mass, two colours, offset, brightness, opacity and stretch. **Add emitter** adds a copy of the selected one.
+
+Each emitter is a copy of one of the game's sprite emitters (a look), so how its particles move is that emitter's.
+
+**Every parameter (raw)** lists every parameter of each emitter, by name where one is known and by number otherwise, with the value it runs with. It is read only. Most of the game's parameters have no name.
+
+### Seeing it
+
+Tick **Preview** to see the effect on the item, and **See it while riding** to see it at a speed: **Standing still**, **Rolling (3 m/s)**, **Pushing (6 m/s)** or **Bombing a hill (12 m/s)**.
+
+Studio draws particles as soft dots from their rate, lifetime, size, speed, gravity and colour. It does not run the game's effects: the sprite, the flipbook, turbulence, drag, spin, bounce, lights and trails show in the game only. A group set off in play is not drawn at all.
+
+### In play
+
+**In play** sets a state of the game while the item is worn: the sumo suit's bounce on a full body costume, the pose corrections for a bulky top or a carried board, and the one for headwear on a hat. There is nothing to preview: test it in the game.
+
+<Note>
+An effect, or a state in play, alone does not make an item yours; an effect the game item does not have does. See [an unchanged copy is refused](/studio/cosmetics#an-unchanged-copy-is-refused).
+</Note>
+
+## Effects of the mod's own
+
+An effect of the mod's own has a name of its own, for a plugin to play or a cosmetic to carry. It is made from one of the game's effects with emitters switched off or retuned, a sprite sheet of yours, and limits such as its cull distance.
+
+You describe it in a JSON file and add it on the command line:
+
+```json
+{
+    "name": "effects/mymod/stars",
+    "from": "effects/characters/effectblueprints/ebp_popup_dynamitecostume_sparkler",
+    "emitters": {
+        "all": { "sprite": "stars.png", "grid": [2, 2] },
+        "0": { "overrides": { "SpawnRate": 12 }, "params": { "Gravity": 2.5 } },
+        "3": { "drop": true }
+    },
+    "set": [ { "type": "EffectEntityData", "field": "CullDistance", "value": 60 } ]
+}
+```
+
+```powershell
+reskate_cli effect new "C:\Mods\My Mod" "D:\Skate" stars.json
+```
+
+| Key | What it sets |
+| --- | --- |
+| `name` | The effect's name, under `effects/`. |
+| `from` | The game effect whose emitters it is made from. `effect list` shows the game's effects. |
+| `emitters` | Each emitter by number, or `all`: `sprite` and `grid` for a sheet of yours, `drop` to switch it off, `params` for parameters by name or `#id`, `overrides` and `fields` for numeric fields by path, `constants` for material values. |
+| `set` | Numeric fields of the effect's other objects, such as a light or `CullDistance`. |
+
+`effect new` prints the name it plays as (`effect-asset=`), and `effect show` lists the mod's effects. Change the file and run `effect new` again to change the effect; `effect remove` takes it out.
+
+- **A plugin** plays it with `reskate.effects.particle` and the `effects.game` permission: see [effects](/plugins/api/effects).
+- **A cosmetic** carries it: it is listed under **Add effect**, or use `effect attach` with its name.
+- **A map** cannot place it yet.
+
+The window lists the mod's effects but cannot write one: the description is a text file, and only the command line takes it. Nothing shows one before the game.
+
+## On a map
+
+A map places the game's effects through the Blender add-on: **Trigger Effect** (plays when a skater comes through) and **Particles** (plays all the time), from **The Game's Effects**. See [the Blender add-on](/studio/blender-addon). Studio's map editor has no effects, and a map cannot place an effect of the mod's own.
+
+## What stays the game's
+
+- **How particles move.** An emitter runs one of the game's compiled programs. Studio cannot write a new one.
+- **Mesh emitters.** An emitter that throws a mesh keeps the game's mesh.
+- **What sets an effect off.** The game's four groups set off in play are carried as they are; an item cannot have a group of its own.
+- **Lights, sounds and effects inside an effect** are kept when the effect it is made from has them, and their numbers can be set. None can be added.
+- **An effect from nothing.** Every effect starts from one of the game's.
+
+## On the command line
+
+```powershell
+reskate_cli effect list "D:\Skate"
+reskate_cli effect attach "C:\Mods\My Mod" "D:\Skate" <item> <effect> --bone <joint> --colour 1,0.2,0.2 --amount 2
+reskate_cli effect sprite "C:\Mods\My Mod" "D:\Skate" <item> stars.png --grid 2,2
+reskate_cli effect state "C:\Mods\My Mod" "D:\Skate" <item> top-fit <value>
+reskate_cli effect show "C:\Mods\My Mod" "D:\Skate" <item>
+```
+
+See the [command line](/studio/command-line).

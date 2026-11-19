@@ -1,0 +1,92 @@
+---
+title: "Props"
+description: "Props in ReSkate Studio: a model of your own with collision, built into the mod for plugins to place, its model, materials, collision and surface, detail levels, the names a plugin places it by, and placing it in the mod's own map."
+---
+
+A prop is a still model of your own with collision: a crate, a ledge, a sign. Studio builds it into the part of the game every map loads, so it is in the game whatever map is played. Nothing places a prop by itself: a [plugin](/plugins/api/world) places it, or the mod's own map does.
+
+## Making a prop
+
+Pick **Prop** on the start page and choose the model, or drop a `.glb`, `.gltf` or `.fbx` on the window and choose **A prop**. A model file is one prop: bringing the same file again opens the prop it already is.
+
+The prop's page shows the model in the middle, with **Model** and **Collision** views and **Fit the view**, and the prop's parts down the right: **Model**, **Materials**, **Collision**, **Detail levels** and **For plugins**. **Remove** takes the prop out of the mod; the model file stays where it is.
+
+## Model
+
+**Name** is what the prop is called in the mod. **The model file** says where the model is, with **Choose another...**, **Show it in its folder** and **Read it again**. **What it holds** gives its **Meshes**, **Vertices**, **Triangles** and **Size** in metres.
+
+The model is read again at every build, so a change saved in Blender is in the next test. Studio never changes the geometry itself.
+
+From the model, a prop takes the positions, normals and first UV set of its most detailed level. It leaves out, on purpose:
+
+- bones, weights and animation: a prop does not move;
+- the model's own lower detail levels: Studio makes its own (see below);
+- vertex colours, a second UV set and tangents;
+- the colour picture's alpha: it is not transparency on the plain surface shader.
+
+## Materials
+
+Each material of the model becomes a material of the prop, drawn with one of the game's world shaders: the plain surface one to start with, with the model's pictures. Pick a material to give it another shader, other numbers, other pictures or shader code. See [materials](/studio/materials#a-props-materials).
+
+The preview draws each part's colour picture and its tiling only.
+
+## Collision
+
+What the skater and the board touch:
+
+| Choice | What it is |
+| --- | --- |
+| **Exact shape** | Every triangle of the model is solid. Right for a rail or a ramp. |
+| **Simple hull** | A shape of at most 128 corners wrapped around the model. Cheaper, and smooth to roll over. |
+| **Box** | The model's box. The cheapest. |
+| **None** | Nothing touches it: the skater and the board pass through. |
+
+The **Collision** view of the preview shows the shape. The shape is always made from the model: you cannot bring a collision model of your own.
+
+**Surface** sets how the prop sounds, and how the board grips and slides on it. Search it with **Find a surface: wood, metal, concrete...**. A prop has one surface for the whole of it, among the game's.
+
+## Detail levels
+
+**Make simpler copies of the model for far away** lets the game draw less of the prop at a distance: half its triangles from the first distance, a fifth from the second, and two fifths of that at each one after. A model under 256 triangles is kept as it is.
+
+**Distances** are the metres from the camera at which each simpler copy takes over, with commas between them: `60, 150` when left empty, and at most five. After a build, **In the last build** gives the **Detail levels**, **Vertices**, **Triangles** and **Collision triangles** that were built.
+
+You cannot see a simpler copy before the game draws it, or change how simple each one is.
+
+## For plugins
+
+**Id** is part of the name plugins use: lowercase letters, digits and single underscores, at most 30. Keep it once a plugin uses it.
+
+**What a plugin places** gives the prop's two names, each with **Copy it**:
+
+- **To see it:** the name ending `_bp`, which draws the prop;
+- **At the same place, to make it solid:** the name ending `_solid_bp`, which collides and draws nothing. A prop with no collision has none.
+
+A plugin with the `world.entities` permission places both at one transform:
+
+```lua
+local crate = "reskate/props/curbside_pack/shipping_crate"
+reskate.entities.set(1, crate .. "_bp", {position = where})
+reskate.entities.set(2, crate .. "_solid_bp", {position = where})
+```
+
+The names hold the mod's title, so they change when the title does. See [world](/plugins/api/world) for `reskate.entities`.
+
+## Placing a prop in the mod's map
+
+A map in the same mod can stand the mod's props in it. In Blender, put an object where the prop goes and, in the add-on's **Selected** panel, set **Placement** to **Game Object** and type the prop's id as **Game Object**: `prop:crate`. The object only shows where the prop stands and how big it is; the build places the prop there, solid when it has collision. See [the Blender add-on](/studio/blender-addon).
+
+- The add-on does not list the mod's props: type the id.
+- Studio's map editor cannot place a prop of the mod. Its **Place a .glb...** copies geometry into the map instead.
+- A scene that names a prop the mod does not have fails to build, with the mod's prop ids in the message.
+
+## On the command line
+
+```powershell
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" prop crate.glb --id crate --collision hull --surface 32
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" prop sign.fbx --detail-levels 40,120
+reskate_cli prop-surfaces wood
+reskate_cli material set "C:\Mods\My Mod" "D:\Skate" crate <model material> --texture <slot>=crate_c.png
+```
+
+On the command line, collision, surface and detail levels are set when the prop is added; only its materials change after. See the [command line](/studio/command-line).

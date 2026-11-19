@@ -1,0 +1,77 @@
+---
+title: "The mod's files"
+description: "A mod's folder and its one project file, saving and autosave, getting unsaved work back after a crash, undo, opening a mod made with the command line or an older Studio, and the mod's title, version and icon."
+---
+
+A mod in Studio is a folder. You make it with **New mod** (**Ctrl+N**) on the start page or in the mod menu.
+
+```text
+Curbside Pack\
+  Curbside Pack.reskate    the project file: the mod's details and its list of things
+  content.fbproject        the game data built for those things so far
+```
+
+- `<Name>.reskate` is the one record of the mod: its title, author, version, description, website, icon, and every cosmetic, map, prop and changed game file in it. It is JSON.
+- `content.fbproject` holds the game data Studio has made for them.
+
+Studio's window and the [command line](/studio/command-line) both read and write the project file. A prop the command line adds is in Studio's list, and a map Studio adds is in the command line's.
+
+A map's scene and a prop's model stay where they are on your disk: the project keeps their paths and reads them again at every build. Keep those files. When one is gone, its row on the mod's page says **Scene missing** or **Model missing**.
+
+## Opening a mod
+
+**Open a mod...** (**Ctrl+O**) takes the `.reskate` file or the `content.fbproject` beside it. **Recent mods** on the start page lists the last twelve; one whose file is gone is marked **missing**, and pressing it takes it off the list.
+
+Opening another mod with unsaved changes asks **Save the changes to this mod first?**
+
+### A mod changed outside Studio
+
+While a mod is open, Studio looks at its two files every two seconds. When another program has written one, for example the command line adding a prop:
+
+- with nothing unsaved in Studio, Studio reads the mod again and goes to the mod's page. The status bar says **The mod was changed outside Studio and has been read again.**
+- with unsaved work in Studio, Studio keeps it, and its next save replaces what was written. The status bar says **The mod's files were changed outside Studio. What is saved here next replaces that.**
+
+### An older mod
+
+A mod made with an older Studio is a single `.fbproject` file, with a `.studio.db` file beside it. It still opens.
+
+- One named `content.fbproject` in a folder of its own gets a `.reskate` project file the first time Studio saves it, and its `.studio.db` is removed.
+- One under any other name is saved as it was. **Save a copy as...** makes it a folder. The command line's `project-convert` does the same without the window.
+
+A mod saved by a newer Studio than yours does not open: the message says it was saved by a newer ReSkate Studio. Update Studio.
+
+## Saving
+
+Studio saves the mod by itself a few seconds after your last change, once you are not typing or dragging. The status bar says **Unsaved changes, saved shortly**, then **All changes saved** or **Saved** and the time.
+
+- **Save now** (**Ctrl+S**) saves at once.
+- **Save a copy as...** (**Ctrl+Shift+S**) saves the mod as a new folder, under the name you give it, and goes on in the copy.
+- **Show the mod's folder** opens it in Explorer.
+- **Test in game** and **Publish** save first.
+
+A save that failed is not tried again until something else changes. What went wrong is in the problems drawer.
+
+### After a crash
+
+Every minute with unsaved changes, Studio also writes the mod to a folder of its own, never over your mod. When Studio closed with unsaved changes, the start page says so the next time:
+
+- **Bring them back** opens the mod with that work. Save it to keep it.
+- **Discard** throws that work away.
+
+## Undo
+
+**Undo** (**Ctrl+Z**) and **Redo** (**Ctrl+Y** or **Ctrl+Shift+Z**) work across the whole mod, in the order you made the changes: cosmetics, game files, the mod's listing, a map's or a prop's settings, and the edits to a map's scene. The status bar names the step: press **Undo:** or **Redo:** there to do it.
+
+- A number being typed is one step, not one per key.
+- Undo waits while Studio is busy with the mod, such as during a build.
+- The oldest steps are let go after a while. Undo does not cross opening another mod.
+
+## The mod's details
+
+The mod's page has **Edit details**: **Title**, **Author** and **Version**. The Publish page has the same three, and **Description**, **Website** and **Icon**. See [publishing](/studio/publishing).
+
+- **Title** names the mod's folder in `Mods` when you test it, and its package. See [testing](/studio/testing#where-it-is-installed).
+- **Version** starts as `1.0.0`. Thunderstore takes three numbers only. Raise it each time you publish: after you publish, Studio warns when the version is still the one you published.
+- **Icon** is a PNG or JPG picture, fitted to 256 by 256 pixels. Choose it on the Publish page with **Choose a picture**, or drop a picture on the window and choose **The mod's icon**. The mod's page shows it. Without one, the package gets a plain blue icon.
+
+The project file keeps the icon's path. Keep the picture where it is, or keep it in the mod's folder.

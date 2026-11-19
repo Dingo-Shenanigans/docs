@@ -1,0 +1,89 @@
+---
+title: "Sounds"
+description: "How skate. keeps a sound: the wave, its bank of variations and its chunks; the two codecs the game uses and for what; streaming against memory; the patch that plays a sound; and what a replacement or a new sound needs."
+---
+
+A sound is four things with one name, such as `audio/physicsprops/assets/dgo_wb_obj_metal_rail_impact_high`:
+
+| Piece | What it is |
+| --- | --- |
+| The wave (a document) | Its priorities, channel count and list of chunks |
+| The bank (a resource) | The sound's variations, their segments, and how the game picks a variation |
+| Chunks | The encoded samples, with tables for seeking |
+| A document that plays it | Usually a sound patch; or music, a spoken line, an item's chat statement |
+
+A bank here is the sound's own small table, one for each wave: not a file of many sounds, as in some other games.
+
+## Variations
+
+A wave can hold several variations of one sound, and the bank says how the game picks one. A wave can be handed up to six values to pick by, such as speed or surface.
+
+A variation is made of segments, each a stream of samples. Replacing a sound replaces one variation, or all of them: for a sound the game picks by speed or surface, replace all of them.
+
+The bank also keeps a spoken line's subtitle times. A replacement keeps them, and the way variations are picked, as the game has them.
+
+## Codecs
+
+The game uses two codecs, and no sound of the game is plain PCM:
+
+| Codec | Segments | Used for |
+| --- | --- | --- |
+| EA-XAS | 38,135 | All speech (mono and streamed) and most other streamed sounds |
+| MultiStream Opus | 13,762 | Most sounds kept in memory (13,147 of its segments) |
+
+- Almost every sound runs at 48,000 samples a second; 33 segments run at 96,000.
+- Most sounds are mono (4,091 of 4,643 waves); the rest are stereo, four or six channels.
+- Studio carries an encoder for both codecs, so a WAV you bring in is written in the codec, rate and layout the game's sound has.
+- When the encoder is missing, or you ask for it, Studio writes 16-bit PCM instead and says so. The game has a decoder for it, but it is not the game's codec, and it is large: PCM is 96 kB per second per channel at 48 kHz, EA-XAS about 28.5 kB and the game's Opus about 11 kB.
+
+## Where the samples are kept
+
+Two things decide where a sound's samples are.
+
+- **Its data policy**, a setting of the wave. A persistent wave (341 in the game) keeps its chunks in the same bundles as the wave, loaded with them. An on-demand wave (4,302) keeps its chunks out of every bundle, listed only by a superbundle, and the game reads them when the sound is asked for.
+- **Streaming**, set in the bank. A streamed sound (3,876 waves) is read while it plays and is never all in memory; the rest (767) are decoded from memory. A streamed sound's chunks are always listed only by a superbundle. One that can be sought keeps its seek table in a small chunk that stays in memory.
+
+A replacement keeps each chunk where the game keeps that variation's: in memory or streamed, in the wave's bundles or only in the superbundle.
+
+## What plays a sound
+
+A wave does not play by itself. Most sound effects play through a sound patch: a small document that is a child of one of the game's parent patches, with values written into the parent's settings, and the wave among them.
+
+The parent decides how the sound plays:
+
+- **Looping.** No wave of the game loops by itself. A sound loops because its parent patch asks for it.
+- **Placed or not.** Whether a sound is heard from a place in the world (3D) or everywhere (2D) is the parent's too: the wave only has a channel count.
+- Distances, filters and levels are the parent's.
+
+So for a sound of your own, choosing how it plays means choosing its parent. Studio offers three kinds:
+
+| Loops | Heard from a place | For |
+| --- | --- | --- |
+| No | Yes | A one-shot in the world, played again every 3 to 10 seconds a few metres from the listener |
+| Yes | Yes | A loop heard from the closest point of its region |
+| Yes | No | A background bed over a whole area |
+
+Either kind heard from a place can play at objects with a given sound tag instead, within 30 metres.
+
+A sound that plays once and is not heard from a place has no plain parent among the game's, and is refused.
+
+On a map, a sound region names what plays in it, and an emitter plays at a tagged spot: see [maps](/assets/maps#sound).
+
+## A sound of your own
+
+A new sound is made from a WAV, with nothing copied from a game sound: a chunk kept in memory (EA-XAS by default, or Opus), a bank of one variation, a wave, a sound patch under the parent you chose, and a behaviour that a map's region can name. By default it goes in the root level's bundle, which every map loads.
+
+Not yet:
+
+- a map naming a sound of the mod's own: a map's regions name the game's sounds today;
+- a sound on a cosmetic: an item names its sounds through a lookup table that Studio does not add rows to yet;
+- a sound on a prop's collision: the sound can be made, the prop builder does not use it yet;
+- a plugin playing a game sound asset: plugins play their own WAV files and the menu sounds. See [audio](/plugins/api/audio).
+
+<Note>
+Replaced and new sounds have not been heard in the game yet. Studio's build checks each sound it writes against the rules every sound of the game follows.
+</Note>
+
+## Making one in Studio
+
+Hearing, saving, replacing and adding sounds: see [sounds in Studio](/studio/sounds).

@@ -1,0 +1,73 @@
+---
+title: "Publishing"
+description: "The Publish page: the listing and its fields and limits, what goes out, the checks, the package Studio writes for Thunderstore and what is in it, and uploading it."
+---
+
+**Publish**, at the top right, opens the Publish page: the listing on the left, and the checks and **Save the package** on the right. Studio writes a zip ready for [Thunderstore's ReSkate community](https://thunderstore.io/c/reskate/). You upload it yourself.
+
+## The listing
+
+| Field | Rule |
+| --- | --- |
+| **Title** | Required, with at least one letter or digit. It becomes the package's name: letters and digits, with every other run of characters made one `_`, up to 128 characters. |
+| **Author** | Your name. It starts the package's file name. |
+| **Version** | Three numbers, such as `1.0.0`. Under it, Studio says which version you published last, and warns while it is still that one: **was published already. Raise it so players get the update.** |
+| **Description** | Required, at most 250 characters. The count is under the field. |
+| **Website** | Optional. |
+| **Icon** | A PNG or JPG. **Choose a picture**, or **Use a plain one**. It is fitted to 256 by 256 pixels; 256 by 256 works best. Without one, the package gets a plain blue icon. |
+
+**Title**, **Author** and **Version** are the same fields as **Edit details** on the mod's page. The listing is saved with the mod, and its changes can be undone.
+
+**What goes out** counts the mod's cosmetics, props, map and game changes, and says **no game files copied**: a mod carries only what you made and changed. Under it is the package's file name: `<Author>-<Title>-<Version>.zip`, for example `Studio_Day-Day_Test-1.0.1.zip`.
+
+## The checks
+
+The panel lists **Checks**: the build's checks, and those of the package. A red check stops the package and says what to do. The package's own:
+
+| Check | Kind |
+| --- | --- |
+| **The title needs at least one letter or digit for the package name.** | Stops it |
+| **Thunderstore needs a version of three numbers.** | Stops it |
+| **The mod has no description. Thunderstore requires one.** | Stops it |
+| **The description is longer than Thunderstore's 250 characters.** | Stops it |
+| **The icon file is missing:** and its path | Stops it |
+| **No icon chosen. A plain blue one is used.** | Note |
+| **Version** ... **was already published.** | Note |
+
+The panel also says whether this is the build you tested: **This is the build you tested at** and the time, or a note that the mod was not tested, or has changed since. See [testing](/studio/testing).
+
+## Save the package
+
+Press **Save the package** and choose where to save the zip. Studio saves the mod first.
+
+- When the mod is as you last tested it, the package holds that same build, unchanged.
+- Otherwise Studio builds the mod again, the same way **Test in game** does, and packages that build. It is not tested: test it before you upload.
+
+Under **The package**, the panel then says **Saved** and the time, the package's own check against the game's format, the file's path, and whether it is the build you tested. **Show it in its folder** opens it in Explorer.
+
+Studio then keeps the version as the one you published, and warns when you go to publish it again.
+
+## What is in the package
+
+```text
+Studio_Day-Day_Test-1.0.1.zip
+  manifest.json
+  icon.png
+  README.md
+  layout.toc
+  .reskate-studio-patch
+  ...                    (the rest of the built mod)
+```
+
+- `manifest.json`: `name` from the title, `author`, `version_number`, `website_url`, `description`, and an empty `dependencies` list.
+- `icon.png`: your icon, 256 by 256 pixels, or the plain one.
+- `README.md`: the title as a heading, the description, and a line saying it was made with ReSkate Studio.
+- The built mod: game data, with its [build stamp](/mods/mod-folder#the-build-stamp). A mod with a map carries the map and its `reskate-levels.json`.
+
+Studio does not fill in `dependencies`. When your mod needs another package, add it to `manifest.json` in the zip, and replace the `README.md` for a fuller page. See [publishing on Thunderstore](/mods/thunderstore) for the fields.
+
+## Uploading
+
+Upload the zip on thunderstore.io, in the ReSkate community, and choose its categories: **Mods** for it to be installable from the launcher, and **Maps** too for a mod that holds only a map, so players can download it in multiplayer. See [categories](/mods/thunderstore#categories).
+
+Take your test install out first (**Undo this install**), so your copy from Thunderstore and the test do not conflict.

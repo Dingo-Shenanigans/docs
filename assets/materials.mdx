@@ -1,0 +1,114 @@
+---
+title: "Materials and shaders"
+description: "What a material is in skate.: a key, a block of parameter values and the game's compiled programs; the values and textures a material takes; the shader families a modder meets; and what custom shader code can and cannot do."
+---
+
+In skate. a material is not a document you can open and read. The material documents the game ships are empty stubs. What the game draws with is a key.
+
+## A key, a block and the programs
+
+Each section of a mesh names its material by a 64-bit key. The game looks the key up in three places:
+
+| Looked up in | Gives |
+| --- | --- |
+| A shader block depot | The material's block: its parameter values and textures |
+| The program lookup | The compiled programs that draw it, one for each render pass |
+| The texture set lookup | Which of the shader's textures stream |
+
+Two things follow:
+
+- **The block is data, and can be written.** Every one of the game's 9,678 different blocks can be made again byte for byte from which shader it is for, its numbers and its textures. Studio writes blocks this way; it does not copy them.
+- **The programs are not.** A material can only be drawn with programs the game already compiled, picked by its shader, whether the section is drawn or a shadow, the kind of mesh and the vertex layout. That is why some shaders are refused on some meshes.
+
+The game never computes a key: it only looks one up. So a key of your own works as long as it is unique. Studio makes its keys from your mod's name, the item and the slot, and checks them against every key of the game.
+
+## The values a material takes
+
+A block is a list of parameters. Each has a key of its own, a type and a value:
+
+| Type | Holds |
+| --- | --- |
+| Texture | A texture document of the game or of the mod |
+| Float, two floats | A number, a tiling |
+| Three floats, four floats | A colour, a direction |
+| Whole number | A choice; enums are stored this way |
+| Switch | 0 or 1 |
+
+Ten of the switches choose which compiled version of the program is drawn, not just a value in it. Changing one is safe only where the shader has that version, so Studio marks them.
+
+Parameters are found by key, not by name. The game keeps no list of names: 209 of the 1,636 parameter keys in its blocks have a known name, such as `Param_Base_C` (the colour picture), `Param_Base_NY` (the normal map) or `Param_Base_MSK` (a mask). Studio shows the rest by key, with the value the game uses most.
+
+A texture parameter names a texture document. A picture of your own always goes in the mod beside the material. Whether the game finds a game texture that the material's own bundle does not list is not known, so Studio is careful with those (below).
+
+## Shaders
+
+As far as a material's data goes, a shader is its list of parameters. The game's 9,678 blocks use 377 different lists, so there are 377 shaders. By what uses them most: 187 are effects, 117 the world, 5 skin, 4 clothing, 4 hair, 2 the board.
+
+The ones a modder meets:
+
+| Use | What it is | Parameters |
+| --- | --- | --- |
+| World, plain surface | Colour, mask and normal pictures, a tiling, colours. The usual choice for a prop or a map. | 12 |
+| World, far detail levels | The proxy atlas the far detail levels are drawn with | 8 |
+| World, trims and blends, layered ground, mesh decals | Surfaces that blend several pictures | 17 to 48 |
+| Clothing | One shader for tops, bottoms, shoes and most hats | 124 |
+| Deck, trucks, wheels | The board's base shader | 64 |
+| Grip tape | The deck's top | 58 |
+| Hair, hair cap | Strands and the cap under them | 25 to 48 |
+| Skin | Head and body | 39 |
+| Eyewear glass | Transparent lenses | 11 |
+
+A cosmetic's material is set by its appearance preset, which lists the parameters it changes by the same keys: see [cosmetics](/assets/cosmetics#how-an-item-is-put-together). A cosmetic can also be moved to another shader of its kind, where the shader has programs for each of its sections: a deck can take the board, clothing or grip shader; most hats only the clothing one.
+
+### Changing a game material
+
+A world material of the game keeps its key, shader and programs, and only its block is written again with your values and pictures. The game keeps the first block it loads for a key, so the new block goes into every depot that holds the key, and one key can be in up to 236 depots. That can make a mod larger than the change looks: see [packing](/assets/packing#why-a-build-is-the-size-it-is).
+
+Refused for a game material: another shader, shader code, a parameter its shader does not have, and a game texture its depot cannot be shown to load.
+
+## Custom shader code
+
+Studio does not make new shader programs. It compiles your code with the game's own shader compiler and puts it into copies of the game's programs, keeping the vertex shader, the bindings, the render state and the passes. Which form a material takes follows from the passes it is drawn in.
+
+### The colour function
+
+For a material drawn in the main surface pass: clothing, the board and the world's surfaces.
+
+```hlsl
+float4 shade(float2 uv, float4 color)
+{
+    float stripe = step(0.5, frac(uv.y * 8.0 + iTime));
+    return lerp(color, float4(1, 0.2, 0.1, 1), stripe);
+}
+```
+
+- `uv` is the material's texture coordinate, `color` the base colour the game's shader worked out, and `iTime` the clock.
+- On a cosmetic, up to four pictures as `iChannel0` to `iChannel3`, in place of texture slots the material already has. None on a prop or a map.
+- A Shadertoy `mainImage` is taken too, and translated.
+- At most 32 KB, no includes, no strings, no resources of its own.
+
+Only the base colour is yours. Lighting, normals, smoothness and everything else the surface pass writes stay the game's, because what the game packs into its other outputs is known only from its own shaders.
+
+### The whole pixel shader
+
+For a material drawn only in transparent or forward passes with a single colour output, such as the world's transparent glow. You write `float4 shade(Interpolants input)` against a header Studio makes from the game's shader: its inputs, the material's parameters by name or key, its textures and the clock. `discard` and `clip` are allowed. Writing depth or another output, writable resources, and any input or resource the game's shader does not have are refused.
+
+### What shader code cannot do
+
+- Change the vertex shader, and so how a mesh's vertices are read or placed.
+- Change blending, depth writing or culling: those are in the game's compiled programs.
+- Add parameters of its own. It can read any parameter the game's shader has and give it another meaning.
+- Add render passes. A material is drawn in the passes the game's programs have.
+- Replace the whole surface shader: only its colour.
+
+A prop's part moved to the glow shader is built with that shader's vertex layout and casts no shadow, because the shader has no shadow program.
+
+Not seen in the game yet: a cosmetic's or a prop's custom colour, and a whole pixel shader. Studio's checks hold each against the game's programs.
+
+<Note>
+A [plugin](/plugins/overview)'s shaders are a different thing: full-screen shaders ReSkate draws itself, which never pass through the game's materials. A Studio material cannot use them, and they cannot use a material.
+</Note>
+
+## Making one in Studio
+
+Choosing shaders, values, pictures and code: see [materials in Studio](/studio/materials).

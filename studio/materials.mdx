@@ -1,0 +1,102 @@
+---
+title: "Materials"
+description: "Materials in ReSkate Studio: changing the numbers and pictures of a game material, the materials of your own cosmetics, props and maps, moving a material to another game shader, and custom shader code where Studio allows it."
+---
+
+A material is how a surface is drawn: one of the game's shaders, with numbers (tints, tiling, switches) and pictures. Studio cannot write a shader program of its own; every material it makes or changes runs one of the game's compiled shaders. For how the game keeps materials, see [materials and shaders](/assets/materials).
+
+| What | Where in Studio | Command line |
+| --- | --- | --- |
+| A game material changed in place | **Game library**, a mesh, **Materials** | `material game`, `material change` |
+| A cosmetic's materials | The cosmetic's **Materials** part | `material set` on the cosmetic |
+| A prop's materials | The prop's **Materials** part | `material set` on the prop |
+| A map's materials | The Blender add-on, the map editor's objects, and the command line | `material set` on the map |
+
+## A game material
+
+A world material of the game (a wall, a rail, the ground) can take other numbers and pictures under its own key. Everything drawn with that material changes, wherever it is.
+
+<Steps>
+  <Step title="Find a mesh that uses it">
+    Open **Game library**, pick **Meshes**, and pick a mesh. The panel beside the list shows **Materials**: the mesh's materials, each by name and key.
+  </Step>
+  <Step title="Pick the material">
+    It shows the **Shader**, whether it is changed **In this mod**, and every parameter of the shader with its value. Hover a value for the game's value and the shader's most used one.
+  </Step>
+  <Step title="Change it">
+    Type a number, flip a switch, or type a game texture's name or the path of a picture file into a picture slot and press **Enter**. The change goes into your mod; the game's own stays as it is.
+  </Step>
+</Steps>
+
+**Put the game's back** takes the change out of the mod.
+
+- Only 209 of the game's 1,636 parameter keys have a name. The others are shown by their key: the names are not in the game.
+- The shader stays the material's own. Another shader, or shader code, is refused for a game material.
+- A game texture the material cannot be shown to load is refused.
+- Studio does not preview a changed game material. Test it in the game.
+- The material's shadow keeps the game's values.
+
+## A cosmetic's materials
+
+A cosmetic of your own changes its materials in its **Materials** part: its pictures, its colours and numbers, and the game shader each section is drawn with. A section can move only to a shader the game compiled for that kind of mesh; hair cannot move. See [cosmetics](/studio/cosmetics).
+
+A cosmetic has exactly the material sections of the item it was made from. It cannot gain a section of its own.
+
+## A prop's materials
+
+Each material of a prop's model becomes a material of its own. The prop's **Materials** part lists them; pick one to set:
+
+- **Shader**: one of the game's world shaders, searched by number or by a material it is seen on (**Find a shader: its number, or a material it is seen on**). The note under it says where the shader is seen, whether it casts a shadow, and whether the build will refuse it.
+- Its parameters: each by name or key, beside what the game's materials of that shader use most, with **Reset**.
+- Its pictures: a game texture by name, or **File...** for a picture of yours.
+- **Shader code**: see below.
+
+The preview draws each part's colour picture and its tiling. Other numbers, the other pictures, another shader's look and shader code are seen in the game only. See [props](/studio/props).
+
+## A map's materials
+
+A map's materials come from its scene. In Blender, the add-on's **Material** panel sets how each is drawn and what surface it is: see [the Blender add-on](/studio/blender-addon). In Studio's map editor, a material picked under **Objects** can be made collision only, given a surface, a transparency and a kind (surface, decal, foliage, ocean).
+
+The map editor has no **Materials** part of its own. Another game shader, its numbers and its pictures for a map's plain materials are set on the [command line](/studio/command-line) only:
+
+```powershell
+reskate_cli material set "C:\Mods\My Mod" "D:\Skate" <map id> <scene material> --shader <shader id> --number <name>=<value>
+```
+
+## Custom shader code
+
+Where Studio allows it, a material can run code of your own: HLSL, or a Shadertoy `mainImage`. The code is compiled at the build, with the game's own compiler, and the build says what is wrong with it.
+
+| On | What the code does | Where |
+| --- | --- | --- |
+| A cosmetic | Decides the base colour of one opaque material: `float4 shade(float2 uv, float4 color)`. Lighting, normals and shadows stay the game's. Up to four pictures of your own. | The cosmetic's **Effects** part, **Add custom shader**. Window only. |
+| A prop, on a surface shader | Decides the base colour, the same way. | The prop's **Materials** part, **Shader code**, or `material set ... --code <file.hlsl>` |
+| A prop, on a shader drawn in the transparent pass alone | Is the whole pixel shader: `float4 shade(Interpolants input)`. **Show what the code can use** lists the inputs, constants and pictures it is written against. | The same |
+| A map's plain material | Decides the base colour. | `material set ... --code <file.hlsl>` only |
+
+**Use the template** fills in a starting point, and **Take it off** removes the code. A shader's source is at most 32 KB.
+
+What code cannot do:
+
+- change the vertex shader, the render state, or the passes a material is drawn in;
+- read a pass constant other than the clock, or a picture the game's shader does not already bind;
+- add parameters of its own, or be a whole new shader program;
+- run in Studio's preview: a prop's code is seen in the game only, and a cosmetic's preview uses Studio's own shader.
+
+A prop part moved to a transparent-pass shader casts no shadow.
+
+<Note>
+Custom shader code on a cosmetic, and on a map, has not been checked in the game yet.
+</Note>
+
+## On the command line
+
+```powershell
+reskate_cli material game "D:\Skate" <material key or mesh>
+reskate_cli material change "C:\Mods\My Mod" "D:\Skate" <material key> --number <name>=<value> --texture <slot>=picture.png
+reskate_cli material change "C:\Mods\My Mod" "D:\Skate" <material key> --restore
+reskate_cli material shaders world --prop "D:\Skate"
+reskate_cli material show "C:\Mods\My Mod"
+```
+
+See the [command line](/studio/command-line) for every `material` verb.

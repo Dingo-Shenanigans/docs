@@ -1,0 +1,66 @@
+---
+title: "Your first mod"
+description: "From Studio's first start to a mod tested in the game: finding skate. and ReSkate, making a mod, a cosmetic of your own from a game item, Test in game, and taking the test install out again."
+---
+
+This page makes a shirt of your own and wears it in the game. It takes about ten minutes, most of it the first read of the game's files.
+
+You need skate. with ReSkate installed in its folder. See [what Studio needs](/studio/overview#what-it-needs).
+
+<Steps>
+  <Step title="Tell Studio where skate. is">
+    The first time Studio starts, it asks **Where is Skate installed?**
+
+    Under **Found on this computer**, Studio lists the copies of skate. it found: the folders ReSkate is installed in first, each marked **ReSkate is installed here**, then your Steam libraries. Pick the one marked **ReSkate is installed here**: that is the game Studio tests your mod in.
+
+    If your folder is not listed, type it or press **Browse...** and choose the folder with `Skate.exe` and a `Data` folder in it. Press **Continue**.
+
+    <Note>
+    Studio finds a ReSkate folder outside Steam because ReSkate writes down where it is each time it starts. Start ReSkate once before Studio, or choose the folder yourself.
+    </Note>
+  </Step>
+  <Step title="Let it read the game">
+    Step 2 says **Reading the game files**. This takes a minute the first time. When it says **Studio is ready**, press **Start**. The cosmetics finish reading in the background.
+
+    **Not now** on step 1 skips this. Studio then opens, and **Settings** asks for the folder again.
+  </Step>
+  <Step title="Make a mod">
+    The start page asks **What are you making?** Press **Clothing**.
+
+    The **New mod** dialog asks for a **Name** and where it is **Kept in**: by default `Documents\ReSkate Studio\Projects`, or beside the last mod you made. A mod is a folder of its own, named after it. Press **Create**.
+
+    See [the mod's files](/studio/projects) for what is in that folder.
+  </Step>
+  <Step title="Pick a game item">
+    The **Game library** opens at the game's clothing. Search by name or kind, or pick a group such as **Clothing** or **Board**. Pick a free shirt: never one the store sells.
+
+    The item opens with its preview on the left and its parts on the right. Its header says **a game item, not in your mod yet**.
+  </Step>
+  <Step title="Put something of your own in it">
+    The **Materials** part is open. Under **Pictures**, find the texture you want to change, such as **Base color** or **Graphic color**, and press **Import...** beside it. Choose your picture: Studio fits it to the texture's size.
+
+    The part's corner now says **changed**. A colour under **Colour and material** counts too. See [the parts of a cosmetic](/studio/cosmetics#the-parts-of-a-cosmetic).
+  </Step>
+  <Step title="Name it and add it">
+    At the bottom of the parts, the name field (**Its name in the game**) starts as `My` and the item's name. Change it if you like: it is the name players see in the customization menu.
+
+    Press **Add to mod**. While it cannot be added, the line under the button says why. Studio compares your item with the game's before it adds it, and refuses a copy with nothing of your own in it. See [an unchanged copy is refused](/studio/cosmetics#an-unchanged-copy-is-refused).
+
+    Once added, the item is in the mod's list on the left, under **Cosmetics**. Every change you make to it from now on goes into the mod by itself. Studio takes its store picture from the preview.
+  </Step>
+  <Step title="Test it in the game">
+    Press **Test in game** at the top right, or **Ctrl+T**. Studio saves the mod, builds it, installs it as a folder in `Mods` and starts ReSkate.
+
+    The pill beside the button says **Building**, then **Built** and the time. Press it to see each step of the test. See [testing in the game](/studio/testing).
+  </Step>
+  <Step title="Find it in the game">
+    Open the customization menu and go to the shirt's slot. Your shirt's card is tagged **MOD**.
+
+    To change it, change the item in Studio and press **Test in game** again. Each test replaces the last install.
+  </Step>
+  <Step title="Take the test out, or publish">
+    The test install stays in `Mods` until you take it out. Open the build pill and press **Undo this install**: Studio puts back what was in that folder before, or takes the mod out when nothing was there.
+
+    When the mod is ready for others, press **Publish**. See [publishing](/studio/publishing).
+  </Step>
+</Steps>

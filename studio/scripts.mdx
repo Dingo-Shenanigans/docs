@@ -1,0 +1,60 @@
+---
+title: "Lua scripts"
+description: "The game's own Lua scripts in ReSkate Studio: the five scripts the game ships, reading one, saving it as a .lua file, replacing its source with yours, and what a replacement cannot change."
+---
+
+The game ships five Lua scripts, kept as source text. They load the skater and the board, and paint tattoos, faces and boards from their layers. Studio shows a script's source, saves it as a file, and replaces it with yours under the game's name.
+
+These are the game's own scripts. To add behaviour of your own, write a [plugin](/plugins/overview): a mod's own Lua scripts in `scripts/Custom` are switched off (see [custom scripts](/mods/rules#custom-scripts)).
+
+| Script | What it does |
+| --- | --- |
+| `characters/lua/skaterlualoaderasset` | Loads the skater |
+| `characters/lua/skaterboardlualoaderasset` | Loads the skateboard |
+| `characters/lua/luaskateboardcompositor` | Paints a board from its layers |
+| `characters/lua/luafacecompositor` | Paints a face from its layers |
+| `characters/lua/luatattoocompositor` | Paints tattoos from their layers |
+
+## Reading a script
+
+Open **Game library**, pick **Data**, and search for `lua`. Open the script's `LuaAsset` document; its page has a **Script** tab. The tab shows the source file's name, its number of lines and the source, read only, with your mod's version once it has one.
+
+Studio does not edit the source itself: edit it in a text editor.
+
+## Saving and replacing
+
+<Steps>
+  <Step title="Save it">
+    On the **Script** tab, press **Save as .lua...**.
+  </Step>
+  <Step title="Change it">
+    Edit the file in any text editor.
+  </Step>
+  <Step title="Bring it back">
+    Press **Replace with a .lua file...** and choose your file. The tab shows the new source, and the script is changed in your mod.
+  </Step>
+</Steps>
+
+The changed script is listed under **Game changes** in the mod's list. To take your version out, right-click it there and choose **Put back the game's version**.
+
+A replacement always starts from the game's script, so what the mod carries follows from your text alone, however many times you replace it.
+
+## What a replacement must be
+
+- UTF-8 text, at most 64 MB.
+- No control characters other than tabs, line ends, form feeds and vertical tabs.
+
+A script reaches some of the game's assets by name through bindings, such as `ShaderParams` or `CommonAssets`. Your text cannot add or remove a binding: the script keeps the ones the game gave it.
+
+<Warning>
+A script runs inside the game as the game's own. A mistake in one can stop the skater or the board from loading. Test every change, and keep the game's version to compare with.
+</Warning>
+
+## On the command line
+
+```powershell
+reskate_cli lua "D:\Skate" characters/lua/luatattoocompositor
+reskate_cli import "C:\Mods\My Mod" "D:\Skate" lua characters/lua/luatattoocompositor TattooCompositor.lua
+```
+
+`lua` says where a game script's source comes from and how long it is; it reads the game's version only. `import ... lua` names the script by its `LuaAsset` document or its resource: they share one name. See the [command line](/studio/command-line).
